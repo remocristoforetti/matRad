@@ -37,7 +37,7 @@ end
 resultGUI.w = w;
 
 if isfield(dij,'numParticlesPerMU')
-    resultGUI.MU = (w.*1e6) ./ dij.numParticlesPerMU;
+    resultGUI.MU = dij.numParticlesPerMU./1e6 .* w;
 end
 
 % get bixel - beam correspondence  
@@ -52,6 +52,8 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(w));
 % compute physical dose for all beams individually and together
 for i = 1:length(beamInfo)
    resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
+%   resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{1,1,1+floor((scenNum-1)/size(dij.physicalDose,2))} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
+
 end
 
 % consider RBE for protons
@@ -63,11 +65,16 @@ end
 
 % consider LET
 if isfield(dij,'mLETDose')
+
     for i = 1:length(beamInfo)
         LETDoseCube                                 = reshape(full(dij.mLETDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
         resultGUI.(['LET', beamInfo(i).suffix])     = zeros(dij.doseGrid.dimensions);
         ix                                          = resultGUI.(['physicalDose', beamInfo(i).suffix]) > 0;
         resultGUI.(['LET', beamInfo(i).suffix])(ix) = LETDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix);
+%         %%%%%%%%%%%%%%
+%         resultGUI.(['LET', beamInfo(i).suffix])(ix) = LETDoseCube(ix);
+% 
+%         %%%%%%%%%%%%%%%%%
     end
 end
 

@@ -12,6 +12,7 @@ function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit)
 %   wInit:      (optional) custom weights to initialize problems
 %
 % output
+
 %   resultGUI:  struct containing optimized fluence vector, dose, and (for
 %               biological optimization) RBE-weighted dose etc.
 %   optimizer:  Used Optimizer Object
@@ -103,16 +104,16 @@ if exist('wInit','var')
     %do nothing as wInit was passed to the function
     matRad_cfg.dispInfo('chosen provided wInit!\n');   
 
-elseif strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'protons')
-    % check if a constant RBE is defined - if not use 1.1
-    if ~isfield(dij,'RBE')
-        dij.RBE = 1.1;
-    end
-
-    doseTmp = dij.physicalDose{1}*wOnes;
-    bixelWeight =  (doseTarget)/(dij.RBE * mean(doseTmp(V)));     
-    wInit       = wOnes * bixelWeight;
-    matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);  
+% elseif strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'protons')
+%     % check if a constant RBE is defined - if not use 1.1
+%     if ~isfield(dij,'RBE')
+%         dij.RBE = 1.1;
+%     end
+% 
+%     doseTmp = dij.physicalDose{1}*wOnes;
+%     bixelWeight =  (doseTarget)/(dij.RBE * mean(doseTmp(V)));     
+%     wInit       = wOnes * bixelWeight;
+%     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);  
         
 elseif pln.bioParam.bioOpt
     % retrieve photon LQM parameter
@@ -139,8 +140,8 @@ elseif pln.bioParam.bioOpt
     if isequal(pln.bioParam.quantityOpt,'effect')
 
            effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
-           aTmp = dij.mAlphaDose{1}*wOnes;
-           bTmp = dij.mSqrtBetaDose{1} * wOnes;
+           aTmp = gather(dij.mAlphaDose{1}*wOnes);
+           bTmp = gather(dij.mSqrtBetaDose{1} * wOnes);
            p = sum(aTmp(V)) / sum(bTmp(V).^2);
            q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
            
@@ -225,11 +226,11 @@ switch pln.bioParam.quantityOpt
         backProjection = matRad_EffectProjection;
     case 'RBExD'
         %Capture special case of constant RBE
-        if strcmp(pln.bioParam.model,'constRBE')
-            backProjection = matRad_ConstantRBEProjection;
-        else
+%         if strcmp(pln.bioParam.model,'constRBE')
+%             backProjection = matRad_ConstantRBEProjection;
+%         else
             backProjection = matRad_VariableRBEProjection;
-        end
+%         end
     case 'physicalDose'
         backProjection = matRad_DoseProjection;
     otherwise
@@ -240,8 +241,8 @@ end
 %Give scenarios used for optimization
 backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
-
 optiProb = matRad_OptimizationProblem(backProjection);
+
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
     optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
@@ -250,7 +251,7 @@ end
 %Get Bounds
 if ~isfield(pln.propOpt,'boundMU')
     pln.propOpt.boundMU = false;
-end 
+end
 
 if pln.propOpt.boundMU
     if (isfield(dij,'minMU') || isfield(dij,'maxMU')) && ~isfield(dij,'numParticlesPerMU')
@@ -286,10 +287,12 @@ switch pln.propOpt.optimizer
         optimizer = matRad_OptimizerIPOPT;
 end
        
-
+wInit = gather(wInit);
 optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
 
 wOpt = optimizer.wResult;
+% wOpt = load('w.mat');%optimizer.wResult;
+% wOpt = wOpt.v;
 info = optimizer.resultInfo;
 
 resultGUI = matRad_calcCubes(wOpt,dij);
@@ -300,7 +303,10 @@ resultGUI.info = info;
 %Robust quantities
 if FLAG_ROB_OPT || numel(ixForOpt) > 1   
     Cnt = 1;
-    for i = find(~cellfun(@isempty,dij.physicalDose))'
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %for i = find(~cellfun(@isempty,dij.physicalDose))'
+    
+    for i = find(~cellfun(@isempty,dij.mAlphaDose))'
         tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
         resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
         Cnt = Cnt + 1;
