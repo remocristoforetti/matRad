@@ -33,15 +33,10 @@ function dij = matRad_calcParticleDose(ct,stf,pln,cst,calcDoseDirect)
 
 matRad_cfg =  MatRad_Config.instance();
 
-% initialize waitbar, but catch exceptions (e.g. in Octave when run from cmd-line)
-figureWait = [];
-try
-    figureWait = waitbar(0,'calculate dose influence matrix for particles...');
-    % prevent closure of waitbar and show busy state
-    set(figureWait,'pointer','watch');
-catch
-    figureWait = [];
-end
+% initialize waitbar
+figureWait = waitbar(0,'calculate dose influence matrix for particles...');
+% prevent closure of waitbar and show busy state
+set(figureWait,'pointer','watch');
 
 
 matRad_cfg.dispInfo('matRad: Particle dose calculation... \n');
@@ -67,7 +62,8 @@ if pln.bioParam.bioOpt
                 end              
             end            
         end        
-    end    
+    end
+    
 end
 
 if ~isfield(pln,'propDoseCalc') || ~isfield(pln.propDoseCalc,'calcLET') 
@@ -135,50 +131,77 @@ if pln.bioParam.bioOpt
     
     % retrieve photon LQM parameter for the current dose grid voxels
     [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,1,VdoseGrid);
-    
+    if isa(pln.multScen, 'matRad_BioScenarios')
+      dij.TissueParameters = pln.multScen.calcTissueParameter(cst,dij.doseGrid.numOfVoxels,1);
+%           param = load('D:\matRad_dev_varRBErobOpt_bioBackup\PlansForComparison\MKMLET_Update\MKMLET_robust_SameTissue_parameters.mat');
+
+%           param = load('D:\matRad_dev_varRBErobOpt_bioBackup\PlansForComparison\MultipleModels\MKMLET_robust_rd029_parameters.mat');
+%           TissueParam = param.modelParam{1};
+%           for k=1:pln.multScen.nSamples
+%              dij.TissueParameters{k}.rD = TissueParam{k}.rD;
+%           end
+    else
+      dij.TissueParameters = pln.bioParam.calcTissueParameter(cst,dij.doseGrid.numOfVoxels,1);
+    end
+%     if isa(pln.multScen,'matRad_BioScenarios_RandVariations')
+%         BioModel = pln.multScen.BioModels{1};
+%         TissueParameters = BioModel.calcTissueParameter(cst,dij.doseGrid.numOfVoxels,1);
+%         for k=1:pln.multScen.totNumRangeScen
+%            dij.TissueParameters(k) = {pln.multScen.calcParameterVariations(TissueParameters)};
+%         end
+%     elseif isa(pln.multScen,'matRad_BioScenarios_mlt')
+%         for k =1:pln.multScen.totNumRangeScen
+%             BioModel = pln.multScen.BioModels{k};
+%             dij.TissueParameters(k) = {BioModel.calcTissueParameter(cst,dij.doseGrid.numOfVoxels,1)};
+%         end    
+%     else
+%        dij.TissueParameters = pln.bioParam.calcTissueParameter(cst,dij.doseGrid.numOfVoxels,1); 
+%     end
     dij.abx(dij.bx>0) = dij.ax(dij.bx>0)./dij.bx(dij.bx>0);
     
     % only if LEM is used corresponding bio data must be available in the base data set
-    if strcmp(pln.bioParam.model,'LEM')
-        if isfield(machine.data,'alphaX') && isfield(machine.data,'betaX')
-            
-            matRad_cfg.dispInfo('\tloading biological base data...');
-            
-            for i = 1:size(cst,1)
-                
-                % check if cst is compatiable
-                if ~isempty(cst{i,5}) && isfield(cst{i,5},'alphaX') && isfield(cst{i,5},'betaX')
-                    
-                    % check if base data contains alphaX and betaX
-                    IdxTissue = find(ismember(machine.data(1).alphaX,cst{i,5}.alphaX) & ...
-                        ismember(machine.data(1).betaX, cst{i,5}.betaX));
-                    
-                    % check consistency of biological baseData and cst settings
-                    if ~isempty(IdxTissue)
-                        isInVdoseGrid = ismember(VdoseGrid,cst{i,4}{1});
-                        vTissueIndex(isInVdoseGrid) = IdxTissue;
-                    else
-                        matRad_cfg.dispError('biological base data and cst inconsistent!');
-                    end
-                    
-                else
-                    vTissueIndex(row) = 1;
-                    matRad_cfg.dispInfo(' tissue type of %s was set to 1...',cst{i,2});
-                end
-            end
-            
-            matRad_cfg.dispInfo(' done.\n');
-            
-        else
-            matRad_cfg.dispError('base data is incomplement - alphaX and/or betaX is missing');
-        end
-        
-    else
-        % parametrized biological models are based on the LET
-        if ~isfield(machine.data,'LET')
-            matRad_cfg.dispError('base data is incomplement - LET is missing');
-        end
-    end %  end is LEM model  
+%     if strcmp(pln.bioParam.model,'LEM')
+%         if isfield(machine.data,'alphaX') && isfield(machine.data,'betaX')
+%             
+%             matRad_cfg.dispInfo('\tloading biological base data...');
+%             
+%             for i = 1:size(cst,1)
+%                 
+%                 % check if cst is compatiable
+%                 if ~isempty(cst{i,5}) && isfield(cst{i,5},'alphaX') && isfield(cst{i,5},'betaX')
+%                     
+%                     % check if base data contains alphaX and betaX
+%                     IdxTissue = find(ismember(machine.data(1).alphaX,cst{i,5}.alphaX) & ...
+%                         ismember(machine.data(1).betaX, cst{i,5}.betaX));
+%                     
+%                     % check consistency of biological baseData and cst settings
+%                     if ~isempty(IdxTissue)
+%                         isInVdoseGrid = ismember(VdoseGrid,cst{i,4}{1});
+%                         vTissueIndex(isInVdoseGrid) = IdxTissue;
+%                     else
+%                         matRad_cfg.dispError('biological base data and cst inconsistent!');
+%                     end
+%                     
+%                 else
+%                     vTissueIndex(row) = 1;
+%                     matRad_cfg.dispInfo(' tissue type of %s was set to 1...',cst{i,2});
+%                 end
+%             end
+%             
+%             matRad_cfg.dispInfo(' done.\n');
+%             
+%         else
+%             matRad_cfg.dispError('base data is incomplement - alphaX and/or betaX is missing');
+%         end
+%         
+%     else
+%         % parametrized biological models are based on the LET
+%         if ~isfield(machine.data,'LET')
+%             matRad_cfg.dispError('base data is incomplement - LET is missing');
+%         end
+%     end %  end is LEM model  
+elseif ~pln.bioParam.bioOpt && isa(pln.multScen,'matRad_BioScenarios')
+   matRad_cfg.dispWarning('BioOpt is off but Biological scenario is requested');
 end
 
 % lateral cutoff for raytracing and geo calculations
@@ -194,19 +217,11 @@ end
 %loop over all shift scenarios
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%TODO we should simplify this whole thing and not separate range and shift
-%scenarios like this for marginal computational benefit of reusing the same
-%raytracing 
-
 for shiftScen = 1:pln.multScen.totNumShiftScen
-    
-    %Find first instance of the shift to select the shift values
-    ixShiftScen = find(pln.multScen.linearMask(:,2) == shiftScen,1);
-
     
     % manipulate isocenter
     for k = 1:length(stf)
-        stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(shiftScen,:);
     end
     
     if pln.multScen.totNumShiftScen > 1
@@ -279,10 +294,10 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                 end
 
                 % just use tissue classes of voxels found by ray tracer
-                if pln.bioParam.bioOpt
-                    vTissueIndex_j = vTissueIndex(ix,:);
-                end               
-                
+%                 if pln.bioParam.bioOpt
+%                     vTissueIndex_j = vTissueIndex(ix,:);
+%                 end               
+       
                  for k = 1:stf(i).numOfBixelsPerRay(j) % loop over all bixels per ray
                                     
                     counter       = counter + 1;
@@ -326,7 +341,8 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                         dij.maxMU(counter,1) = maxMU;
                         dij.numParticlesPerMU(counter,1) = numParticlesPerMU;
                     end
-
+                    
+                    
                     % find energy index in base data
                     energyIx = find(round2(stf(i).ray(j).energy(k),4) == round2([machine.data.energy],4));
                     
@@ -378,13 +394,12 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                             end
                         end
                         for rangeShiftScen = 1:pln.multScen.totNumRangeScen
-                            rangeScenIx = find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
                             if pln.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
 
                                 % manipulate radDepthCube for range scenarios
-                                if pln.multScen.relRangeShift(rangeScenIx) ~= 0 || pln.multScen.absRangeShift(rangeScenIx) ~= 0
-                                    currRadDepths = radDepths * (1+pln.multScen.relRangeShift(rangeScenIx)) +... % rel range shift
-                                        pln.multScen.absRangeShift(rangeScenIx);                                   % absolute range shift
+                                if pln.multScen.relRangeShift(rangeShiftScen) ~= 0 || pln.multScen.absRangeShift(rangeShiftScen) ~= 0
+                                    currRadDepths = radDepths * (1+pln.multScen.relRangeShift(rangeShiftScen)) +... % rel range shift
+                                        pln.multScen.absRangeShift(rangeShiftScen);                                   % absolute range shift
                                     currRadDepths(currRadDepths < 0) = 0;
                                 else
                                     currRadDepths = radDepths;
@@ -483,12 +498,19 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                         letDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix),1,totalDose.*totalLET,dij.doseGrid.numOfVoxels,1);
                                     end
                                 else
-                                    % calculate particle dose for bixel k on ray j of beam i
-                                    bixelDose = matRad_calcParticleDoseBixel(...
+%                                     % calculate particle dose for bixel k on ray j of beam i
+%                                     if isa(pln.multScen,'matRad_BioScenarios') && shiftScen > 1
+%                                         currdijphysicalDose = dij.physicalDose{ctScen,1,1}(:,counter);
+%                                         bixelDose = full(currdijphysicalDose(currdijphysicalDose>0));
+%                                     else
+
+                                        bixelDose = matRad_calcParticleDoseBixel(...
                                         currRadDepths(currIx), ...
                                         currRadialDist_sq(currIx), ...
                                         sigmaIni_sq, ...
                                         machine.data(energyIx));
+
+%                                     end
 
                                     % dij sampling is exluded for particles until we investigated the influence of voxel sampling for particles
                                     %relDoseThreshold   =  0.02;   % sample dose values beyond the relative dose
@@ -496,7 +518,6 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                     %[currIx,bixelDose] = matRad_DijSampling(currIx,bixelDose,radDepths(currIx),radialDist_sq(currIx),Type,relDoseThreshold);
 
                                     % Save dose for every bixel in cell array
-                                    doseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelDose,dij.doseGrid.numOfVoxels,1);
 
                                     if isfield(dij,'mLETDose')
                                         % calculate particle LET for bixel k on ray j of beam i
@@ -506,23 +527,46 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
                                         % Save LET for every bixel in cell array
                                         letDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelLET.*bixelDose,dij.doseGrid.numOfVoxels,1);
+%                                     %%%%%%%%%%%%%%
+%                                         letDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelLET,dij.doseGrid.numOfVoxels,1);
+%                                     %%%%%%%%%%%%%%%%%%%%%%%
                                     end
                                 end
 
                                 % save alpha_p and beta_p radiosensititvy parameter for every bixel in cell array
-                                if pln.bioParam.bioOpt
+                                if pln.bioParam.bioOpt %&& ~isa(pln.bioParam, 'matRad_BioModel_constRBE')
                                     
-                                    [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),vTissueIndex_j(currIx,:),dij.ax(VdoseGrid(ix(currIx))),...
-                                        dij.bx(VdoseGrid(ix(currIx))),...
-                                        dij.abx(VdoseGrid(ix(currIx))));  
-                                    
-                                    bixelAlpha(isnan(bixelAlpha)) = 0;
-                                    bixelBeta(isnan(bixelBeta)) = 0;
-                                    
-                                    alphaDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelAlpha.*bixelDose,dij.doseGrid.numOfVoxels,1);
-                                    betaDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen}  = sparse(VdoseGrid(ix(currIx)),1,sqrt(bixelBeta).*bixelDose,dij.doseGrid.numOfVoxels,1);
-                                    
+%                                     [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),vTissueIndex_j(currIx,:),dij.ax(VdoseGrid(ix(currIx))),...
+%                                         dij.bx(VdoseGrid(ix(currIx))),...
+%                                         dij.abx(VdoseGrid(ix(currIx))));  
+                                    if isa(pln.multScen, 'matRad_BioScenarios_mlt')
+                                        BioModel = pln.multScen.BioModels{rangeShiftScen};
+                                        [bixelAlpha,bixelBeta] = BioModel.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.TissueParameters{rangeShiftScen},ix(currIx));
+                                    elseif isa(pln.multScen, 'matRad_BioScenarios_RandVariations')
+                                        BioModel = pln.multScen.BioModels{1};
+                                        [bixelAlpha,bixelBeta] = BioModel.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.TissueParameters{rangeShiftScen},ix(currIx));
+                                    elseif isa(pln.multScen, 'matRad_BioScenarios_doubleRob')
+                                       BioModel = pln.multScen.BioModels{shiftScen};
+                                       [bixelAlpha,bixelBeta] = BioModel.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.TissueParameters{shiftScen},ix(currIx));                                       
+                                    else                                       
+                                        [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.TissueParameters,ix(currIx));
+                                    end
+                                        bixelAlpha(isnan(bixelAlpha)) = 0;
+                                        bixelBeta(isnan(bixelBeta)) = 0;
+
+                                        alphaDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelAlpha.*bixelDose,dij.doseGrid.numOfVoxels,1);
+                                        betaDoseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen}  = sparse(VdoseGrid(ix(currIx)),1,sqrt(bixelBeta).*bixelDose,dij.doseGrid.numOfVoxels,1);
+                                        
+                                        %%%%%%%%%%%%%
+                                           
+                                        if shiftScen>1 && isa(pln.multScen, 'matRad_BioScenarios_doubleRob')
+                                           bixelDose = zeros(size(bixelDose));
+                                        end
+                                        %%%%%%%%
                                 end
+                                %%%%%%%%%%%%
+                                doseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelDose,dij.doseGrid.numOfVoxels,1);
+                                %%%%%%%%%%%%
                             end
                         end
                     end
@@ -530,7 +574,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                     matRad_calcDoseFillDij;
                     
                 end % end bixels per ray
-                
+ 
             end
             
         end %  end ray loop
@@ -540,7 +584,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
     
     % undo manipulation of isocenter
     for k = 1:length(stf)
-        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(shiftScen,:);
     end
     
 end % end shift scenario loop
