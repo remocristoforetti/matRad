@@ -1,0 +1,13 @@
+
+s:Sc/Patient/ZMIX/Quantity = "TsScorerZMix"
+s:Sc/Patient/ZMIX/OutputType = "DICOM"
+s:Sc/Patient/ZMIX/Component = "Patient"
+s:Sc/Patient/ZMIX/OutputFile = "ZMixOutput"
+i:Sc/Patient/ZMIX/OnlyIncludeParticlesOfAtomicNumber = 1
+s:Sc/Patient/ZMIX/IfOutputFileAlreadyExists = "Overwrite"
+
+includeFile = ./LUTProtons.txt
+
+i:Sc/Patient/ZMIX/XBins = 1
+i:Sc/Patient/ZMIX/YBins = 480
+i:Sc/Patient/ZMIX/ZBins = 1
