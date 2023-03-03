@@ -137,7 +137,12 @@ if pln.bioParam.bioOpt
     %     [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,ct.numOfCtScen,VdoseGrid);
     [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,ct.numOfCtScen);
 
-
+    
+    dij.TissueParameters = pln.bioParam.calcTissueParameters(cst,dij.doseGrid.numOfVoxels, stf,1);
+    
+    %%%%% just for the time being %%%
+%    dij.TissueParamteres.d = [1:240] - 0.5;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dij.abx(dij.bx>0) = dij.ax(dij.bx>0)./dij.bx(dij.bx>0);
 
     % only if LEM is used corresponding bio data must be available in the base data set
@@ -515,10 +520,12 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                 % save alpha_p and beta_p radiosensititvy parameter for every bixel in cell array
                                 if pln.bioParam.bioOpt
                                     
-                                    [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),vTissueIndex_j(currIx,:),dij.ax(VdoseGrid(ix(currIx))),...
-                                        dij.bx(VdoseGrid(ix(currIx))),...
-                                        dij.abx(VdoseGrid(ix(currIx))));  
-                                    
+                                    %[bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),vTissueIndex_j(currIx,:),dij.ax(VdoseGrid(ix(currIx))),...
+                                    %    dij.bx(VdoseGrid(ix(currIx))),...
+                                    %    dij.abx(VdoseGrid(ix(currIx))));  
+
+                                    [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.TissueParameters,ix(currIx));
+
                                     bixelAlpha(isnan(bixelAlpha)) = 0;
                                     bixelBeta(isnan(bixelBeta)) = 0;
 
