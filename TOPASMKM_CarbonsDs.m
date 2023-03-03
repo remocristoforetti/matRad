@@ -63,8 +63,8 @@ pln.propDoseCalc.airOffsetCorrection = true;
 dij_MKM = matRad_calcParticleDose(ct,stf,pln,cst,0);
 resultGUI = matRad_fluenceOptimization(dij_MKM,cst,pln);
 
-%% Recompute results
 
+%% Recompute results
 quantityOpt = 'RBExD';
 modelName = 'LEM';
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);

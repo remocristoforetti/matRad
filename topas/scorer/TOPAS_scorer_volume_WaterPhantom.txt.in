@@ -1,0 +1,34 @@
+### BOX Phantom ###
+d:Ge/Phantom/XSize = Ge/Patient/VoxelSizeX mm * Ge/Patient/NumberOfVoxelsX
+d:Ge/Phantom/YSize = Ge/Patient/VoxelSizeY mm * Ge/Patient/NumberOfVoxelsY
+d:Ge/Phantom/ZSize = Ge/Patient/VoxelSizeZ mm * Ge/Patient/NumberOfVoxelsZ
+
+s:Ge/Phantom/Parent = "World"
+s:Ge/Phantom/Type = "TsBox"
+s:Ge/Phantom/Material = "G4_WATER"
+d:Ge/Phantom/HLX = Ge/Phantom/XSize mm * 0.5
+d:Ge/Phantom/HLY = Ge/Phantom/YSize mm * 0.5
+d:Ge/Phantom/HLZ = Ge/Phantom/ZSize mm * 0.5
+b:Ge/Phantom/IsParallel = "True"
+
+sv:Ph/Default/LayeredMassGeometryWorlds = 1 "Phantom"
+
+i:Ge/Phantom/XBins = Ge/Patient/NumberOfVoxelsX
+i:Ge/Phantom/YBins = Ge/Patient/NumberOfVoxelsY
+i:Ge/Phantom/ZBins = Ge/Patient/NumberOfVoxelsZ
+
+#-- physical DoseToMedium scorer
+s:Sc/Patient/DoseToMedium/Quantity                        = "DoseToMedium"
+s:Sc/Patient/DoseToMedium/OutputType                      = Sim/DoseScorerOutputType # "csv" "binary" "Root" "Xml" or "DICOM"
+s:Sc/Patient/DoseToMedium/Component                       = "Phantom"
+sv:Sc/Patient/DoseToMedium/Report                         = Sim/DoseScorerReport
+s:Sc/Patient/DoseToMedium/IfOutputFileAlreadyExists       = "Overwrite" # "Exit" "Overwrite" or "Increment"
+b:Sc/Patient/DoseToMedium/OutputToConsole                 = "False"
+s:Sc/Patient/DoseToMedium/OutputFile                      = Sim/ScoreLabel + "_physicalDose_WATER"
+b:Sc/Patient/DoseToMedium/OutputAfterRun = "True"
+
+d:Ge/Phantom/TansX = Ge/Patient/TransX mm
+d:Ge/Phantom/TansY = Ge/Patient/TransY mm
+d:Ge/Phantom/TansZ = Ge/Patient/TransZ mm
+
+Ts/ParameterizationErrorMaxReports = 1

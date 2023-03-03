@@ -234,6 +234,15 @@ classdef matRad_MCemittanceBaseData
             else
                 fitAirOffset = obj.machine.meta.fitAirOffset;
             end
+            
+            %This was changed. This correction is not precise.
+            %In order for this correction to be precise, nozzleToIso should
+            %be changed to nozzleToSkin = (stf(i).ray(j).SSD + BAM) - SAD;
+            %In case of a box phantom with surface at iso SSD = SAD and
+            %nozzleToIso = BAM.
+            %%%% !!!!!!!!!!!!!!!!!! Correction has nozzleToIso only if want to
+            %%%% simulate in air and reproduce baseData range (that was in vaccum)
+            %dR = 0.0011 * (obj.nozzleToIso - fitAirOffset);
             dR = 0.0011 * (fitAirOffset);
             
             i = energyIx;
@@ -252,8 +261,11 @@ classdef matRad_MCemittanceBaseData
             % + obj.machine.data(i).offset + dR;
             
             %Correct r80 with dR
-            r80 = r80 + dR + obj.machine.data(i).offset;
-            
+            %r80 = r80 + dR + obj.machine.data(i).offset;
+            %r80 = r80 + dR;
+
+            %r80 = r80 + obj.machine.data(i).offset;
+
             [~, d50rInd] = min(abs(newDose(maxI:end) - 0.5 * maxV));
             d50rInd = d50rInd - 1;
             d50_r = interp1(newDose(maxI + d50rInd - 1:maxI + d50rInd + 1), ...
@@ -302,7 +314,11 @@ classdef matRad_MCemittanceBaseData
                     % Data from "Update to ESTAR, PSTAR, and ASTAR Databases" - ICRU Report 90, 2014
                     % Normalized energy before fit (MeV/u)! Only used ranges [10 350] mm for fit
                     % https://www.nist.gov/system/files/documents/2017/04/26/newstar.pdf
-                    meanEnergy = @(x) 11.39 * x^0.628 + 11.24;
+                    %meanEnergy = @(x) 11.39 * x^0.628 + 11.24;
+                    
+                    %%% New fit on HITgantry %%%
+                    meanEnergy = @(x) 10.63 + 13.9*x^0.582 + 0.008584*x^1.422;
+                    
                     mcDataEnergy.MeanEnergy = meanEnergy(r80);
                     % reading in a potential given energyspread could go here directly. How would you parse the energyspread
                     % into the function? Through a field in the machine?

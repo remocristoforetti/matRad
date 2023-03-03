@@ -52,38 +52,45 @@ pln.radiationMode   = 'protons';
 pln.propDoseCalc.calcLET = 1;
 
 %% Dummy machine
-machine.meta.radiationMode      = pln.radiationMode;
-machine.meta.dataType           = 'singleGauss';
-machine.meta.created_on         = 'never';
-machine.meta.created_by         = 'nobody';
-machine.meta.description        = 'dummy machine';
-machine.meta.SAD                = 10000;
-machine.meta.BAMStoIsoDist       = 2000;
-machine.meta.LUT_bxWidthminFWHM = [1 Inf,...
-                                   3 3];
-machine.meta.machine            = 'dummy';
+% machine.meta.radiationMode      = pln.radiationMode;
+% machine.meta.dataType           = 'singleGauss';
+% machine.meta.created_on         = 'never';
+% machine.meta.created_by         = 'nobody';
+% machine.meta.description        = 'dummy machine';
+% machine.meta.SAD                = 10000;
+% machine.meta.BAMStoIsoDist       = 2000;
+% machine.meta.LUT_bxWidthminFWHM = [1 Inf,...
+%                                    3 3];
+% machine.meta.machine            = 'dummy';
 
 
 %Retrive some infos from Generic machine
 Generic_machine = load('protons_Generic.mat');
 HIT_machine     = load('protons_HITgantry.mat');
 MCS_machine     = load('protons_generic_TOPAS_mcSquare.mat');
-machine.data = Generic_machine.machine.data;
+%machine.data = Generic_machine.machine.data;
 %machine.data = HIT_machine.machine.data;
 %machine.data  = MCS_machine.machine.data;
+%machine = MCS_machine.machine;
+machine = HIT_machine.machine;
 %% Dummy STF
 
 %For the time being, keep the same energies saved in the Generic machine
-E = [machine.data([1:10:end]).energy];
+%E = [machine.data([1:10:end]).energy];
+E = [machine.data([1:20:end]).energy];
 
 stf.gantryAngle   = pln.propStf.gantryAngles;
 stf.couchAngle    = pln.propStf.couchAngles;
 stf.bixelWidth    = pln.propStf.bixelWidth;
 stf.radiationMode = pln.radiationMode;
 stf.SAD           = machine.meta.SAD;
+% stf.isoCenter = [0.5*ct.resolution.x*(ct.cubeDim(2)), ...
+%                   ct.resolution.y*(ct.cubeDim(1) +1), ...
+%                   0.5*ct.resolution.z*(ct.cubeDim(3))];
 stf.isoCenter = [0.5*ct.resolution.x*(ct.cubeDim(2)), ...
-                  ct.resolution.y*(ct.cubeDim(1) +1), ...
+                  0, ...
                   0.5*ct.resolution.z*(ct.cubeDim(3))];
+
 stf.numOfRays = 1;
 
    ray.rayPos_bev       = [0 0 0]; 
@@ -114,6 +121,7 @@ switch pln.radiationMode
    case 'carbon'
       Ions = {'protons', 'He', 'Li', 'Be', 'B', 'C'};
 end
+
 for k=1:size(Ions,2)
    EParam(k).EMax = 250.1;
    EParam(k).EMin = 0.1;
@@ -129,7 +137,7 @@ end
 %% TOPAS SIMULATION
 
 topas_cfg = matRad_TopasConfig;
-topas_cfg.worldMaterial = 'Vacuum';
+topas_cfg.worldMaterial = 'G4_AIR';
 folderName = 'BaseData_protons';
 if ~exist(strcat(topas_cfg.workingDir, folderName), 'dir')
    mkdir(strcat(topas_cfg.workingDir, folderName));
@@ -141,7 +149,7 @@ topas_cfg.workingDir = strcat(topas_cfg.workingDir, folderName);
 topas_cfg.label = 'BaseData';
 topas_cfg.numOfRuns = 1;
 topas_cfg.numThreads = 0;
-numHistoriesPerBixel = 500000;
+numHistoriesPerBixel = 100000;
 
 topas_cfg.numHistories = ceil(numHistoriesPerBixel*size(stf.ray.energy,2));
 
@@ -173,7 +181,7 @@ end
 topas_cfg.scorer.outputType      = 'DICOM';
 topas_cfg.scorer.reportQuantity  = {'Sum'};
 topas_cfg.scorer.volume          = true;
-topas_cfg.scorer.doseToMedium    = true; %Turn down and add parallel scorers for higher resolution
+topas_cfg.scorer.doseToMedium    = false; %Turn down and add parallel scorers for higher resolution
 topas_cfg.scorer.filename        = 'constructor';
 
 w = (1/size(stf.ray.energy,2))*ones(size(stf.ray.energy,2),1);
@@ -181,6 +189,7 @@ w = (1/size(stf.ray.energy,2))*ones(size(stf.ray.energy,2),1);
 topas_cfg.writeAllFiles(ct,0,pln,stf,machine,w);
 
 if exist('nPhantoms', 'var')
+
    for k=1:nPhantoms
        if ~exist(strcat(topas_cfg.workingDir,filesep, 'Output\PDD',filesep, phantoms(k).name), 'dir')
          mkdir(strcat(topas_cfg.workingDir,filesep, 'Output\PDD',filesep, phantoms(k).name));

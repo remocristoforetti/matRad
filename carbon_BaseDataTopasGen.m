@@ -5,7 +5,7 @@ resolution.x = 1; %mm
 resolution.y = 0.2; %mm
 resolution.z = 1; %mm
 
-cubeRealDim = [150 100 100]; %mm
+cubeRealDim = [300 100 100]; %mm
 cubeDim  = ceil(cubeRealDim./[resolution.y resolution.x resolution.z]); %In Voxels
 
 ct.cube = {ones(cubeDim)};
@@ -52,34 +52,41 @@ pln.radiationMode   = 'carbon';
 pln.propDoseCalc.calcLET = 1;
 
 %% Dummy machine
-machine.meta.radiationMode      = pln.radiationMode;
-machine.meta.dataType           = 'singleGauss';
-machine.meta.created_on         = 'never';
-machine.meta.created_by         = 'nobody';
-machine.meta.description        = 'dummy machine';
-machine.meta.SAD                = 10000;
-machine.meta.BAMStoIsoDist       = 2000;
-machine.meta.LUT_bxWidthminFWHM = [1 Inf,...
-                                   3 3];
-machine.meta.machine            = 'dummy';
+% machine.meta.radiationMode      = pln.radiationMode;
+% machine.meta.dataType           = 'singleGauss';
+% machine.meta.created_on         = 'never';
+% machine.meta.created_by         = 'nobody';
+% machine.meta.description        = 'dummy machine';
+% machine.meta.SAD                = 10000;
+% machine.meta.BAMStoIsoDist       = 2000;
+% machine.meta.LUT_bxWidthminFWHM = [1 Inf,...
+%                                    3 3];
+% machine.meta.machine            = 'dummy';
 
 %Retrive some infos from Generic machine
 Generic_machine = load('carbon_Generic.mat');
-
-machine.data = Generic_machine.machine.data;
+HITmachine = load('carbon_HITgantry');
+%machine = Generic_machine.machine;
+machine = HITmachine.machine;
 %% Dummy STF
 
 %For the time being, keep the same energies saved in the Generic machine
-E = [machine.data(31:37).energy];
+%E = [machine.data(31:37).energy];
+E = [machine.data(1:20:end).energy];
+
 
 stf.gantryAngle   = pln.propStf.gantryAngles;
 stf.couchAngle    = pln.propStf.couchAngles;
 stf.bixelWidth    = pln.propStf.bixelWidth;
 stf.radiationMode = pln.radiationMode;
 stf.SAD           = machine.meta.SAD;
+% stf.isoCenter = [0.5*ct.resolution.x*(ct.cubeDim(2)), ...
+%                   ct.resolution.y*(ct.cubeDim(1) +1), ...
+%                   0.5*ct.resolution.z*(ct.cubeDim(3))];
 stf.isoCenter = [0.5*ct.resolution.x*(ct.cubeDim(2)), ...
-                  ct.resolution.y*(ct.cubeDim(1) +1), ...
+                  0, ...
                   0.5*ct.resolution.z*(ct.cubeDim(3))];
+
 stf.numOfRays = 1;
 
    ray.rayPos_bev       = [0 0 0]; 
@@ -125,8 +132,8 @@ end
 %% TOPAS SIMULATION
 
 topas_cfg = matRad_TopasConfig;
-topas_cfg.worldMaterial = 'G4_AIR';
-folderName = 'BaseData';
+topas_cfg.worldMaterial = 'Vacuum';
+folderName = 'BaseData_carbon';
 if ~exist(strcat(topas_cfg.workingDir, folderName), 'dir')
    mkdir(strcat(topas_cfg.workingDir, folderName));
 
@@ -141,24 +148,27 @@ numHistoriesPerBixel = 1000;
 topas_cfg.numHistories = ceil(numHistoriesPerBixel*size(stf.ray.energy,2));
 
 %Define highRes phantoms
-nPhantoms = 3;
+%nPhantoms = 3;
 
+if exist('nPhantoms', 'var')
 
-cubeDimensions  = [150 100 100]; %In mm
-dimensionsDepth = [75 55 20];    %In mm, this is the phantom dimension in depth
-positionDepth = cumsum(dimensionsDepth);
-resX = 5*ones(1,3);
-resY = [1 0.1 1];
-resZ = 5*ones(1,3);
+   cubeDimensions  = [150 100 100]; %In mm
+   dimensionsDepth = [75 55 20];    %In mm, this is the phantom dimension in depth
+   positionDepth = cumsum(dimensionsDepth);
+   resX = 5*ones(1,3);
+   resY = [1 0.1 1];
+   resZ = 5*ones(1,3);
 
-for k=1:nPhantoms
-   phantoms(k).name         = ['Phantom' num2str(k)];
-   phantoms(k).dimension    = [dimensionsDepth(k), cubeDimensions(2), cubeDimensions(3)];
-   phantoms(k).resolution   = [resY(k), resX(k), resZ(k)];
-   phantoms(k).positionDepth = [0, positionDepth];
+   for k=1:nPhantoms
+      phantoms(k).name         = ['Phantom' num2str(k)];
+      phantoms(k).dimension    = [dimensionsDepth(k), cubeDimensions(2), cubeDimensions(3)];
+      phantoms(k).resolution   = [resY(k), resX(k), resZ(k)];
+      phantoms(k).positionDepth = [0, positionDepth];
+   end
+
+   writeScoringTreeDirectory(phantoms, Ions,topas_cfg, EParam);
 end
-
-writeScoringTreeDirectory(phantoms, Ions,topas_cfg, EParam);
+   
 %writeDSscorers(EParam, Ions,topas_cfg);
 
 %topas_cfg.scorer.LET             = pln.propDoseCalc.calcLET;
@@ -174,21 +184,151 @@ w = (1/size(stf.ray.energy,2))*ones(size(stf.ray.energy,2),1);
 
 topas_cfg.writeAllFiles(ct,0,pln,stf,machine,w);
 
+if exist('nPhantoms', 'var')
 
-for k=1:nPhantoms
-    if ~exist(strcat(topas_cfg.workingDir,filesep, 'Output\PDD',filesep, phantoms(k).name), 'dir')
-      mkdir(strcat(topas_cfg.workingDir,filesep, 'Output\PDD',filesep, phantoms(k).name));
-   end
-end
-
-for k=1:6
-   for m=1:nPhantoms
-       if ~exist(strcat(topas_cfg.workingDir,filesep, 'Output\DS',filesep, phantoms(m).name,filesep, strcat('Ion_',num2str(k))), 'dir')
-         mkdir(strcat(topas_cfg.workingDir,filesep, 'Output\DS',filesep, phantoms(m).name,filesep, strcat('Ion_',num2str(k))));
+   for k=1:nPhantoms
+       if ~exist(strcat(topas_cfg.workingDir,filesep, 'Output\PDD',filesep, phantoms(k).name), 'dir')
+         mkdir(strcat(topas_cfg.workingDir,filesep, 'Output\PDD',filesep, phantoms(k).name));
       end
    end
+
+   for k=1:6
+
+      for m=1:nPhantoms
+          if ~exist(strcat(topas_cfg.workingDir,filesep, 'Output\DS',filesep, phantoms(m).name,filesep, strcat('Ion_',num2str(k))), 'dir')
+            mkdir(strcat(topas_cfg.workingDir,filesep, 'Output\DS',filesep, phantoms(m).name,filesep, strcat('Ion_',num2str(k))));
+         end
+      end
+      
+   end
+end
+%% E-R analisis
+baseDataEnergies = [machine.data(:).energy];
+
+baseDataRanges = [];
+%%%% MCemittance r80 sampling
+for k=1:size(baseDataEnergies,2)
+   newDepths = linspace(0,machine.data(k).depths(end),numel(machine.data(k).depths) * 100);
+   newDose   = interp1(machine.data(k).depths, machine.data(k).Z, newDepths, 'spline');
+
+   [maxV, maxI] = max(newDose);
+   [~, r80ind] = min(abs(newDose(maxI:end) - 0.8 * maxV));
+   r80ind = r80ind - 1;
+
+
+   
+   baseDataRanges(k) = interp1(newDose(maxI + r80ind - 1:maxI + r80ind + 1), ...
+                  newDepths(maxI + r80ind - 1:maxI + r80ind + 1), 0.8 * maxV);
+
 end
 
+meanEnergy = @(x) 11.39 * x^0.628 + 11.24;
+fitEnergies = arrayfun(@(r80) meanEnergy(r80), baseDataRanges+machine.data(1).offset);
+
+fitRanges = interp1(fitEnergies, baseDataRanges, baseDataEnergies, 'spline');
+
+figure;
+subplot(2,1,1);
+plot(baseDataEnergies, baseDataRanges, '.-');
+hold on;
+plot(baseDataEnergies, fitRanges, '.-');
+grid on;
+subplot(2,1,2);
+
+plot(baseDataEnergies, baseDataRanges - fitRanges, '.-');
+% hold on;
+% plot(baseDataEnergies, baseDataRanges - [machine.data(:).range], '.-');
+
+grid on;
+%% E-R Repeat fit
+for k=1:size(baseDataEnergies,2)
+   newDepths = linspace(0,machine.data(k).depths(end),numel(machine.data(k).depths) * 100);
+   newDose   = interp1(machine.data(k).depths, machine.data(k).Z, newDepths, 'spline');
+
+   [maxV, maxI] = max(newDose);
+   [~, r80ind] = min(abs(newDose(maxI:end) - 0.8 * maxV));
+   r80ind = r80ind - 1;
+
+
+   
+   baseDataRanges(k) = interp1(newDose(maxI + r80ind - 1:maxI + r80ind + 1), ...
+                  newDepths(maxI + r80ind - 1:maxI + r80ind + 1), 0.8 * maxV);
+
+end
+%baseDataRanges = baseDataRanges + machine.data(1).offset;
+F = fittype('a + b*x^c + d*x^e', 'coeff', {'a', 'b', 'c', 'd', 'e'});
+outFit = fit(baseDataRanges', baseDataEnergies', F, 'StartPoint', [11.24, 11.39, 0.628, 1,1]);
+
+newFitEnergies = outFit(baseDataRanges);
+newFitRanges = interp1(newFitEnergies, baseDataRanges, baseDataEnergies, 'spline');
+
+figure;
+subplot(2,1,1);
+
+plot(baseDataEnergies, baseDataRanges, '.-');
+hold on;
+plot(baseDataEnergies, newFitRanges, '.-');
+grid on;
+subplot(2,1,2);
+
+plot(baseDataEnergies, baseDataRanges - newFitRanges, '.-');
+grid on;
+
+
+%% E-R: TOPAS comparison
+eIdx = [1:20:size(machine.data,2)];
+eIdx = eIdx(1:end-2);
+energies = [machine.data(eIdx).energy];
+addOffset = false;
+wDir = 'D:\matRad_gitHubRemo_MKM_TOPAS\topas\MCrun\BaseData_carbon\Results\HIT_path2';
+name = 'score_BaseData_field1_run1_physicalDose_WATER_Run_';
+
+x = [1:1500]*0.2 - 0.1;
+integration = [40:60];
+%Load vaccum profiles
+PDD = [];
+for k=0:size(eIdx,2)-1
+   fileName = strcat(wDir, filesep,name, string(compose('%04d', k)));
+   data = squeeze(double(dicomread(fileName)));
+   data = permute(data, [2,3,1]);
+
+   profileData = squeeze(sum(data(integration,integration,:),[1,2]));
+   
+   [maxV, maxI] = max(profileData);
+   [~, r80ind] = min(abs(profileData(maxI:end) - 0.8 * maxV));
+   r80ind = r80ind - 1;
+   topasR80_HIT(k+1) = interp1(profileData(maxI + r80ind - 1:maxI + r80ind + 1), ...
+             x(maxI + r80ind - 1:maxI + r80ind + 1), 0.8 * maxV);
+    if addOffset
+      topasR80_HIT(k+1) = topasR80_HIT(k+1) + machine.data(k+1).offset;
+   end
+   PDD(:,k+1) = profileData;
+end
+
+figure;
+for k=1:size(eIdx,2)
+   plot(x, PDD(:,k)./PDD(1,k), '.-');
+   hold on;
+   plot(machine.data(eIdx(k)).depths, machine.data(eIdx(k)).Z./machine.data(eIdx(k)).Z(1), '--');
+end
+grid on;
+%% E-R TOAPS, Comparison
+figure;
+subplot(2,1,1);
+plot([machine.data(eIdx).energy],baseDataRanges(eIdx), 'o-');
+hold on;
+plot([machine.data(eIdx).energy],topasR80_HIT, 'o-');
+
+xlabel('Energy [MeV]');
+ylabel('Range [mm]');
+grid on;
+legend('baseData', 'TOPAS Vacuum');
+title('E-R relation, HIT baseData');
+subplot(2,1,2);
+plot([machine.data(eIdx).energy],baseDataRanges(eIdx)-topasR80_HIT, 'o-');
+xlabel('Energy [MeV]');
+ylabel('baseData - topas [mm]');
+grid on;
 %% Base data fluence analisis
 resultDir = 'D:\matRad_gitHubRemo_MKM_TOPAS\topas\Results\BaseData_Carbon7\';
 
