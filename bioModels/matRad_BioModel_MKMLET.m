@@ -3,7 +3,7 @@ classdef matRad_BioModel_MKMLET < matRad_Bio_Model
    properties (SetAccess = private, Hidden)%constant
        
        %As taken from TOPAS implementation of MKMLET model (https://github.com/topasmc/extensions)
-       default_rD = 0.52 %+ 0.5*0.52;        %0.52 um, domain diameter only valid for V79 Cells! (TOPAS)
+       default_rD = 0.35;%0.52 %+ 0.5*0.52;        %0.52 um, domain diameter only valid for V79 Cells! (TOPAS)
        default_Alpha0 = 0.1%Gy^(-1), only valid for V79 Cells! (TOPAS)
        default_AlphaX = 0.1;
        default_BetaX = 0.05;
@@ -31,7 +31,7 @@ classdef matRad_BioModel_MKMLET < matRad_Bio_Model
           obj.radiationMode = radiationMode;
        end
        
-       function str = calcTissueParameter(obj,cst,numVoxels,ctScen)
+       function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
            matRad_cfg = MatRad_Config.instance();
            str = struct('alpha0', [], ...
                         'beta0', [], ...

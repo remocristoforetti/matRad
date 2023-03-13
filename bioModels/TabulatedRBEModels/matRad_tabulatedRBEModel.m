@@ -3,6 +3,7 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
    %-> maybe in constructor turn it off
    properties
       %Do these make sense here?
+
       default_alphaX = 0.1;
       default_betaX = 0.05;
 
@@ -11,7 +12,7 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
    end
    
    properties
-       AvailableradiationModalities = {'carbon'};
+       AvailableradiationModalities = {'protons', 'carbon'};
        AvailableQuantitiesForOpt = {'physicalDose','RBExD','effect'};
        RequiredBaseData = {'depths','offset', 'RBEtable'};
       
@@ -29,7 +30,7 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
       
       function set.RBEtable(obj,RBEtableName)
          
-         load([obj.radiationMode, '_', RBEtableName, '.mat']);
+         load([RBEtableName, '.mat']);
          obj.model = RBEtable.meta.model;
          obj.RBEtable = RBEtableName;
          obj.bioOpt = true;
@@ -82,7 +83,7 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
          
          str.tissueClass = tissueClass(tissueClass>0);
          
-         load([obj.radiationMode, '_', obj.RBEtable, '.mat']);
+         load([obj.RBEtable, '.mat']);
          
          
          tabulatedAlphaX = [RBEtable.meta.modelParameters.alphaX];
@@ -113,22 +114,24 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
                nFragments = 6;
          end
          
+
          for beamEnergyIdx=1:size(eIdx,1) 
+         
              tmp1 = [];
 
             switch obj.weightMode
                   case 'eD'
-                     Phi = machine.data(eIdx(beamEnergyIdx)).DS.Phi;%eDPhi;
-                     E  = machine.data(eIdx(beamEnergyIdx)).DS.EBinning;
+                     Phi = machine.data(eIdx(beamEnergyIdx)).DS.edPhi;%eDPhi;
+                     E  = machine.data(eIdx(beamEnergyIdx)).DS.eBinning;
                      for ionIdx=1:nFragments
                         tmp1(:,:,ionIdx) = full(Phi{ionIdx})';
                      end
                   case 'LET'
                      Phi = machine.data(eIdx(beamEnergyIdx)).DS.Phi;
-                     E  = machine.data(eIdx(beamEnergyIdx)).DS.EBinning;
+                     E  = machine.data(eIdx(beamEnergyIdx)).DS.eBinning;
                      for ionIdx=1:nFragments
                         let(:,ionIdx) = obj.computeLET(E,ionIdx)';
-                        tmp1(:,:,ionIdx) = full(Phi{ionIdx}).*repmat(let(:,ionIdx),1,size(Phi{ionIdx},2));
+                        tmp1(:,:,ionIdx) = (full(Phi{ionIdx}).*repmat(let(:,ionIdx),1,size(Phi{ionIdx},2)))';
                      end
              end
             
@@ -141,14 +144,15 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
             %varNumAlpha = 0;
             %varNumBeta = 0;
             %varDen = 0;
+
             str.baseParam(beamEnergyIdx).varAlpha = zeros(size(Phi{1},2),size(tissueParam,2));
             str.baseParam(beamEnergyIdx).varBeta = zeros(size(Phi{1},2),size(tissueParam,2));
             
             for tissueIdx=1:size(tissueParam,2)
                currRBEdata = RBEdata(tissueIdx);
 
-               alphaE = interp1(currRBEdata.energies,currRBEdata.alpha,E);
-               betaE = interp1(currRBEdata.energies,currRBEdata.beta,E);
+               alphaE = interp1(currRBEdata.energies,currRBEdata.alpha(:,1:nFragments),E');
+               betaE = interp1(currRBEdata.energies,currRBEdata.beta(:,1:nFragments),E');
                
                alphaE = permute(alphaE, [1,3,2]);
                betaE = permute(betaE, [1,3,2]);
@@ -165,8 +169,8 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
                str.baseParam(beamEnergyIdx).varAlpha(Idx,tissueIdx) = varAlphaNum(Idx)./varDen(Idx);
                str.baseParam(beamEnergyIdx).varBeta(Idx,tissueIdx) = varBetaNum(Idx)./varDen(Idx);
                
-               matRad_cfg.dispWarning('!!!! 3 mm shift inserted in tabulatedModel !!!');
-               str.baseParam(beamEnergyIdx).d = machine.data(eIdx(beamEnergyIdx)).DS.depths + 3;
+               %matRad_cfg.dispWarning('!!!! 3 mm shift inserted in tabulatedModel !!!');
+               str.baseParam(beamEnergyIdx).d = machine.data(eIdx(beamEnergyIdx)).DS.depths;% + 3;
                %end
             
             end
@@ -209,7 +213,7 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
                     A = 7;
                 case 4  %Be
                     A = 9;
-                case 5  %B
+             case 5  %B %%%% Survival uses A = 10 for B %%%%
                     A = 11;
                 case 6  %C
                     A = 12;

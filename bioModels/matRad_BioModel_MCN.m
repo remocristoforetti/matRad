@@ -30,7 +30,7 @@ classdef matRad_BioModel_MCN < matRad_Bio_Model
           obj.radiationMode = radiationMode;
        end
        
-       function str = calcTissueParameter(obj,cst,numVoxels,ctScen)
+       function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
            
            str = struct('alphaX', [], ...
                         'betaX', [], ...
