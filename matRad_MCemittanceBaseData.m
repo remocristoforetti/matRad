@@ -243,7 +243,7 @@ classdef matRad_MCemittanceBaseData
             %%%% !!!!!!!!!!!!!!!!!! Correction has nozzleToIso only if want to
             %%%% simulate in air and reproduce baseData range (that was in vaccum)
             %dR = 0.0011 * (obj.nozzleToIso - fitAirOffset);
-            dR = 0.0011 * (fitAirOffset);
+            %dR = 0.0011 * (fitAirOffset);
             
             i = energyIx;
             
@@ -314,10 +314,10 @@ classdef matRad_MCemittanceBaseData
                     % Data from "Update to ESTAR, PSTAR, and ASTAR Databases" - ICRU Report 90, 2014
                     % Normalized energy before fit (MeV/u)! Only used ranges [10 350] mm for fit
                     % https://www.nist.gov/system/files/documents/2017/04/26/newstar.pdf
-                    %meanEnergy = @(x) 11.39 * x^0.628 + 11.24;
+                    meanEnergy = @(x) 11.39 * x^0.628 + 11.24;
                     
                     %%% New fit on HITgantry %%%
-                    meanEnergy = @(x) 10.63 + 13.9*x^0.582 + 0.008584*x^1.422;
+                    %meanEnergy = @(x) 10.63 + 13.9*x^0.582 + 0.008584*x^1.422;
                     
                     mcDataEnergy.MeanEnergy = meanEnergy(r80);
                     % reading in a potential given energyspread could go here directly. How would you parse the energyspread

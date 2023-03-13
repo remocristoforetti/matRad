@@ -1349,11 +1349,11 @@ classdef matRad_TopasConfig < handle
                                     else
                                         %dataTOPAS(cutNumOfBixel).energy = selectedData(ixTmp).MeanEnergy;
                                         %%%%%%%%%%%%%%
-%                                         if any(strcmp(obj.radiationMode,{'carbon'}))
-%                                            dataTOPAS(cutNumOfBixel).energy = selectedData(ixTmp).NominalEnergy;
-%                                         else
+  %                                       if any(strcmp(obj.radiationMode,{'carbon'}))
+  %                                          dataTOPAS(cutNumOfBixel).energy = selectedData(ixTmp).NominalEnergy;
+  %                                       else
                                            dataTOPAS(cutNumOfBixel).energy = selectedData(ixTmp).MeanEnergy;
-%                                         end
+   %                                      end
                                         %%%%%%%%%%%
                                         dataTOPAS(cutNumOfBixel).nominalEnergy = selectedData(ixTmp).NominalEnergy;
                                         dataTOPAS(cutNumOfBixel).energySpread = selectedData(ixTmp).EnergySpread;

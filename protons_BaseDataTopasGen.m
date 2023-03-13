@@ -2,7 +2,7 @@ matRad_rc;
 matRad_cfg = MatRad_Config.instance();
 %% Setup dummy Phantom
 resolution.x = 1; %mm
-resolution.y = 0.2; %mm
+resolution.y = 1; %mm
 resolution.z = 1; %mm
 
 cubeRealDim = [300 100 100]; %mm
@@ -48,7 +48,7 @@ pln.propStf.numOfBeams    = numel(pln.propStf.gantryAngles);
 pln.propOpt.runDAO        = 0;
 pln.propOpt.runSequencing = 0;
 
-pln.radiationMode   = 'carbon';
+pln.radiationMode   = 'protons';
 pln.propDoseCalc.calcLET = 1;
 
 %% Dummy machine
@@ -64,15 +64,19 @@ pln.propDoseCalc.calcLET = 1;
 % machine.meta.machine            = 'dummy';
 
 %Retrive some infos from Generic machine
-Generic_machine = load('carbon_Generic.mat');
+%Generic_machine = load('carbon_Generic.mat');
 %HITmachine = load('carbon_HITgantry');
-machine = Generic_machine.machine;
+topasMachine = load('protons_generic_TOPAS_mcSquare.mat');
+%genericMachine = load('protons_Generic.mat');
+%machine = Generic_machine.machine;
 %machine = HITmachine.machine;
+machine = topasMachine.machine;
+%machine = genericMachine.machine;
 %% Dummy STF
 
 %For the time being, keep the same energies saved in the Generic machine
 %E = [machine.data(31:37).energy];
-E = [machine.data(31:33).energy];
+E = [machine.data(19:41).energy];
 
 
 stf.gantryAngle   = pln.propStf.gantryAngles;
@@ -142,7 +146,7 @@ end
 
 topas_cfg = matRad_TopasConfig;
 topas_cfg.worldMaterial = 'Vacuum';
-folderName = 'BaseData_carbon_spectra/SOBP';
+folderName = 'BaseData_proton_spectra/SOBP';
 if ~exist(strcat(topas_cfg.workingDir, folderName), 'dir')
    mkdir(strcat(topas_cfg.workingDir, folderName));
 
@@ -151,16 +155,17 @@ topas_cfg.workingDir = strcat(topas_cfg.workingDir, folderName);
 
 topas_cfg.label = 'BaseData';
 topas_cfg.numOfRuns = 1;
-topas_cfg.numThreads = -1;
-numHistoriesPerBixel = 100;
+topas_cfg.numThreads = 0;
+numHistoriesPerBixel = 100000;
 
 topas_cfg.numHistories = ceil(numHistoriesPerBixel*size(stf.ray.energy,2));
 
 includePDD = true;
 includeDS  = false;
 includeSP  = true;
+
 includeEdEventSpectrum = true;
-includeProtonLET = false;
+includeProtonLET = true;
 nPhantoms = 3;
 if exist('nPhantoms', 'var')
     highResWindowWidtgh = 30;  %in mm
@@ -180,6 +185,7 @@ if exist('nPhantoms', 'var')
     
       phantoms(k).positionDepth = [0, positionDepth];
       phantoms(k).EParam        = EParam;
+
     end
     writeScoringTreeDirectory(phantoms,Ions,topas_cfg,EParam,includePDD,includeDS,includeSP,includeEdEventSpectrum,includeProtonLET);
 end
@@ -244,50 +250,71 @@ topas_cfg.writeAllFiles(ct,0,pln,stf,machine,w);
 % end
 
 %% HighRes phantom data acquisistion
-
 analisis = highResPhantomAnalisis();
+
 analisis.nPhantoms = nPhantoms;
-analisis.wDir     = 'C:\Users\r408i\Desktop\r408i_data\BaseData_carbon_spectra\cBaseData_31'; %topas_cfg.workingDir;
+analisis.wDir     = 'C:\Users\r408i\Desktop\r408i_data\BaseData_protons_spectra\SOBP'; %topas_cfg.workingDir;
 analisis.readPDD   = true;
 analisis.readSpectra = true;
 analisis.readDSSpectra = false;
 analisis.readSPeDSpectra = true;
-analisis.ions = {'protons', 'He', 'Li', 'Be', 'B', 'C'};
-
-
+analisis.readProtonLET = true;
+analisis.ions = {'protons'};
+analisis.integrationSurface = [1:20];
 %Do this after ions have been defined
 analisis.phantoms  = phantoms;
 
-analisis.run       = 0;
-analisis.integrationSurface = [1:20];
 
-analisis.importRawData();
 
+for k=1:size(E,2)
+    analisis.run       = k-1;
+    analisis.importRawData();
+    DS(k).Phi       = analisis.Phi;
+    DS(k).PDD       = analisis.PDD;
+    DS(k).depths    = analisis.depths;
+    DS(k).edPhi     = analisis.edPhi;
+
+    DS(k).eBinning  = analisis.phantoms(1).EParam(1).E;
+    DS(k).ProtonLET = analisis.ProtonLET;
+end
 %% Compare baseData and new PDD
-
 figure;
-plot(machine.data(31).depths,machine.data(31).Z./max(machine.data(31).Z(1)), '.-');
-hold on;
-plot(analisis.depths, analisis.PDD./max(analisis.PDD(1)), '.-');
-grid on;
+for k=1:10:size(E,2)
+    plot(machine.data(19 + k -1).depths,machine.data(19 + k -1).Z./max(machine.data(19  + k - 1).Z()), '--');
+    hold on;
+    plot(analisis.depths, DS(k).PDD./max(DS(k).PDD()), '.-');
+    grid on;
+end
 %% Load into baseData
 newMachine = machine;
-newMachine.data(31).DS.Phi = analisis.Phi;
-newMachine.data(31).DS.edPhi = analisis.edPhi;
-
-newMachine.data(31).DS.eBinning = analisis.phantoms(1).EParam(1).E; %This is valid only when resolutions are all the same. Need to handel different resolutions.
-newMachine.data(31).DS.depths = analisis.depths;
-newMachine.data(31).DS.PDD = analisis.PDD;
-
+[~,eIdx] = intersect([machine.data.energy], E);
+for k=1:size(eIdx,1)
+    newMachine.data(eIdx(k)).DS.Phi = DS(k).Phi;
+    newMachine.data(eIdx(k)).DS.edPhi = DS(k).edPhi;
+    newMachine.data(eIdx(k)).DS.eBinning = DS(k).eBinning; %This is valid only when resolutions are all the same. Need to handel different resolutions.
+    newMachine.data(eIdx(k)).DS.depths = DS(k).depths;
+    newMachine.data(eIdx(k)).DS.PDD = DS(k).PDD;
+    newMachine.data(eIdx(k)).LET = interp1(DS(k).depths, DS(k).ProtonLET, machine.data(eIdx(k)).depths);
+end
+% newMachine = machine;
+% [~,eIdx] = intersect([machine.data.energy], E);
+% for k=1:size(eIdx,1)
+%     newMachine.data(eIdx(k)).DS.Phi = analisis.Phi;
+%     newMachine.data(eIdx(k)).DS.edPhi = analisis.edPhi;
+%     newMachine.data(eIdx(k)).DS.eBinning = analisis.phantoms(1).EParam(1).E; %This is valid only when resolutions are all the same. Need to handel different resolutions.
+%     newMachine.data(eIdx(k)).DS.depths = analisis.depths;
+%     newMachine.data(eIdx(k)).DS.PDD = analisis.PDD;
+%     newMachine.data(eIdx(k)).LET = interp1(analisis.depths, analisis.ProtonLET, machine.data(eIdx(k)).depths);
+% end
 % oldMachine = machine;
 % machine = newMachine;
-% save(['carbon_newGeneric_Spec.mat'], 'machine');
+% save(['protons_newGenericTOPAS.mat'], 'machine');
 % machine = oldMachine;
 %% Spectra analiisis
-DSPhi = full(analisis.edPhi{6});
+DSPhi = full(analisis.DSPhi{6});
 Phi   = full(analisis.Phi{6});
 
-depthProfile = 870;
+depthProfile = 910;
 plEnergies = analisis.phantoms(1).EParam(1).E;
 
 figure;

@@ -9,6 +9,7 @@ function writePDDscorer(topas_cfg, phantom,currDir)
    fprintf(fID, 's:Sc/%s/DoseToMedium/IfOutputFileAlreadyExists = "Overwrite" \n', phantom.name);
    fprintf(fID, 'b:Sc/%s/DoseToMedium/OutputToConsole = "False" \n', phantom.name);
    fprintf(fID, 's:Sc/%s/DoseToMedium/OutputFile = "./Output/PDD/%s/physicalDose" \n', phantom.name, phantom.name);
+   fprintf(fID, 'b:Sc/%s/DoseToMedium/OutputAfterRun = "True" \n', phantom.name);
    fprintf(fID, 'includeFile = ./Scorers/%s/Geometry_scorer_%s.txt',phantom.name,phantom.name);
    fclose(fID);
 end

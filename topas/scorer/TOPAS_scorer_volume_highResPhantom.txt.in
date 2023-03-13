@@ -1,0 +1,5 @@
+includeFile = ./Scorers/Phantom1/scorer_Phantom1.txt
+includeFile = ./Scorers/Phantom2/scorer_Phantom2.txt
+includeFile = ./Scorers/Phantom3/scorer_Phantom3.txt
+
+sv:Ph/Default/LayeredMassGeometryWorlds = 3 "Phantom1" "Phantom2" "Phantom3"
