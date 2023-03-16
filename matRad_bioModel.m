@@ -51,17 +51,17 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel, machine)
 %         %For protons only, might be set as a further subclass, all require
 %         %LET
         case {'MCN'}
-             model = matRad_BioModel_MCN(sRadiationMode);
+             model = matRad_bioModelMCN(sRadiationMode);
         case {'WED'}
-             model = matRad_BioModel_WED(sRadiationMode);
+             model = matRad_bioModelWED(sRadiationMode);
         case {'LSM'}
              model = matRad_BioModel_LSM(sRadiationMode);
         case {'MKMLET'}
-             model = matRad_BioModel_MKMLET(sRadiationMode);
+             model = matRad_bioModelMKMLET(sRadiationMode);
         case {'MKMLET_corrected'}
              model = matRad_BioModel_MKMLET_corrected(sRadiationMode);
         case{'CAR'}
-             model = matRad_BioModel_CAR(sRadiationMode);
+             model = matRad_bioModelCAR(sRadiationMode);
 %         %for heavier particles
 
        case {'LEM'}

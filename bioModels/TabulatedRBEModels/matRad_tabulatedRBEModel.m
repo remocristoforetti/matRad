@@ -1,4 +1,4 @@
-classdef matRad_tabulatedRBEModel < matRad_Bio_Model
+classdef matRad_tabulatedRBEModel < matRad_BiologicalModel
    %bioOpt is allowed even if there is no table, should correct for that.
    %-> maybe in constructor turn it off
    properties
@@ -22,7 +22,7 @@ classdef matRad_tabulatedRBEModel < matRad_Bio_Model
 
       function obj = matRad_tabulatedRBEModel(radiationMode)
          
-         obj@matRad_Bio_Model();
+         obj@matRad_BiologicalModel();
          obj.radiationMode = radiationMode;
          %obj.bioOpt = false;
       end

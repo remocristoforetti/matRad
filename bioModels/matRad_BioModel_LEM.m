@@ -1,4 +1,4 @@
-classdef matRad_BioModel_LEM < matRad_Bio_Model
+classdef matRad_BioModel_LEM < matRad_BiologicalModel
 
     properties (SetAccess = private)%constant
   
@@ -18,7 +18,7 @@ classdef matRad_BioModel_LEM < matRad_Bio_Model
            matRad_cfg.dispWarning(['Something wrong with bioModel inputs']);
           end
           
-          obj@matRad_Bio_Model();
+          obj@matRad_BiologicalModel();
           obj.model = 'LEM';
           obj.radiationMode = radiationMode;
        end

@@ -138,7 +138,7 @@ if pln.bioParam.bioOpt
     [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,ct.numOfCtScen);
 
     
-    dij.TissueParameters = pln.bioParam.calcTissueParameters(cst,dij.doseGrid.numOfVoxels, stf,1);
+    dij.tissueParameters = pln.bioParam.calcTissueParameters(cst,dij.doseGrid.numOfVoxels, stf,1);
     
     %%%%% just for the time being %%%
 %    dij.TissueParamteres.d = [1:240] - 0.5;
@@ -183,7 +183,7 @@ if pln.bioParam.bioOpt
     else
         % parametrized biological models are based on the LET
         if ~isfield(machine.data,'LET')
-            matRad_cfg.dispError('base data is incomplement - LET is missing');
+            matRad_cfg.dispWarning('base data is incomplement - LET is missing');
         end
     end %  end is LEM model
 end
@@ -524,7 +524,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                     %    dij.bx(VdoseGrid(ix(currIx))),...
                                     %    dij.abx(VdoseGrid(ix(currIx))));  
 
-                                    [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.TissueParameters,ix(currIx));
+                                    [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),dij.tissueParameters,ix(currIx));
 
                                     bixelAlpha(isnan(bixelAlpha)) = 0;
                                     bixelBeta(isnan(bixelBeta)) = 0;
