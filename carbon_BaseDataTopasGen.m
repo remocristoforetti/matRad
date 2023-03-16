@@ -72,7 +72,7 @@ machine = Generic_machine.machine;
 
 %For the time being, keep the same energies saved in the Generic machine
 %E = [machine.data(31:37).energy];
-E = [machine.data(31:33).energy];
+E = [machine.data([31:64]).energy];
 
 
 stf.gantryAngle   = pln.propStf.gantryAngles;
@@ -118,9 +118,9 @@ switch pln.radiationMode
       Ions = {'protons', 'He', 'Li', 'Be', 'B', 'C'};
 end
 for k=1:size(Ions,2)
-   EParam(k).EMax = 250;
+   EParam(k).EMax = 300;
    EParam(k).EMin = 0;
-   EParam(k).nEBins = 500;
+   EParam(k).nEBins = 600;
 
    EParam(k).EdMax = 12;
    EParam(k).EdMin = 0;
@@ -152,7 +152,7 @@ topas_cfg.workingDir = strcat(topas_cfg.workingDir, folderName);
 topas_cfg.label = 'BaseData';
 topas_cfg.numOfRuns = 1;
 topas_cfg.numThreads = -1;
-numHistoriesPerBixel = 100;
+numHistoriesPerBixel = 1000;
 
 topas_cfg.numHistories = ceil(numHistoriesPerBixel*size(stf.ray.energy,2));
 
@@ -165,11 +165,11 @@ nPhantoms = 3;
 if exist('nPhantoms', 'var')
     highResWindowWidtgh = 30;  %in mm
 
-    distalPhantomsWidth = 30;  %in mm
+    distalPhantomsWidth = 80;%150;  %in mm
     resX = 5*ones(1,3);
     resY = [0.1 0.1 0.1];
     resZ = 5*ones(1,3);
-    proximalPhantomWidth = ceil(machine.data(31).peakPos - highResWindowWidtgh/2);
+    proximalPhantomWidth = ceil(machine.data(64).peakPos - highResWindowWidtgh/2);%ceil(machine.data(64).peakPos - highResWindowWidtgh/2);
     dimensionsDepth = [proximalPhantomWidth,highResWindowWidtgh,distalPhantomsWidth];
     positionDepth   = cumsum(dimensionsDepth);
     cubeDimensions  = [sum(dimensionsDepth) 100 100]; %In mm
@@ -243,46 +243,101 @@ topas_cfg.writeAllFiles(ct,0,pln,stf,machine,w);
 %    end
 % end
 
+
 %% HighRes phantom data acquisistion
 
 analisis = highResPhantomAnalisis();
 analisis.nPhantoms = nPhantoms;
-analisis.wDir     = 'C:\Users\r408i\Desktop\r408i_data\BaseData_carbon_spectra\cBaseData_31'; %topas_cfg.workingDir;
+analisis.wDir     = 'C:\r408i_data\r408i_data\BaseData_carbon_spectra\SOBP\ES_05_Cluster_long'; %topas_cfg.workingDir;
 analisis.readPDD   = true;
 analisis.readSpectra = true;
 analisis.readDSSpectra = false;
 analisis.readSPeDSpectra = true;
+analisis.readProtonLET = false;
+
 analisis.ions = {'protons', 'He', 'Li', 'Be', 'B', 'C'};
-
-
-%Do this after ions have been defined
 analisis.phantoms  = phantoms;
-
-analisis.run       = 0;
 analisis.integrationSurface = [1:20];
 
-analisis.importRawData();
+%% Define Downsampling phantoms
+nDownPhantoms = 3;
+% if exist('nDownPhantoms', 'var')
+%     highResWindowWidth = 30;  %in mm
+% 
+%     resY = [1 0.1 1];
+%     dimensionsDepth = [proximalPhantomWidth,highResWindowWidtgh,distalPhantomsWidth];
+%     positionDepth   = cumsum(dimensionsDepth);
+%     cubeDimensions  = [sum(dimensionsDepth) 100 100]; %In mm
+%     for k=1:nPhantoms
+%       phantoms(k).name         = ['Phantom' num2str(k)];
+%       phantoms(k).dimension    = [dimensionsDepth(k), cubeDimensions(2), cubeDimensions(3)];
+%       phantoms(k).resolution   = [resY(k), resX(k), resZ(k)];
+%     
+%       phantoms(k).positionDepth = [0, positionDepth];
+%       phantoms(k).EParam        = EParam;
+%     end
+analisis.downSamplingPhantoms.resolutions = [1 0.1 3];
+analisis.downSamplingPhantoms.highResWindowWidth = 30;  %in mm
+analisis.downSamplingPhantoms.EParam.Eres = 1; % in MeV/u
+% end %Do this after ions have been defined
+for k=1:size(E,2)
+    analisis.run       = k-1;
+    analisis.importRawData();
+
+    DS(k).Phi       = analisis.Phi;
+    DS(k).PDD       = analisis.PDD;
+    DS(k).depths    = analisis.depths;
+    DS(k).edPhi     = analisis.edPhi;
+    DS(k).eBinning  = analisis.phantoms(1).EParam(1).E;
+%    DS(k).ProtonLET = analisis.ProtonLET;
+
+%     DS(k).Phi       = analisis.newPhi;
+%     DS(k).PDD       = analisis.newPDD;
+% 
+%     DS(k).depths    = analisis.newDepths;
+%     DS(k).edPhi     = analisis.newedPhi;
+%     DS(k).eBinning  = analisis.newEnergies(1,:);
+   matRad_cfg.dispInfo('analizing E %u \n',k);
+end
 
 %% Compare baseData and new PDD
 
 figure;
-plot(machine.data(31).depths,machine.data(31).Z./max(machine.data(31).Z(1)), '.-');
-hold on;
-plot(analisis.depths, analisis.PDD./max(analisis.PDD(1)), '.-');
-grid on;
+for k=1:size(E,2)
+
+    plot(machine.data(31 + k -1).depths,machine.data(31 + k -1).Z./max(machine.data(31  + k - 1).Z()), '--');
+    hold on;
+    plot(DS(k).depths, DS(k).PDD./max(DS(k).PDD()), '.-');
+    grid on;
+end
 %% Load into baseData
 newMachine = machine;
-newMachine.data(31).DS.Phi = analisis.Phi;
-newMachine.data(31).DS.edPhi = analisis.edPhi;
 
-newMachine.data(31).DS.eBinning = analisis.phantoms(1).EParam(1).E; %This is valid only when resolutions are all the same. Need to handel different resolutions.
-newMachine.data(31).DS.depths = analisis.depths;
-newMachine.data(31).DS.PDD = analisis.PDD;
+[~,eIdx] = intersect([machine.data.energy], E);
 
+for k=1:size(eIdx,1)
+
+    newMachine.data(eIdx(k)).DS.Phi = DS(k).Phi;
+    newMachine.data(eIdx(k)).DS.edPhi = DS(k).edPhi;
+    newMachine.data(eIdx(k)).DS.eBinning = DS(k).eBinning; %This is valid only when resolutions are all the same. Need to handel different resolutions.
+    newMachine.data(eIdx(k)).DS.depths = DS(k).depths;
+    newMachine.data(eIdx(k)).DS.PDD = DS(k).PDD;
+end
+
+% newMachine = machine;
+% newMachine.data(31).DS.Phi = analisis.Phi;
+% newMachine.data(31).DS.edPhi = analisis.edPhi;
+% 
+% newMachine.data(31).DS.eBinning = analisis.phantoms(1).EParam(1).E; %This is valid only when resolutions are all the same. Need to handel different resolutions.
+% newMachine.data(31).DS.depths = analisis.depths;
+% newMachine.data(31).DS.PDD = analisis.PDD;
+% 
 % oldMachine = machine;
+% 
 % machine = newMachine;
-% save(['carbon_newGeneric_Spec.mat'], 'machine');
+% save(['C:/r408i_data/carbon_newGeneric.mat'], 'machine');
 % machine = oldMachine;
+% 
 %% Spectra analiisis
 DSPhi = full(analisis.edPhi{6});
 Phi   = full(analisis.Phi{6});
@@ -310,7 +365,48 @@ legend('event fluence', 'particle fluence');
 % 
 % figure;
 % plot(analisis.depths, ratios, '.-');
+
 % xlim([0,100]);
+%% E-R comparison base data
+eIdx = [31:64];
+baseDataEnergies = [machine.data(eIdx).energy];
+baseDataRanges = [];
+for k=1:23%size(baseDataEnergies,2)
+   newDepths = linspace(0,machine.data(eIdx(k)).depths(end),numel(machine.data(eIdx(k)).depths) * 100);
+   newDose   = interp1(machine.data(eIdx(k)).depths, machine.data(eIdx(k)).Z, newDepths, 'spline');
+   [maxV, maxI] = max(newDose);
+   
+   [~, r80ind] = min(abs(newDose(maxI:end) - 0.8 * maxV));
+   r80ind = r80ind - 1;
+   baseDataRanges(k) = interp1(newDose(maxI + r80ind - 1:maxI + r80ind + 1), ...
+                  newDepths(maxI + r80ind - 1:maxI + r80ind + 1), 0.8 * maxV);
+end
+
+for k=1:23%size(baseDataEnergies,2)
+   newDepths = linspace(0,newMachine.data(eIdx(k)).DS.depths(end),numel(newMachine.data(eIdx(k)).DS.depths) * 100);
+   newDose   = interp1(newMachine.data(eIdx(k)).DS.depths, newMachine.data(eIdx(k)).DS.PDD, newDepths, 'spline');
+   [maxV, maxI] = max(newDose);
+   
+   [~, r80ind] = min(abs(newDose(maxI:end) - 0.8 * maxV));
+   r80ind = r80ind - 1;
+   topasRanges(k) = interp1(newDose(maxI + r80ind - 1:maxI + r80ind + 1), ...
+                  newDepths(maxI + r80ind - 1:maxI + r80ind + 1), 0.8 * maxV);
+end
+
+figure;
+subplot(2,1,1);
+
+plot(baseDataEnergies(1:23), baseDataRanges, '.-');
+hold on;
+plot(baseDataEnergies(1:23), topasRanges, '.-');
+grid on;
+grid minor;
+subplot(2,1,2);
+plot(baseDataEnergies(1:23), baseDataRanges-topasRanges, '.-');
+grid on;
+grid minor;
+
+ylabel('baseData - topas');
 %% E-R analisis
 baseDataEnergies = [machine.data(:).energy];
 
@@ -339,11 +435,11 @@ fitRanges = interp1(fitEnergies, baseDataRanges, baseDataEnergies, 'spline');
 figure;
 subplot(2,1,1);
 plot(baseDataEnergies, baseDataRanges, '.-');
+
 hold on;
 plot(baseDataEnergies, fitRanges, '.-');
 grid on;
 xlabel('Energy [MeV]');
-
 ylabel('Range [mm]');
 legend('baseData', 'fit');
 subplot(2,1,2);
