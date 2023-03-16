@@ -3,6 +3,7 @@ matRad_cfg = MatRad_Config.instance();
 load('BOXPHANTOM.mat');
 %% Setup
 
+
 pln.numOfFractions        = 30;
 pln.propStf.gantryAngles  = 0;
 pln.propStf.couchAngles   = 0;
@@ -14,7 +15,7 @@ pln.propOpt.runSequencing = 0;
 
 pln.radiationMode   = 'carbon';
 
-pln.machine         = 'Generic';
+pln.machine         = 'newGenericResampled';
 
 pln.multScen = matRad_multScen(ct,'nomScen');
 
@@ -37,21 +38,20 @@ pln.bioParam.weightMode = 'eD';
 dij_MKM = matRad_calcParticleDose(ct,stf,pln,cst,0);
 resultGUI = matRad_fluenceOptimization(dij_MKM,cst,pln);
 %% Recalculation LEM
+modelName = 'LEM';
+pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
+dij_LEM = matRad_calcParticleDose(ct,stf,pln,cst,0);
+resultGUI_LEM = matRad_calcCubes(resultGUI.w,dij_LEM,1);
+
 %tabulated LEM
-modelName = 'tabulatedRBEModel';
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
-pln.bioParam.weightMode = 'LET';
-pln.bioParam.RBEtable = 'RBEtable_rapidLEM_Russo2011_Survival_Dt_60';
-dij_LEM_tab = matRad_calcParticleDose(ct,stf,pln,cst,0);
+% modelName = 'tabulatedRBEModel';
+% pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
+% pln.bioParam.weightMode = 'LET';
+% pln.bioParam.RBEtable = 'RBEtable_rapidLEM_Russo2011_Survival_Dt_60';
+% dij_LEM_tab = matRad_calcParticleDose(ct,stf,pln,cst,0);
+% 
+% resultGUI_LEM = matRad_calcCubes(resultGUI.w,dij_LEM_tab,1);
 
-resultGUI_LEM = matRad_calcCubes(resultGUI.w,dij_LEM_tab,1);
-
-%% Recalculate MCN
-modelName = 'MKMLET';
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
-dij_MCN = matRad_calcParticleDose(ct,stf,pln,cst,0);
-
-resultGUI_MCN = matRad_calcCubes(resultGUI.w,dij_MCN,1);
 %% Plots
 
 sliceNum = 80;
@@ -60,7 +60,7 @@ profileNum = 80;
 x = [1:160]*ct.resolution.y - ct.resolution.y;
 MKMprofile = resultGUI.RBExD(:,profileNum,sliceNum);
 LEMprofile = resultGUI_LEM.RBExD(:,profileNum,sliceNum);
-MCNprofile = resultGUI_MCN.RBExD(:,profileNum, sliceNum);
+%MCNprofile = resultGUI_MCN.RBExD(:,profileNum, sliceNum);
 
 figure;
 
@@ -71,8 +71,11 @@ subplot(1,2,2);
 plot(x,MKMprofile, '.-');
 hold on;
 plot(x,LEMprofile,'.-');
-plot(x,MCNprofile,'.-');
+%plot(x,MCNprofile,'.-');
+
 grid on;
 
 grid minor;
-legend('MKM', 'LEM', 'MCN');
+legend('MKM', 'LEM');
+%legend('MKM', 'LEM', 'MCN');
+%% Table analisis

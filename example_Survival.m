@@ -16,7 +16,7 @@ pln.propOpt.runSequencing = 0;
 pln.radiationMode   = 'carbon';
 
 
-pln.machine         = 'newGeneric_Spec';
+pln.machine         = 'newGeneric';
 pln.multScen = matRad_multScen(ct,'nomScen');
 
 pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
@@ -36,12 +36,23 @@ pln.bioParam.weightMode = 'eD';
 
 %% Override stf
 stf = OverrideStf(stf,1);
-
+eIdx = 37;
+stf.ray.energy = machine.data(eIdx).energy;
 %% DoseCalc
 
 dij_MKM = matRad_calcParticleDose(ct,stf,pln,cst,0);
-[MKM_alphaBixel, MKM_betaBixel] = pln.bioParam.calcLQParameter(machine.data(31).depths,machine.data(31),dij_MKM.TissueParameters,[1:size(machine.data(31).depths,1)]);
+[MKM_alphaBixel, MKM_betaBixel] = pln.bioParam.calcLQParameter(machine.data(eIdx).depths,machine.data(eIdx),dij_MKM.tissueParameters,[1:size(machine.data(eIdx).depths,1)]);
 
+pln.machine = 'newGenericResampled';
+modelName = 'tabulatedRBEModel';
+pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
+pln.bioParam.RBEtable = 'RBEtable_rapidMKM_Kase2008_corrected_beta_Survival_rn_0.35';
+pln.bioParam.weightMode = 'eD';
+
+dij_MKM_res = matRad_calcParticleDose(ct,stf,pln,cst,0);
+[MKM_alphaBixel_res, MKM_betaBixel_res] = pln.bioParam.calcLQParameter(machine.data(eIdx).depths,machine.data(eIdx),dij_MKM_res.tissueParameters,[1:size(machine.data(eIdx).depths,1)]);
+
+%resultGUI_MKM = matRad_calcCubes(1,dij_MKM,1);
 % pln.bioParam.RBEtable = 'ExampleMKMInaniwa2010_rn29';
 % dij_MKM_rn29 = matRad_calcParticleDose(ct,stf,pln,cst,0);
 
@@ -51,41 +62,99 @@ dij_MKM = matRad_calcParticleDose(ct,stf,pln,cst,0);
 modelName = 'LEM';
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName, pln.machine);
 dij_LEM = matRad_calcParticleDose(ct,stf,pln,cst,0);
-[LEM_alphaBixel, LEM_betaBixel] = pln.bioParam.calcLQParameter(machine.data(31).depths,machine.data(31),dij_LEM.TissueParameters,[1:size(machine.data(31).depths,1)]);
+[LEM_alphaBixel, LEM_betaBixel] = pln.bioParam.calcLQParameter(machine.data(eIdx).depths,machine.data(eIdx),dij_LEM.tissueParameters,[1:size(machine.data(eIdx).depths,1)]);
 
+%resultGUI_LEM = matRAd_calcCubes(1,dij_LEM,1);
 %tabulated LEM
 modelName = 'tabulatedRBEModel';
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
 pln.bioParam.weightMode = 'LET';
 pln.bioParam.RBEtable = 'RBEtable_rapidLEM_Russo2011_Survival_Dt_60';
 dij_LEM_tab = matRad_calcParticleDose(ct,stf,pln,cst,0);
-[LEM_alphaBixel_tab, LEM_betaBixel_tab] = pln.bioParam.calcLQParameter(machine.data(31).depths,machine.data(31),dij_LEM_tab.TissueParameters,[1:size(machine.data(31).depths,1)]);
+[LEM_alphaBixel_tab, LEM_betaBixel_tab] = pln.bioParam.calcLQParameter(machine.data(eIdx).depths,machine.data(eIdx),dij_LEM_tab.tissueParameters,[1:size(machine.data(eIdx).depths,1)]);
+%resultGUI_LEM_tab = matRad_calcCubes(1,dij_LEM_tab,1);
+
+pln.bioParam.weightMode = 'eD';
+dij_LEM_tab_eD = matRad_calcParticleDose(ct,stf,pln,cst,0);
+[LEM_alphaBixel_tab_eD, LEM_betaBixel_tab] = pln.bioParam.calcLQParameter(machine.data(eIdx).depths,machine.data(eIdx),dij_LEM_tab_eD.tissueParameters,[1:size(machine.data(eIdx).depths,1)]);
 
 %% Plot alpha/beta bixels
+
 figure;
-plot(machine.data(31).depths, MKM_alphaBixel, '.-');
+plot(machine.data(eIdx).depths, MKM_alphaBixel, '.-');
+
 
 hold on;
-plot(machine.data(31).depths, LEM_alphaBixel_tab/1.7, '.-');
-plot(machine.data(31).depths, LEM_alphaBixel, '.-');
+plot(machine.data(eIdx).depths, LEM_alphaBixel_tab, '.-');
+plot(machine.data(eIdx).depths, LEM_alphaBixel, '.-');
+plot(machine.data(eIdx).depths, LEM_alphaBixel_tab_eD, '.-');
+plot(machine.data(eIdx).depths, MKM_alphaBixel_res, '.-');
+
 grid on;
 xlabel('dethps [mm]');
 title('alpha bixel');
-legend('MKM', 'tabulated LEM', 'base Data LEM');
+legend('MKM', 'tabulated LEM', 'base Data LEM', 'tabulated LEM eD', 'MKM resampled');
 
 
+% figure;
+% plot(machine.data(31).depths, MKM_betaBixel, '.-');
+% hold on;
+% plot(machine.data(31).depths, LEM_betaBixel_tab, '.-');
+% plot(machine.data(31).depths, LEM_betaBixel, '.-');
+% grid on;
+% xlabel('dethps [mm]');
+% title('beta bixel');
+% legend('MKM', 'tabulated LEM', 'base Data LEM');
 
+%% Multiple energies
+stf = OverrideStf(stf,1);
+eIdx = [31:39];
+
+MKM_alphaBixel = [];
+MKM_betaBixel = [];
+modelName = 'tabulatedRBEModel';
+
+pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
+
+pln.bioParam.RBEtable = 'RBEtable_rapidMKM_Kase2008_corrected_beta_Survival_rn_0.35';
+pln.bioParam.weightMode = 'eD';
+
+for k=1:size(eIdx,2)
+    stf.ray.energy = machine.data(eIdx(k)).energy;
+    dij_MKM = matRad_calcParticleDose(ct,stf,pln,cst,0);
+    [alphaBixel, betaBixel] = pln.bioParam.calcLQParameter(machine.data(eIdx(k)).depths,machine.data(eIdx(k)),dij_MKM.tissueParameters,[1:size(machine.data(eIdx(k)).depths,1)]);
+
+    MKM_alphaBixel = [MKM_alphaBixel, {alphaBixel}];
+    MKM_betaBixel = [MKM_betaBixel, {betaBixel}];
+
+end
+
+modelName = 'LEM';
+pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName, pln.machine);
+
+LEM_alphaBixel = [];
+LEM_betaBixel  = [];
+
+for k=1:size(eIdx,2)
+    stf.ray.energy = machine.data(eIdx).energy;
+    dij_LEM = matRad_calcParticleDose(ct,stf,pln,cst,0);
+    [alphaBixel, betaBixel] = pln.bioParam.calcLQParameter(machine.data(eIdx(k)).depths,machine.data(eIdx(k)),dij_LEM.tissueParameters,[1:size(machine.data(eIdx(k)).depths,1)]);
+    LEM_alphaBixel = [LEM_alphaBixel, {alphaBixel}];
+    LEM_betaBixel = [LEM_betaBixel, {betaBixel}];
+
+end
+
+%% Plot multiple alpha bixels
 figure;
-plot(machine.data(31).depths, MKM_betaBixel, '.-');
-hold on;
-plot(machine.data(31).depths, LEM_betaBixel_tab, '.-');
-plot(machine.data(31).depths, LEM_betaBixel, '.-');
+for k=1:size(eIdx,2)
+    plot(machine.data(eIdx(k)).depths, MKM_alphaBixel{k}, '.-');
+    hold on;
+    plot(machine.data(eIdx(k)).depths, LEM_alphaBixel{k}, '--');
+end
+
 grid on;
-xlabel('dethps [mm]');
-title('beta bixel');
-legend('MKM', 'tabulated LEM', 'base Data LEM');
 
-
+grid minor;
 %% Plot RBExD
 MKM_p = matRad_calcCubes(1,dij_MKM,1);
 LEM_t_p = matRad_calcCubes(1,dij_LEM_tab,1);
@@ -94,6 +163,7 @@ LEM_p = matRad_calcCubes(1,dij_LEM,1);
 x = [1:160]*ct.resolution.y - ct.resolution.y/2;
 
 figure;
+
 plot(x, squeeze(sum(MKM_p.RBExD(:,:,:), [2 3])), '.-');
 hold on;
 plot(x, squeeze(sum(LEM_t_p.RBExD(:,:,:), [2 3])), '.-');
@@ -102,12 +172,20 @@ grid on;
 xlabel('depth [mm]');
 legend('MKM', 'LEM tabulated', 'LEM base Data');
 
+% figure;
+% %plot(machine.data(eIdx).depths, MKM_alphaBixel, '.-');
+% plot(x, squeeze(sum(MKM_p.RBExD(:,:,:), [2 3])), '.-');
+% hold on;
+% plot(x, squeeze(sum(MKM_p.physicalDose(:,:,:), [2 3])), '.-');
+% legend('RBExD', 'physical Dose');
+% grid on;
+
 %% Plot RBEtables and alpha/LET
 
-load('RBEtable_rapidLEM_Russo2011_Paper_HSG_LEMI19.mat');
+load('RBEtable_rapidLEM_Russo2011_Survival_Dt_60.mat');
 RBEtable_LEM = RBEtable;
 
-load('RBEtable_rapidLEM_Russo2011_Paper_HSG_LEMIII19.mat');
+load('RBEtable_rapidMKM_Kase2008_corrected_beta_Survival_rn_0.35.mat');
 RBEtable_MKM = RBEtable;
 
 eneMKM = RBEtable_MKM.data(1).energies;
@@ -133,14 +211,14 @@ xlabel('E [MeV/u]');
 ylabel('alpha [Gy^{-1}]');
 legend('MKM', 'LEM');
 
-figure;
-semilogx(letsMKM, alphaMKM, '.-');
-hold on;
-semilogx(letsLEM, alphaLEM, '.-');
-grid on;
-xlabel('LET [keV/um]');
-ylabel('alpha [Gy^{-1}]');
-legend('MKM', 'LEM')
+% figure;
+% semilogx(letsMKM, alphaMKM, '.-');
+% hold on;
+% semilogx(letsLEM, alphaLEM, '.-');
+% grid on;
+% xlabel('LET [keV/um]');
+% ylabel('alpha [Gy^{-1}]');
+% legend('MKM', 'LEM')
 
 figure;
 semilogx(eneMKM, betaMKM, '.-');
@@ -150,15 +228,15 @@ grid on;
 xlabel('E [MeV/u]');
 ylabel('beta [Gy^{-2}]');
 legend('MKM', 'LEM');
-
-figure;
-semilogx(letsMKM, betaMKM, '.-');
-hold on;
-semilogx(letsLEM, betaLEM, '.-');
-grid on;
-xlabel('LET [keV/um]');
-ylabel('beta [Gy^{-1}]');
-legend('MKM', 'LEM')
+% 
+% figure;
+% semilogx(letsMKM, betaMKM, '.-');
+% hold on;
+% semilogx(letsLEM, betaLEM, '.-');
+% grid on;
+% xlabel('LET [keV/um]');
+% ylabel('beta [Gy^{-1}]');
+% legend('MKM', 'LEM')
 
 
 %% alphaBixel betaBixel, this is exactly the same as computing the varAlpha/varBeta
