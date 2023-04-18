@@ -1,12 +1,12 @@
 %Generate RBEtables interfacing with survival code
 matRad_cfg = MatRad_Config.instance();
 %Define energies (MeV/u)
-energies = logspace(-1,log10(300),250);
+energies = logspace(-1,log10(510),250);
 
 
 %Define ions
 ions  = {'H', 'He', 'Li', 'Be', 'B', 'C'};
-ionsMassNumber = [1 4 7 9 11 12]; 
+ionsMassNumber = [1 4 7 9 11 12];
 
 %Define model and calculus type
 model        = 'LEMI';
@@ -14,12 +14,12 @@ calculusType = 'rapidLEM_Russo2011';
 
 %Define parameters to compute (for the time being fix alpha/beta)
 
-alpha0 = [0.313];
+alpha0 = [0.1];
 
-beta0  = [0.062];
+beta0  = [0.05];
 
-%MKM specific
-Dt     = [19];                      %Taken from LEM3 paper, figure 5 (ACCURACY OF THE LOCAL EFFECT MODEL FOR THE PREDICTION OF BIOLOGIC EFFECTS OF CARBON ION BEAMS IN VITRO AND IN VIVO)
+%LEM specific
+Dt     = [29];                      %Taken from LEM3 paper, figure 5 (ACCURACY OF THE LOCAL EFFECT MODEL FOR THE PREDICTION OF BIOLOGIC EFFECTS OF CARBON ION BEAMS IN VITRO AND IN VIVO)
 RN     = 5*ones(1,size(Dt,2));
 
 %Define the interface class
@@ -27,9 +27,9 @@ IntegralS = integralDoseSurvival();
 IntegralS.wDir = [matRad_cfg.matRadRoot, filesep, 'survival'];
 
 %This is source path see from wsl
-IntegralS.survivalSourcePath = '/mnt/c/Users/r408i/Desktop/r408i_data/Survival';
+IntegralS.survivalSourcePath = '/mnt/c/r408i_data/Survival';
 
-IntegralS.survivalParameterFileName = 'LEM3';
+IntegralS.survivalParameterFileName = 'LEM1';
 IntegralS.calcProperties.output          = 'LQ_pars';
 IntegralS.calcProperties.model           = model;
 IntegralS.calcProperties.calculusType    = calculusType;
@@ -63,6 +63,7 @@ for alphaIdx = 1:size(alpha0,2)
             IntegralS.genParameterFile();
             IntegralS.survivalExecutionCommand = ['wsl ',IntegralS.wDirWsl,'/', IntegralS.survivalParameterFileName, '.txt'];
         
+            
             %Execution with system does not work, check -> Solved, if does not work
             %again, check that default destribution is Ubuntu and not Ubunutu-20.04.
             %Else, from prompt wsl --setdefault Ubuntu
@@ -73,23 +74,23 @@ for alphaIdx = 1:size(alpha0,2)
             else
                 matRad_cfg.dispInfo('error. \n');
             end
+        
         end
       end
-
 end
 
 %% read Out
 clear RBEtable;
 %meta info
 for pIdx = 1:size(Dt,2)
+
     RBEtable.meta.model = [calculusType, '_Dt_', num2str(Dt(pIdx))];
     RBEtable.meta.description = ['Model obtained with', calculusType, ' computed with Survival code.'];
    
     modelParameters = struct('alphaX', [], ...
                              'betaX', [], ...
                              'rNucleus', [], ...
-                             'Dt', []);
-                          
+                             'Dt', []);                      
     for alphaIdx =1:size(alpha0,2)        
         modelParameters.alphaX = alpha0;
         modelParameters.betaX  = beta0;
@@ -112,8 +113,11 @@ for pIdx = 1:size(Dt,2)
         RBEtable.data(alphaIdx).alphaX = alpha0(alphaIdx);
         RBEtable.data(alphaIdx).betaX = beta0(alphaIdx);
 
+
         RBEtable.data(alphaIdx).energies     = energies;
+
         RBEtable.data(alphaIdx).includedIonZ = [1 2 3 4 5 6];
+        
         for m=1:size(alphaE,2)
 
             RBEtable.data(alphaIdx).alpha(:,m)        = alphaE{m};
@@ -123,6 +127,34 @@ for pIdx = 1:size(Dt,2)
 %         RBEtable.data(alphaIdx).beta         = betaE;
     end
 
-    save([matRad_cfg.matRadRoot, filesep, 'bioModels', filesep, 'RBEtables', filesep,'RBEtable_', calculusType, '_Paper_HSG_LEMI', num2str(Dt(pIdx)), '.mat'], 'RBEtable');
+    
+    save([matRad_cfg.matRadRoot, filesep, 'bioModels', filesep, 'RBEtables', filesep,'RBEtable_', calculusType, '_longErange_LEMI_', num2str(Dt(pIdx)), '.mat'], 'RBEtable');
     RBEtable = [];
 end
+
+%% Print to topas table (To Be Tested!)
+
+load('C:\r408i_data\r408i_data\matRad_gitHub_surv\bioModels\RBEtables\RBEtable_rapidLEM_Russo2011_longErange_LEMI_29.mat');
+
+fID = fopen('cabonTable.txt', 'w');
+fprintf(fID, '### Survival generated table ###\n');
+fprintf(fID, 'sv:Sc/CellGeneric_abR2/HCP/ParticleName 		= 6 "Proton" "Helium" "Lithium" "Beryllium" "Boron" "Carbon"\n');
+fprintf(fID, 'iv:Sc/CellGeneric_abR2/HCP/ParticleZ    		= 6 1 2 3 4 5 6\n');
+fprintf(fID, 'dv:Sc/CellGeneric_abR2/HCP/KineticEnergyPerNucleon 	= %i',length(RBEtable.data.energies));
+fprintf(fID, ' %1.3f', RBEtable.data.energies);
+fprintf(fID, ' MeV \n');
+fprintf(fID, '\n');
+
+ionsString = {'Protons', 'Helium', 'Lithium', 'Beryllium', 'Boron', 'Carbon'};
+for k=1:6
+    fprintf(fID, 'dv:Sc/CellGeneric_abR2/HCP/%s/Alpha 	= %i',ionsString{k},length(RBEtable.data.energies));
+    fprintf(fID, ' %1.3f', RBEtable.data.alpha(:,k));
+    fprintf(fID, ' /Gy\n');
+end
+fprintf(fID, '\n');
+for k=1:6
+    fprintf(fID, 'dv:Sc/CellGeneric_abR2/HCP/%s/Beta 	= %i',ionsString{k},length(RBEtable.data.energies));
+    fprintf(fID, ' %1.3f', RBEtable.data.beta(:,k));
+    fprintf(fID, ' /Gy2\n');
+end
+fclose(fID);
