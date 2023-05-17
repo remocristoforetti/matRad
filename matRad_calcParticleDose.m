@@ -137,50 +137,54 @@ if pln.bioParam.bioOpt
     %     [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,ct.numOfCtScen,VdoseGrid);
     [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,ct.numOfCtScen);
 
+    %Compute tissue parameters (BioModel-specific) and store it into dij
+    dij.tissueParameters = pln.bioParam.calcTissueParameters(cst,dij.doseGrid.numOfVoxels, stf,1);
 
     dij.abx(dij.bx>0) = dij.ax(dij.bx>0)./dij.bx(dij.bx>0);
 
-    % only if LEM is used corresponding bio data must be available in the base data set
-    if strcmp(pln.bioParam.model,'LEM')
-        if isfield(machine.data,'alphaX') && isfield(machine.data,'betaX')
-
-            matRad_cfg.dispInfo('loading biological base data...');
-
-            for i = 1:size(cst,1)
-
-                % check if cst is compatiable
-                if ~isempty(cst{i,5}) && isfield(cst{i,5},'alphaX') && isfield(cst{i,5},'betaX')
-
-                    % check if base data contains alphaX and betaX
-                    IdxTissue = find(ismember(machine.data(1).alphaX,cst{i,5}.alphaX) & ...
-                        ismember(machine.data(1).betaX, cst{i,5}.betaX));
-
-                    % check consistency of biological baseData and cst settings
-                    if ~isempty(IdxTissue)
-                        isInVdoseGrid = ismember(VdoseGrid,cst{i,4}{1});
-                        vTissueIndex(isInVdoseGrid) = IdxTissue;
-                    else
-                        matRad_cfg.dispError('biological base data and cst inconsistent!');
-                    end
-
-                else
-                    vTissueIndex(row) = 1;
-                    matRad_cfg.dispInfo(' tissue type of %s was set to 1...',cst{i,2});
-                end
-            end
-
-            matRad_cfg.dispInfo('Done!\n');
-
-        else
-            matRad_cfg.dispError('base data is incomplement - alphaX and/or betaX is missing');
-        end
-
-    else
-        % parametrized biological models are based on the LET
-        if ~isfield(machine.data,'LET')
-            matRad_cfg.dispError('base data is incomplement - LET is missing');
-        end
-    end %  end is LEM model
+    %This part no more necessary. Calculation of tissueIdx is moved into
+    %calcTissueParameters
+    % % only if LEM is used corresponding bio data must be available in the base data set
+    % if strcmp(pln.bioParam.model,'LEM')
+    %     if isfield(machine.data,'alphaX') && isfield(machine.data,'betaX')
+    % 
+    %         matRad_cfg.dispInfo('loading biological base data...');
+    % 
+    %         for i = 1:size(cst,1)
+    % 
+    %             % check if cst is compatiable
+    %             if ~isempty(cst{i,5}) && isfield(cst{i,5},'alphaX') && isfield(cst{i,5},'betaX')
+    % 
+    %                 % check if base data contains alphaX and betaX
+    %                 IdxTissue = find(ismember(machine.data(1).alphaX,cst{i,5}.alphaX) & ...
+    %                     ismember(machine.data(1).betaX, cst{i,5}.betaX));
+    % 
+    %                 % check consistency of biological baseData and cst settings
+    %                 if ~isempty(IdxTissue)
+    %                     isInVdoseGrid = ismember(VdoseGrid,cst{i,4}{1});
+    %                     vTissueIndex(isInVdoseGrid) = IdxTissue;
+    %                 else
+    %                     matRad_cfg.dispError('biological base data and cst inconsistent!');
+    %                 end
+    % 
+    %             else
+    %                 vTissueIndex(row) = 1;
+    %                 matRad_cfg.dispInfo(' tissue type of %s was set to 1...',cst{i,2});
+    %             end
+    %         end
+    % 
+    %         matRad_cfg.dispInfo('Done!\n');
+    % 
+    %     else
+    %         matRad_cfg.dispError('base data is incomplement - alphaX and/or betaX is missing');
+    %     end
+    % 
+    % else
+    %     % parametrized biological models are based on the LET
+    %     if ~isfield(machine.data,'LET')
+    %         matRad_cfg.dispError('base data is incomplement - LET is missing');
+    %     end
+    % end %  end is LEM model
 end
 
 % lateral cutoff for raytracing and geo calculations
@@ -515,9 +519,11 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                 % save alpha_p and beta_p radiosensititvy parameter for every bixel in cell array
                                 if pln.bioParam.bioOpt
                                     
-                                    [bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),vTissueIndex_j(currIx,:),dij.ax(VdoseGrid(ix(currIx))),...
-                                        dij.bx(VdoseGrid(ix(currIx))),...
-                                        dij.abx(VdoseGrid(ix(currIx))));  
+                                    %[bixelAlpha,bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx),vTissueIndex_j(currIx,:),dij.ax(VdoseGrid(ix(currIx))),...
+                                    %   dij.bx(VdoseGrid(ix(currIx))),...
+                                    %  dij.abx(VdoseGrid(ix(currIx))));  
+                                    
+                                    [bixelAlpha, bixelBeta] = pln.bioParam.calcLQParameter(currRadDepths(currIx),machine.data(energyIx), dij.tissueParameters,ix(currIx));
                                     
                                     bixelAlpha(isnan(bixelAlpha)) = 0;
                                     bixelBeta(isnan(bixelBeta)) = 0;
