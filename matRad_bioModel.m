@@ -45,7 +45,6 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel, machine)
              else
                 model = matRad_bioModel_noneParticles(sRadiationMode);
              end
-
          case{'constRBE'}
              model = matRad_BioModel_constRBE(sRadiationMode);
 %         %For protons only, might be set as a further subclass, all require
@@ -54,24 +53,13 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel, machine)
              model = matRad_bioModelMCN(sRadiationMode);
         case {'WED'}
              model = matRad_bioModelWED(sRadiationMode);
-        case {'ESTRO'}
-             model = matRad_bioModelESTRO(sRadiationMode);
         case {'LSM'}
              model = matRad_BioModel_LSM(sRadiationMode);
-        case {'MKMLET'}
-             model = matRad_bioModelMKMLET(sRadiationMode);
-        case {'MKMLET_corrected'}
-             model = matRad_BioModel_MKMLET_corrected(sRadiationMode);
-        case{'CAR'}
+        case {'CAR'}
              model = matRad_bioModelCAR(sRadiationMode);
 %         %for heavier particles
-
        case {'LEM'}
             model = matRad_BioModel_LEM(sRadiationMode);
-        case {'MKM_Kase2008'}
-            model = matRad_BioModel_SurvivalMKM_Kase2008(sRadiationMode);
-       case {'tabulatedRBEModel'}
-            model = matRad_tabulatedRBEModel(sRadiationMode);
        otherwise
            matRad_cfg =  MatRad_Config.instance();
            matRad_cfg.dispWarning('This sModel has not yet been implemented \n');
