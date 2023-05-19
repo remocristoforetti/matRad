@@ -27,7 +27,7 @@ classdef matRad_OptimizationProblemMixMod < handle
         quantityOpt = '';
         useMaxApprox = 'logsumexp'; %'pnorm'; %'logsumexp'; %'none';
         p = 30; %Can be chosen larger (closer to maximum) or smaller (closer to mean). Only tested 20 >= p >= 1
-
+        nFractions;
         minimumW = NaN;
         maximumW = NaN;
     end

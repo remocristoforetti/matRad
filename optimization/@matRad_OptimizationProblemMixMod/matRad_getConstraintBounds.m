@@ -65,7 +65,7 @@ for  i = 1:size(cst,1)
             %if ~isempty(strfind(cst{i,6}{j}.type,'constraint'))
             
             doseParameter = optiFunc.getDoseParameters();
-            optiFunc = optiFunc.setDoseParameters(doseParameter./30);
+            optiFunc = optiFunc.setDoseParameters(doseParameter./optiProb.nFractions);
 
             if isa(optiFunc,'DoseConstraints.matRad_DoseConstraint')
                 
@@ -77,7 +77,7 @@ for  i = 1:size(cst,1)
                     optiFunc = optiFunc.setDoseParameters(effect);
                 end
                 doseParameters = optiFunc.getDoseParameters(); 
-                optiFunc = optiFunc.setDoseParameters(doseParameters*30);
+                optiFunc = optiFunc.setDoseParameters(doseParameters*optiProb.nFractions);
                  cl = [cl;optiFunc.lowerBounds(numel(cst{i,4}{1}))];
                  cu = [cu;optiFunc.upperBounds(numel(cst{i,4}{1}))];
                     
