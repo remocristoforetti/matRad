@@ -176,7 +176,12 @@ for i = 1:size(cst,1)
             end
             
             nConst = size(jacobSub,2);
-            
+
+            startIx = size(DoseProjection{1},2) + 1;
+            DoseProjection{1}          = [DoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];   
+            %Now directly write the jacobian in there
+            DoseProjection{1}(cst{i,4}{1},startIx:end) = jacobSub;
+%{          
             %Iterate through columns of the sub-jacobian
             if isa(optiProb.BP,'matRad_DoseProjection') && ~isempty(jacobSub) || isa(optiProb.BP,'matRad_ConstantRBEProjection')
                
@@ -244,7 +249,7 @@ for i = 1:size(cst,1)
                   reshape(ones(numel(cst{i,4}{1}),1)*[newID:newID+nConst-1],[1 nConst*numel(cst{i,4}{1})])];  %Keep track of constraints for organizing the sqrt(beta)Dose projection later
             end
             
-        
+%}        
          end
          
       end
@@ -254,45 +259,29 @@ for i = 1:size(cst,1)
 end
 
 scenario = 1;
-bxidx = 1; %modality  bixel index
+for constr = 1:size(jacobSub,2)
+    bxidx = 1;
+    jacob_constr = [];
+    currentDoseProjection = {DoseProjection{1}(:,constr)};
+    for mod = 1: length(dij.original_Dijs)
 
-for mod = 1: length(dij.original_Dijs)
+        wt = [];
 
+        % split the w and g for current modality
+        STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
+        wt = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
+        g = cell(1);
     
-    % enter if statement also for protons using a constant RBE
-    if isa(optiProb.BP,'matRad_DoseProjection')
-       
-       if ~isempty(DoseProjection{scenario})
-          jacob = [jacob,DoseProjection{scenario}' * dij.STfractions{mod} * dij.original_Dijs{mod}.physicalDose{scenario}];
-       end
-       
-    elseif isa(optiProb.BP,'matRad_ConstantRBEProjection')
-       
-       if ~isempty(DoseProjection{scenario})
-          jacob = [jacob,DoseProjection{scenario}' * dij.STfractions{mod}*  dij.original_Dijs{mod}.RBE * dij.original_Dijs{mod}.physicalDose{scenario}];
-       end
-       
-    elseif isa(optiProb.BP,'matRad_EffectProjection')
-       
-       if ~isempty(mSqrtBetaDoseProjection{scenario}) && ~isempty(mAlphaDoseProjection{scenario})
-
-          STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
-          wt = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
-
-          mSqrtBetaDoseProjectionmod = mSqrtBetaDoseProjection{scenario}' * dij.original_Dijs{mod}.mSqrtBetaDose{scenario} * wt;
-          mSqrtBetaDoseProjectionmod = sparse(voxelID,constraintID,mSqrtBetaDoseProjectionmod,...
-             size(mAlphaDoseProjection{scenario},1),size(mAlphaDoseProjection{scenario},2));
-          
-          jacob   = [jacob,mAlphaDoseProjection{scenario}' *dij.STfractions{mod}* dij.original_Dijs{mod}.mAlphaDose{scenario} +...
-              mSqrtBetaDoseProjectionmod' * dij.STfractions{mod}* dij.original_Dijs{mod}.mSqrtBetaDose{scenario}];
-          
-          % jacob   = [jacob,mAlphaDoseProjection{scenario}' * dij.STfractions{mod}* dij.original_Dijs{mod}.mAlphaDose{scenario} +...
-           %    mSqrtBetaDoseProjectionmod' * dij.STfractions{mod}^2* dij.original_Dijs{mod}.mSqrtBetaDose{scenario}];
-
-          %jacob   = [jacob,mAlphaDoseProjection{scenario}' * dij.original_Dijs{mod}.mAlphaDose{scenario} +...
-            %  mSqrtBetaDoseProjectionmod' * dij.STfractions{mod}* dij.original_Dijs{mod}.mSqrtBetaDose{scenario}];
-       end
+        optiProb.BP.computeGradient(dij.original_Dijs{mod},currentDoseProjection,wt);
+        gt = optiProb.BP.GetGradient();
+        
+        bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
+        %g is gradient projection for all constraints and single modality
+        %gt = gt*dij.STfractions{mod};
+        jacob_constr = [jacob_constr;gt{1}*dij.STfractions{mod}];
     end
+    jacob = [jacob; jacob_constr'];
+
 end
 jacobianChecker = 0;
 if jacobianChecker == 1
