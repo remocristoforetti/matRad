@@ -1,4 +1,4 @@
-classdef matRad_BioModel_LEM < matRad_BiologicalModel
+classdef matRad_bioModel_LEM < matRad_BiologicalModel
 
     properties (SetAccess = private)
         AvailableradiationModalities = {'carbon', 'helium'};                        %radiation modalities that can be optimized with this model
@@ -12,7 +12,7 @@ classdef matRad_BioModel_LEM < matRad_BiologicalModel
 
       methods
        %Constructor
-       function obj = matRad_BioModel_LEM(radiationMode)
+       function obj = matRad_bioModel_LEM(radiationMode)
           if ~ischar(radiationMode)
            matRad_cfg.dispWarning(['Something wrong with bioModel inputs']);
           end

@@ -1,4 +1,4 @@
-classdef matRad_BioModel_HEL < matRad_Bio_Model
+classdef matRad_bioModel_HEL < matRad_Bio_Model
       properties (SetAccess = private)%constant
         
         p1_HEL = NaN;
@@ -18,7 +18,7 @@ classdef matRad_BioModel_HEL < matRad_Bio_Model
       %% Methods
    methods
        %Constructor
-       function obj = matRad_BioModel_HEL(radiationMode)
+       function obj = matRad_bioModel_HEL(radiationMode)
           if ~ischar(radiationMode)
            matRad_dispToConsole(['Something wrong with bioModel inputs'],[],'warning');
           end
@@ -29,7 +29,7 @@ classdef matRad_BioModel_HEL < matRad_Bio_Model
           obj.radiationMode = radiationMode;
        end
        
-       function str = calcTissueParameter(obj,cst,numVoxels,ctScen)
+       function str = calcTissueParameters(obj,cst,numVoxels,ctScen)
            matRad_cfg =  MatRad_Config.instance();
 
            str = struct('alphaX', [], ...

@@ -18,7 +18,7 @@ classdef (Abstract) matRad_BiologicalModel < handle
        identifier;       % upper case short notation of the current model in combination with the quantity used for optimization (e.g. LEM_RBExD) probably not needed
        description;      % short description of the biological model
        AvailableQuantitiesForVis = {'physicalDose', 'RBExD'};
-       AvailableModels           = {'none','constRBE','MCN','WED','LEM','HEL'};   % cell array determines available models - if cell is deleted then the corersponding model can not be generated
+       AvailableModels           = {'none','constRBE','MCN','WED','CAR','LEM','HEL'};   % cell array determines available models - if cell is deleted then the corersponding model can not be generated
        state;
        PropertyToChange;
        input;
@@ -37,9 +37,9 @@ classdef (Abstract) matRad_BiologicalModel < handle
                   case 2
                      obj = obj.changePropertyValue();
                   case 3
-                     obj.baseData = obj.input; %maybe just set change propertz value
+                     obj.baseData = obj.input; %maybe just set change property value
                   case 4
-                     obj.bioOpt = obj.input; %maybe just set change propertz value
+                     obj.bioOpt = obj.input; %maybe just set change property value
                end
                
             end
@@ -269,7 +269,7 @@ classdef (Abstract) matRad_BiologicalModel < handle
                          obj.input = 'physicalDose';
                          obj.state = 2;
                       end
-                
+                 
                    case 4
                       if logical(value)
                         obj.bioOpt = true;

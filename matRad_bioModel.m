@@ -41,33 +41,36 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel, machine)
     switch sModel
          case{'none'}
              if (strcmp(sRadiationMode, 'photons'))
-                 model = matRad_bioModel_constRBE(sRadiationMode);
+                model = matRad_bioModel_constRBE(sRadiationMode);
              else
-                model = matRad_bioModel_noneParticles(sRadiationMode);
+                model = matRad_bioModel_none(sRadiationMode);
              end
          case{'constRBE'}
-             model = matRad_BioModel_constRBE(sRadiationMode);
+             model = matRad_bioModel_constRBE(sRadiationMode);
 %         %For protons only, might be set as a further subclass, all require
 %         %LET
         case {'MCN'}
              model = matRad_bioModelMCN(sRadiationMode);
         case {'WED'}
              model = matRad_bioModelWED(sRadiationMode);
-        case {'LSM'}
-             model = matRad_BioModel_LSM(sRadiationMode);
+        % case {'LSM'}
+        %      model = matRad_bioModel_LSM(sRadiationMode);
         case {'CAR'}
              model = matRad_bioModelCAR(sRadiationMode);
+        case {'LSM'}
+             model = matRad_bioModelLSM(sRadiationMode);
+
 %         %for heavier particles
        case {'LEM'}
-            model = matRad_BioModel_LEM(sRadiationMode);
+            model = matRad_bioModel_LEM(sRadiationMode);
        otherwise
            matRad_cfg =  MatRad_Config.instance();
            matRad_cfg.dispWarning('This sModel has not yet been implemented \n');
            %Set empty generic sModel ?
            if strcmp(sRadiationMode, 'photons')
-                model = matRad_BioModel_constRBE(sRadiationMode);
+                model = matRad_bioModel_constRBE(sRadiationMode);
            else
-                model = matRad_BioModel_noneParticles(sRadiationMode);   
+                model = matRad_bioModel_none(sRadiationMode);   
            end
     end
     

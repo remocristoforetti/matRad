@@ -33,7 +33,7 @@ classdef matRad_bioModel_constRBE < matRad_BiologicalModel
          end
        end
  
-       function str = calcTissueParameter(obj,cst,numVoxels,ctScen)
+       function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
            matRad_cfg = MatRad_Config.instance();
            str = struct('alphaX', [], ...
                         'betaX', [], ...
