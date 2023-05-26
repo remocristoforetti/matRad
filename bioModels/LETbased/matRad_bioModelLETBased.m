@@ -11,6 +11,9 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
         p1;
         p2;
         p3;
+        LET;
+        vAlpha_x;
+        vBeta_x;
     end
     
     methods
@@ -57,18 +60,20 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
 
             depths = baseDataEntry.depths + baseDataEntry.offset;
 
-             bixelLET = matRad_interp1(depths,baseDataEntry.LET,vRadDepths);
-             bixelLET(isnan(bixelLET)) = 0;
+            bixelLET = matRad_interp1(depths,baseDataEntry.LET,vRadDepths);
+            bixelLET(isnan(bixelLET)) = 0;
 
-             vAlpha_x = tissueParam.alphaX(tissueParam.tissueClass(ix))';
-             vBeta_x = tissueParam.betaX(tissueParam.tissueClass(ix))';
-             obj.vABratio = tissueParam.tissueABratio(tissueParam.tissueClass(ix))';
+            
+            obj.vAlpha_x = tissueParam.alphaX(tissueParam.tissueClass(ix))';
+            obj.vBeta_x = tissueParam.betaX(tissueParam.tissueClass(ix))';
+            obj.vABratio = tissueParam.tissueABratio(tissueParam.tissueClass(ix))';
+            obj.LET = bixelLET;
+            
+            RBEmax = obj.p0 + obj.p1.*bixelLET;
+            RBEmin = obj.p2 + obj.p3.*bixelLET;
 
-             RBEmax = obj.p0 + obj.p1.*bixelLET;
-             RBEmin = obj.p2 + obj.p3.*bixelLET;
-
-             bixelAlpha = RBEmax.*vAlpha_x;
-             bixelBeta = (RBEmin.^2).*vBeta_x;
+            bixelAlpha = RBEmax.*obj.vAlpha_x;
+            bixelBeta = (RBEmin.^2).*obj.vBeta_x;
         end
 
         %Shadow the get functions so that they could be implemented by the
