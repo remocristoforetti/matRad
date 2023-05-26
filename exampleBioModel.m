@@ -28,7 +28,7 @@ pln.machine         = 'Generic';
 %% Generate the stf file
 stf = matRad_generateStf(ct,cst,pln);
 
-%% Select genric plan info
+%% Select generic plan info
 pln.propDoseCalc.calcLET = 1;
 quantityOpt = 'RBExD';
 
@@ -45,7 +45,7 @@ resultGUI_MCN = matRad_fluenceOptimization(dij_MCN,cst,pln);
 
 %% Repeat calculation for other models
 %Select the models
-modelNames = {'WED', 'CAR', 'ESTRO'};
+modelNames = {'WED', 'CAR', 'LSM'};
 
 dij_LETBased_model = [];
 resultGUI_LETBased_model = [];
@@ -93,9 +93,71 @@ for modelIdx = 1:length(resultGUI_LETBased_model)
     lege(modelIdx+1) = modelNames(modelIdx);
 end
 plot(depths, resultGUI_MCN.physicalDose(:,Profile, Slice), '--', 'color', 'k');
+lege = [lege, 'physical Dose'];
 
 %plot(depths, resultGUI_MCN.LET(:,Profile,Slice), '--');
-lege = [lege, 'physical Dose', 'LET'];
+%lege = [lege, 'physical Dose', 'LET'];
+legend(lege, 'FontSize', 14);
+
+%% Repeat same procedure for effect
+quantityOpt = 'RBExD';
+
+%Set the biological parameters;
+modelName = 'MCN';
+pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName,pln.machine);
+
+dij_MCN_effect = matRad_calcParticleDose(ct,stf,pln,cst,0);
+
+resultGUI_MCN_effect = matRad_fluenceOptimization(dij_MCN_effect,cst,pln);
+
+%Select the models
+modelNames = {'WED', 'CAR'};
+
+dij_LETBased_model_effect = [];
+resultGUI_LETBased_model_effect = [];
+
+for modelIdx=1:size(modelNames,2)
+    %Load the specific bioModel
+    pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelNames{modelIdx},pln.machine);
+    
+    %Compute the corresponding dij
+    dij_currModel = matRad_calcParticleDose(ct,stf,pln,cst,0);
+    
+    %Apply the weights optimized for the MCN model
+    currResultGUI = matRad_calcCubes(resultGUI_MCN.w, dij_currModel,1);
+
+    %Store the results
+    dij_LETBased_model_effect = [dij_LETBased_model,dij_currModel];
+    resultGUI_LETBased_model_effect = [resultGUI_LETBased_model_effect, currResultGUI];
+
+end
+
+%% Plot the effect optimization
+Slice   = ceil(ct.cubeDim(3)/2);
+Profile = ceil(ct.cubeDim(2)/2);
+
+%define a depths vector for plotting
+depths = [1:ct.cubeDim(1)]*ct.resolution.y - ct.resolution.y/2;
+
+%plot the MCN profile for RBExD
+figure;
+plot(depths, resultGUI_MCN_effect.effect(:,Profile,Slice), '.-');
+grid on;
+grid minor;
+xlabel('depth [mm]', 'FontSize', 14);
+ylabel('RBE weighted Dose [Gy]', 'FontSize', 14);
+lege = {'MCN'};
+
+legend(lege, 'FontSize', 14);
+
+% Plot also the other models
+hold on;
+for modelIdx = 1:length(resultGUI_LETBased_model_effect)
+    profileRBExD = resultGUI_LETBased_model_effect(modelIdx).effect(:,Profile,Slice);
+    plot(depths, profileRBExD, '.-');
+    lege(modelIdx+1) = modelNames(modelIdx);
+end
+
 legend(lege, 'FontSize', 14);
 
 %% Other bioModels
