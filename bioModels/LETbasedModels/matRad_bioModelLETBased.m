@@ -3,6 +3,8 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
     properties
         defaultAlphaX = 0.1;
         defaultBetaX  = 0.05;
+
+        requiredDijFields = {'mAlphaDose', 'mSqrtBetaDose'};
     end
 
     properties (Hidden)
