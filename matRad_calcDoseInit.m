@@ -184,7 +184,7 @@ if isfield(pln, 'bioParam') && ~isempty(pln.bioParam)
         %Changes made to this pln.bioParam are only seen by the
         %calcParticle/calcPhotonDose
         if strcmp(pln.radiationMode, pln.bioParam.radiationMode)
-            pln.bioParam.baseData = pln.machine;
+            pln.bioParam.machine = machine;
         else
             matRad_cfg.dispError(['Radiation modality does not coincide with radiationMode for current biological model.\n']);
         end
@@ -202,6 +202,3 @@ end
 %         dij.(fieldName) = [];
 %     end
 % end
-%Could instantiate here the fields that need to be computed by biological
-%model. Now this will always be mAlphaDose and mSqrtBetaDose, but later on
-%can be IDs for example
