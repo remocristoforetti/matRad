@@ -30,11 +30,7 @@ classdef matRad_bioModel_LEM < matRad_BiologicalModel
            TissueParam = {cst{:,5}};
            tissueClass = zeros(numVoxels,1);
            
-           try
-              load([matRad_cfg.matRadRoot filesep 'basedata' filesep strcat(obj.radiationMode, '_', obj.baseData) '.mat']);
-           catch
-              matRad_cfg.dispError(['Could not find the following machine file: ' obj.machine '\n']);
-           end
+           machine = obj.machine;
 
            if exist('machine', 'var')
               for k = 1:size(TissueParam,2)
