@@ -39,7 +39,7 @@ cst  = matRad_setOverlapPriorities(cst);
 
 % check consistency of computed biological quantities
 if ~strcmp(pln.radiationMode, 'photons')
-    if ~strcmp(pln.propOpt.quantityOpt, 'physicalDose') && isfield(pln.bioParam) && ~isempty(pln.bioParam)
+    if ~strcmp(pln.propOpt.quantityOpt, 'physicalDose') && ~isempty(pln.bioParam)
         if (isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')) || isfield(dij, 'RBE') &&  ~(strcmp(pln.bioParam.model, 'constRBE') &&  strcmp(pln.propOpt.quantityOpt, 'effect')) % also excludes case of constRBE and effect
             pln.propOpt.bioOpt = 1;
             matRad_cfg.dispInfo(['Optimization of quantity: ', pln.propOpt.quantityOpt, ' available.\n']);
