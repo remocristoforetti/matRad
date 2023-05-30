@@ -171,17 +171,37 @@ end
 % compute SSDs -> Removed for now because it is scenario-dependent
 % stf = matRad_computeSSD(stf,ct);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%% bioModel consistency %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %check presence and consistency of biological model. Shall this stay here?
 %This script is called also for photons but this part should not be
 %necessary in photon case
-if isfield(pln, 'bioParam')
+if isfield(pln, 'bioParam') && ~isempty(pln.bioParam)
 
     if isa(pln.bioParam, 'matRad_BiologicalModel')
-        
-        pln.bioParam.baseData = pln.machine;
+        %Changes made to this pln.bioParam are only seen by the
+        %calcParticle/calcPhotonDose
+        if strcmp(pln.radiationMode, pln.bioParam.radiationMode)
+            pln.bioParam.baseData = pln.machine;
+        else
+            matRad_cfg.dispError(['Radiation modality does not coincide with radiationMode for current biological model.\n']);
+        end
+    else
+        matRad_cfg.dispError(['pln field bioParam is reserved for instance of matRad_BiologicalModel class. The provided instance is not correct.\n']);
     end
+else
+    pln.bioParam.model = 'no biological model has been loaded';
+    pln.bioParam.calcBioParameters = 0;
 end
 
+% if pln.bioParam.calcBioParameters
+%     for k=1:size(pln.bioParam.requiredDijFields,2)
+%         fieldName = pln.bioParam.requiredDijFields{k};
+%         dij.(fieldName) = [];
+%     end
+% end
 %Could instantiate here the fields that need to be computed by biological
 %model. Now this will always be mAlphaDose and mSqrtBetaDose, but later on
 %can be IDs for example

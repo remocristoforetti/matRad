@@ -20,7 +20,7 @@ if mod(counter,numOfBixelsContainer) == 0 || counter == dij.totalNumOfBixels
                         dij.mLETDose{ctScen,shiftScen,rangeShiftScen}(:,i) = dij.mLETDose{ctScen,shiftScen,rangeShiftScen}(:,i) + rayWeight * letDoseTmpContainer{1,ctScen,shiftScen,rangeShiftScen};
                     end
                     
-                    if pln.bioParam.calcBioParameters
+                    if pln.bioParam.calcBioParameters% && isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')
                         % score alphaxDose and sqrt(beta)xDose matrices
                         dij.mAlphaDose{ctScen,shiftScen,rangeShiftScen}(:,i)    = dij.mAlphaDose{ctScen,shiftScen,rangeShiftScen}(:,i)    + rayWeight * alphaDoseTmpContainer{1,ctScen,shiftScen,rangeShiftScen};
                         dij.mSqrtBetaDose{ctScen,shiftScen,rangeShiftScen}(:,i) = dij.mSqrtBetaDose{ctScen,shiftScen,rangeShiftScen}(:,i) + rayWeight * betaDoseTmpContainer{1,ctScen,shiftScen,rangeShiftScen};
@@ -37,7 +37,7 @@ if mod(counter,numOfBixelsContainer) == 0 || counter == dij.totalNumOfBixels
                         dij.mLETDose{ctScen,shiftScen,rangeShiftScen}(:,dijIx) = [letDoseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];
                     end
                     
-                    if pln.bioParam.calcBioParameters
+                    if pln.bioParam.calcBioParameters% && isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')
                         % fill entire alphaxDose influence and sqrt(beta)xDose influence matrices
                         dij.mAlphaDose{ctScen,shiftScen,rangeShiftScen}(:,dijIx)    = [alphaDoseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];
                         dij.mSqrtBetaDose{ctScen,shiftScen,rangeShiftScen}(:,dijIx) = [betaDoseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];

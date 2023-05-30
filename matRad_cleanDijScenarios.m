@@ -47,7 +47,7 @@ for i = 1:pln.multScen.numOfCtScen
                dij.mLETDose{i,j,k}(ix,:)      = 0;
             end
             
-            if pln.bioParam.calcBioParameters
+            if pln.bioParam.calcBioParameters% && isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')
                dij.mAlphaDose{i,j,k}(ix,:)    = 0;
                dij.mSqrtBetaDose{i,j,k}(ix,:) = 0;
             end
