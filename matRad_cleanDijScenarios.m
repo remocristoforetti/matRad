@@ -47,7 +47,7 @@ for i = 1:pln.multScen.numOfCtScen
                dij.mLETDose{i,j,k}(ix,:)      = 0;
             end
             
-            if pln.bioParam.bioOpt
+            if pln.bioParam.calcBioParameters
                dij.mAlphaDose{i,j,k}(ix,:)    = 0;
                dij.mSqrtBetaDose{i,j,k}(ix,:) = 0;
             end

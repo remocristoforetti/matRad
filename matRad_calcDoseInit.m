@@ -170,3 +170,18 @@ end
 
 % compute SSDs -> Removed for now because it is scenario-dependent
 % stf = matRad_computeSSD(stf,ct);
+
+%check presence and consistency of biological model. Shall this stay here?
+%This script is called also for photons but this part should not be
+%necessary in photon case
+if isfield(pln, 'bioParam')
+
+    if isa(pln.bioParam, 'matRad_BiologicalModel')
+        
+        pln.bioParam.baseData = pln.machine;
+    end
+end
+
+%Could instantiate here the fields that need to be computed by biological
+%model. Now this will always be mAlphaDose and mSqrtBetaDose, but later on
+%can be IDs for example
