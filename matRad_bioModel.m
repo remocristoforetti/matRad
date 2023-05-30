@@ -1,4 +1,4 @@
-function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel)
+function model = matRad_bioModel(sRadiationMode, sModel)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  matRad_bioModel
 %  This is a helper function to instantiate a matRad_BiologicalModel. This
@@ -12,8 +12,7 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel)
 %
 % input
 %   sRadiationMode:     radiation modality 'photons' 'protons' 'carbon'
-%   sQuantityOpt:       string to denote the quantity used for
-%                       optimization 'physicalDose', 'RBExD', 'effect'
+%   
 %   sModel:             string to denote which biological model is used
 %                       'none': for photons, protons, carbon                'constRBE': constant RBE for photons and protons
 %                       'MCN': McNamara-variable RBE model for protons      'WED': Wedenberg-variable RBE model for protons
@@ -37,6 +36,16 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-model = matRad_BiologicalModel(sRadiationMode,sQuantityOpt,sModel);
+matRad_cfg = MatRad_Config.instance();
 
+switch sModel
+    case 'MCN'
+        model = matRad_bioModelMCN(sRadiationMode);
+    case 'LEM'
+        model = matRad_bioModel_LEM(sRadiationMode);
+
+    otherwise
+        model = [];
+        matRad_cfg.dispError('Unrecognized model');
+end
 end % end class definition
