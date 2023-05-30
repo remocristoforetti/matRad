@@ -41,10 +41,10 @@ for qtOpt = quantitiesOptimization
     %for model = modelNamesPhotons
         currentTable.setupRadiationMode = pln.radiationMode;
         currentTable.setupQuantityOpt   = qtOpt;
-        %currentTable.setupModel         = model{1};
+        currentTable.setupModel         = [];
         %pln.bioParam = matRad_bioModel(pln.radiationMode,model{1});
 
-        %currentTable.model = pln.bioParam.model;
+        currentTable.model = [];
         
         try
             pln.propOpt.quantityOpt = qtOpt{1};
@@ -113,7 +113,9 @@ for qtOpt = quantitiesOptimization
         currentTable.model = pln.bioParam.model;
         
         try
+
             pln.propOpt.quantityOpt = qtOpt{1};
+            
             dij = matRad_calcParticleDose(ct,stf,pln,cst,0);
             resultGUI = matRad_fluenceOptimization(dij,cst,pln);
             currentTable.calcBioParametrs = pln.bioParam.calcBioParameters;
