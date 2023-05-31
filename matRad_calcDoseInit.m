@@ -171,18 +171,10 @@ end
 % compute SSDs -> Removed for now because it is scenario-dependent
 % stf = matRad_computeSSD(stf,ct);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%% bioModel consistency %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%check presence and consistency of biological model. Shall this stay here?
-%This script is called also for photons but this part should not be
-%necessary in photon case
+% bioModel consistency check
 if isfield(pln, 'bioParam') && ~isempty(pln.bioParam)
 
     if isa(pln.bioParam, 'matRad_BiologicalModel')
-        %Changes made to this pln.bioParam are only seen by the
-        %calcParticle/calcPhotonDose
         if strcmp(pln.radiationMode, pln.bioParam.radiationMode)
             pln.bioParam.machine = machine;
         else
@@ -195,10 +187,3 @@ else
     pln.bioParam.model = 'no biological model has been loaded';
     pln.bioParam.calcBioParameters = 0;
 end
-
-% if pln.bioParam.calcBioParameters
-%     for k=1:size(pln.bioParam.requiredDijFields,2)
-%         fieldName = pln.bioParam.requiredDijFields{k};
-%         dij.(fieldName) = [];
-%     end
-% end
