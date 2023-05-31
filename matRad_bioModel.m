@@ -50,6 +50,10 @@ switch sModel
 
     case 'constRBE'
         model = matRad_bioModel_constRBE(sRadiationMode);
+    case 'none'
+        model = matRad_bioModel_none(sRadiationMode);
+    case 'HEL'
+        model = matRad_bioModel_HEL(sRadiationMode);
     otherwise
         model = [];
         matRad_cfg.dispError('Unrecognized model');
