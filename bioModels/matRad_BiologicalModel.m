@@ -67,7 +67,7 @@ classdef matRad_BiologicalModel < handle
             end
             if ~(isempty(currmachine) && isempty(value)) && ~strcmp(currmachine_name,machine_name)
                 if ~isempty(value)
-                    if ~isempty(obj.radiationMode) %here if radiationMode is empty, dose nothing -> change
+                    if ~isempty(obj.radiationMode) %here if radiationMode is empty, dose nothing -> change later
                                 
                            matRad_cfg.dispInfo('Checking validity of base data ...');
                            
@@ -115,10 +115,6 @@ classdef matRad_BiologicalModel < handle
             matRad_cfg = MatRad_Config.instance();
 
 
-            % Is this necessary?
-            %currRadiationMode = obj.radiationMode;
-            %obj.radiationMode = currRadiationMode;
-
             currmachine = obj.machine;
             obj.machine = currmachine;
 
@@ -127,14 +123,11 @@ classdef matRad_BiologicalModel < handle
             currmachine = obj.machine;
 
             if ~isempty(currRadiationMode) && ~isempty(currmachine)
-                %For now, exclude alpha/beta calculation with photons
+
                 if ~strcmp(obj.radiationMode, 'photons')
                     obj.calcBioParameters = 1;
                     matRad_cfg.dispInfo('All parameters are correct, enabling biological model calculation.\n');
                 end
-            % elseif ~isempty(currRadiationMode) && isempty(currmachine) && isempty(obj.RequiredBaseData)
-            %      obj.calcBioParameters = 1;
-            %      matRad_cfg.dispInfo('All parameters are correct, enabling biological model calculation.\n');
             else
                 obj.calcBioParameters = 0;
             end
