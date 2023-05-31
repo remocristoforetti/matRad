@@ -19,7 +19,7 @@ run(['..' filesep 'matRad_rc']);
 %% Prepare settings for testing
 matRad_cfg = MatRad_Config.instance();
 matRad_cfg.setDefaultPropertiesForTesting();
-
+matRad_cfg.disableGUI = true;
 % supressing the inherent Ocatave warnings for division by zero
 if matRad_cfg.isOctave
     warning('off','Octave:divide-by-zero');
@@ -28,7 +28,14 @@ end
 % Start the parallel pool explicitly. Otherwise, R2023a seems to throw an
 % error during testing
 if matRad_cfg.isMatlab
-    parpool;
+    
+    %get current pool
+    p = gcp('nocreate');
+
+    %if empty, start
+    if isempty(p)
+        parpool;
+    end
 end
 
 % Define Scripts
