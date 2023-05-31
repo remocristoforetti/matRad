@@ -37,37 +37,44 @@ matRad_cfg = MatRad_Config.instance();
 % consider VOI priorities
 cst  = matRad_setOverlapPriorities(cst);
 
-% check consistency of computed biological quantities
-if ~strcmp(pln.radiationMode, 'photons')
-    if ~strcmp(pln.propOpt.quantityOpt, 'physicalDose') && ~isempty(pln.bioParam)
-        if (isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')) || isfield(dij, 'RBE') &&  ~(strcmp(pln.bioParam.model, 'constRBE') &&  strcmp(pln.propOpt.quantityOpt, 'effect')) % also excludes case of constRBE and effect
-            pln.propOpt.bioOpt = 1;
-            matRad_cfg.dispInfo(['Optimization of quantity: ', pln.propOpt.quantityOpt, ' available.\n']);
-        else
-            pln.propOpt.bioOpt = 0;
-            matRad_cfg.dispError(['Optimization of quantity: ', pln.propOpt.quantityOpt, ' not available. Check consistency of biological model and provide correct dij.\n']);
-    
-        end
-    elseif strcmp(pln.propOpt.quantityOpt, 'physicalDose') && isfield(dij, 'mAlphaDose')
-        pln.propOpt.bioOpt = 0; 
-        matRad_cfg.dispWarning(['bioModel: ', pln.bioParam.model, ' provided but optimization quantity is set to physicalDose.\n']);
-    else
-        pln.propOpt.bioOpt = 0;
-    end
-else % for photons, no mAlphaDose/mSqrtBetaDose is required
-     if ~strcmp(pln.propOpt.quantityOpt, 'physicalDose')
-        % if isfield(dij, 'ax') && isfield(dij, 'bx')
-        %     pln.propOpt.bioOpt = 1;
-        %     matRad_cfg.dispInfo(['Optimization of quantity: ', pln.propOpt.quantityOpt, ' available.\n']);
-        % else
-        %     pln.propOpt.bioOpt = 0;
-        %     matRad_cfg.dispInfo(['Optimization of quantity: ', pln.propOpt.quantityOpt, ' not available. Provide correct dij.\n']);
-        % end
+switch pln.propOpt.quantityOpt
+    case 'physicalDose'
         
-        matRad_cfg.dispError(['Optimization of quantity: ', pln.propOpt.quantityOpt, ' not available.\n']);
-     else
-        pln.propOpt.bioOpt = 0;
-    end
+        backProjection = matRad_DoseProjection;
+        
+        matRad_cfg.dispInfo(['Phyisical dose backprojection successfuly set!\n']);
+        
+        if isfield(pln,'bioParam') && ~isempty(pln.bioParam)
+            matRad_cfg.dispWarning(['biological model detected in pln.bioParam, this does not affect the physical dose optimization.']);
+        end
+
+    case 'RBExD'
+        if strcmp(pln.radiationMode, 'photons')
+            matRad_cfg.dispError(['RBExD optimization with photons not supported\n']);
+        else
+            if isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')
+               backProjection = matRad_VariableRBEProjection;
+               matRad_cfg.dispInfo(['VariableRBE backprojection successfuly set!\n']);
+            elseif isfield(dij, 'RBE')
+               backProjection = matRad_ConstantRBEProjection;
+               matRad_cfg.dispInfo(['constant RBE backprojection successfuly set!\n']);
+            else
+               matRad_cfg.dispError(['Optimization quantity RBExD not available. Check consistency of biological model and provide correct dij.\n']);
+            end
+        end
+    case 'effect'
+        if strcmp(pln.radiationMode, 'photons')
+            matRad_cfg.dispError(['effect optimization with photons not supported\n']);
+        else
+            if isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')
+               backProjection = matRad_EffectProjection;
+               matRad_cfg.dispInfo(['effect backprojection successfuly set!\n']);
+            else
+               matRad_cfg.dispError(['Optimization quantity effect not available. Check consistency of biological model and provide correct dij.\n']);
+            end
+        end
+    otherwise
+        matRad_cfg.dispError(['Quantity of Optimization :', pln.propOpt.quantityOpt, ' not supported.\n']);
 end
 
 % check & adjust objectives and constraints internally for fractionation
@@ -137,7 +144,7 @@ if exist('wInit','var')
     matRad_cfg.dispInfo('chosen provided wInit!\n');
 
     % Write ixDose which is needed for the optimizer
-    if pln.propOpt.bioOpt
+    if ~isa(backProjection, 'matRad_DoseProjection')
         dij.ixDose  = dij.bx~=0;
 
         %pre-calculations
@@ -145,7 +152,7 @@ if exist('wInit','var')
         dij.gamma(dij.ixDose) = dij.ax(dij.ixDose)./(2*dij.bx(dij.ixDose));
     end
 
-elseif isfield(pln, 'bioParam') && ~isempty(pln.bioParam) && strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'protons')
+elseif isa(backProjection, 'matRad_ConstRBEProjection')
     % check if a constant RBE is defined - if not use 1.1
     if ~isfield(dij,'RBE')
         dij.RBE = 1.1;
@@ -156,7 +163,7 @@ elseif isfield(pln, 'bioParam') && ~isempty(pln.bioParam) && strcmp(pln.bioParam
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
 
-elseif pln.propOpt.bioOpt
+elseif isa(backProjection, 'matRad_EffectProjection')
 
     % retrieve photon LQM parameter
     [ax,bx] = matRad_getPhotonLQMParameters(cst,dij.doseGrid.numOfVoxels,dij.numOfScenarios);
@@ -179,18 +186,7 @@ elseif pln.propOpt.bioOpt
 
     dij.ixDose  = dij.bx~=0;
 
-        if isequal(pln.propOpt.quantityOpt,'effect')
-
-        effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
-        aTmp = dij.mAlphaDose{1}*wOnes;
-        bTmp = dij.mSqrtBetaDose{1} * wOnes;
-        p = sum(aTmp(V)) / sum(bTmp(V).^2);
-        q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
-
-        wInit        = -(p/2) + sqrt((p^2)/4 -q) * wOnes;
-
-    elseif isequal(pln.propOpt.quantityOpt,'RBExD')
-
+    if isa(backProjection, 'matRad_VariableRBEProjection')
         %pre-calculations
         dij.gamma             = zeros(dij.doseGrid.numOfVoxels,dij.numOfScenarios);
         dij.gamma(dij.ixDose) = dij.ax(dij.ixDose)./(2*dij.bx(dij.ixDose));
@@ -207,6 +203,16 @@ elseif pln.propOpt.bioOpt
         maxCurrRBE = max(-cst{ixTarget,5}.alphaX + sqrt(cst{ixTarget,5}.alphaX^2 + ...
             4*cst{ixTarget,5}.betaX.*CurrEffectTarget)./(2*cst{ixTarget,5}.betaX*doseTmp(V)));
         wInit    =  ((doseTarget)/(TolEstBio*maxCurrRBE*max(doseTmp(V))))* wOnes;
+
+    else
+
+        effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
+        aTmp = dij.mAlphaDose{1}*wOnes;
+        bTmp = dij.mSqrtBetaDose{1} * wOnes;
+        p = sum(aTmp(V)) / sum(bTmp(V).^2);
+        q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
+
+        wInit        = -(p/2) + sqrt((p^2)/4 -q) * wOnes;
     end
     matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
 else
@@ -259,23 +265,6 @@ if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defin
     ixForOpt = scen4D;
 else
     ixForOpt = linIxDIJ;
-end
-
-switch pln.propOpt.quantityOpt
-    case 'effect'
-        backProjection = matRad_EffectProjection;
-    case 'RBExD'
-        %Capture special case of constant RBE
-        if strcmp(pln.bioParam.model,'constRBE')
-            backProjection = matRad_ConstantRBEProjection;
-        else
-            backProjection = matRad_VariableRBEProjection;
-        end
-    case 'physicalDose'
-        backProjection = matRad_DoseProjection;
-    otherwise
-        warning(['Did not recognize bioloigcal setting ''' pln.probOpt.bioOptimization '''!\nUsing physical dose optimization!']);
-        backProjection = matRad_DoseProjection;
 end
 
 %Give scenarios used for optimization
