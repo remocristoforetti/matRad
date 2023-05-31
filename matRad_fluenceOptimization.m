@@ -330,12 +330,19 @@ resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
 
+switch pln.propOpt.quantityOpt
+    case 'physicalDose'
+        quantityVis = 'physicalDose';
+    case {'RBExD', 'effect'}
+        quantityVis = 'RBExD';
+end
+
 %Robust quantities
 if FLAG_ROB_OPT || numel(ixForOpt) > 1
     Cnt = 1;
     for i = find(~cellfun(@isempty,dij.physicalDose))'
         tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
-        resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
+        resultGUI.([quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(quantityVis);
         Cnt = Cnt + 1;
     end
 end

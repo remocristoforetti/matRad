@@ -46,6 +46,14 @@ if ct.numOfCtScen > 1
    ctSamp.numOfCtScen = 1;
 end
 
+switch pln.propOpt.quantityOpt
+   case 'physicalDose'
+        quantityVis = 'physicalDose';
+   case {'RBExD', 'effect'}
+        quantityVis = 'RBExD';
+end
+
+
 % either use existing multScen struct or create new one
 if exist('multScen','var') && ~isempty(multScen)
     pln.multScen = multScen;
@@ -110,11 +118,11 @@ nomScenTime      = toc(nomScenTimer);
 matRad_cfg.dispInfo('Finished nominal Scenario Calculation. Computation time: %f h \n',round(nomScenTime / 3600));
 
 refVol = [2 5 50 95 98];
-refGy = linspace(0,max(resultGUInomScen.(pln.bioParam.quantityVis)(:)),6);
+refGy = linspace(0,max(resultGUInomScen.(quantityVis)(:)),6);
 
-resultGUInomScen.dvh = matRad_calcDVH(cst,resultGUInomScen.(pln.bioParam.quantityVis),'cum');
+resultGUInomScen.dvh = matRad_calcDVH(cst,resultGUInomScen.(quantityVis),'cum');
 dvhPoints            = resultGUInomScen.dvh(1).doseGrid;
-nomQi                = matRad_calcQualityIndicators(cst,pln,resultGUInomScen.(pln.bioParam.quantityVis),refGy,refVol);
+nomQi                = matRad_calcQualityIndicators(cst,pln,resultGUInomScen.(quantityVis),refGy,refVol);
 
 resultGUInomScen.qi  = nomQi;
 resultGUInomScen.cst = cst;
@@ -153,15 +161,15 @@ if FlagParallToolBoxLicensed
           plnSamp.multScen = pln.multScen.extractSingleNomScen(ctScenSampling,i);
           
           resultSamp                 = matRad_calcDoseDirect(ct,stf,plnSamp,cst,w);
-          sampledDose                = resultSamp.(pln.bioParam.quantityVis)(subIx);
+          sampledDose                = resultSamp.(quantityVis)(subIx);
           mSampDose(:,i)             = single(reshape(sampledDose,[],1));
           caSampRes(i).bioParam      = pln.bioParam;
           caSampRes(i).relRangeShift = plnSamp.multScen.relRangeShift;
           caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
           caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
           
-          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
-          caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
+          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(quantityVis),'cum',dvhPoints);
+          caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(quantityVis),refGy,refVol);
           
           if FlagParforProgressDisp
             parfor_progress;
@@ -190,15 +198,15 @@ end
           plnSamp.multScen = pln.multScen.extractSingleNomScen(ctScenSampling,i);
           
           resultSamp                 = matRad_calcDoseDirect(ct,stf,plnSamp,cst,w);
-          sampledDose                = resultSamp.(pln.bioParam.quantityVis)(subIx);
+          sampledDose                = resultSamp.(quantityVis)(subIx);
           mSampDose(:,i)             = single(reshape(sampledDose,[],1));
           caSampRes(i).bioParam      = pln.bioParam;
           caSampRes(i).relRangeShift = plnSamp.multScen.relRangeShift;
           caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
           caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
           
-          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
-          caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
+          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(quantityVis),'cum',dvhPoints);
+          caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(quantityVis),refGy,refVol);
           matRad_progress(i, pln.multScen.totNumScen)
     end
     

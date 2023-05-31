@@ -109,11 +109,17 @@ switch env
         doseStat.stdCubeW(ix)  = doseStat.stdCube(ix);
      end
 end
-    
+
+switch pln.propOpt.quantityOpt
+   case 'physicalDose'
+        quantityVis = 'physicalDose';
+   case {'RBExD', 'effect'}
+        quantityVis = 'RBExD';
+end    
 
 % gamma cube
-doseCube = resultGUInomScen.(pln.bioParam.quantityVis);
-if strncmp(pln.bioParam.quantityVis,'RBExD', 5)
+doseCube = resultGUInomScen.(quantityVis);
+if strncmp(quantityVis,'RBExD', 5)
     doseStat.gammaAnalysis.cube1Name = 'resultGUInomScen.RBExD';
 else
     doseStat.gammaAnalysis.cube1Name = 'resultGUInomScen.physicalDose';
