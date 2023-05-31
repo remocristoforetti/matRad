@@ -50,7 +50,12 @@ classdef matRad_BiologicalModel < handle
 
             currmachine = obj.machine;
             if  ~isempty(value)
-                machine_name = [value.meta.machine];
+                try
+                    machine_name = [value.meta.machine];
+                catch
+
+                    machine_name = [value.meta.name]; %photon machine has meta.name instead of meta.machine
+                end
             else
                 machine_name = [];
             end
