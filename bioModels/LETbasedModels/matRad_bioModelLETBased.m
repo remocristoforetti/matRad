@@ -21,7 +21,6 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
     methods
         function obj = matRad_bioModelLETBased(radiationMode)
             obj@matRad_BiologicalModel(radiationMode);
-            %obj.radiationMode = radiationMode;
         end
 
         function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
