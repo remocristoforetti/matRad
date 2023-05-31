@@ -60,10 +60,10 @@ pln.propOpt.runSequencing           = 0;
 % standard and use a constant relative biological effectiveness of 1.1. 
 % Therefore we set modelName to constRBE
 modelName    = 'constRBE';
-quantityOpt  = 'RBExD'; 
+pln.propOpt.quantityOpt  = 'RBExD'; 
 
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode,modelName);
 
 % retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'nomScen');  % optimize on the nominal scenario

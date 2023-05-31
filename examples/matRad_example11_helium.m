@@ -1,5 +1,5 @@
 %% Example: Proton Treatment Plan with subsequent Isocenter shift
-%
+%quantityOpt
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2017 the matRad development team. 
@@ -61,12 +61,12 @@ pln.propOpt.runSequencing = 0;
 % we follow a data-driven RBE parametrization to obtbain the variable 
 % relative biological effectiveness. 
 
-quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
+pln.propOpt.quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
 modelName     = 'HEL';              % none: for photons, protons, carbon                   constRBE: constant RBE model
                                     % MCN: McNamara-variable RBE model for protons         WED: Wedenberg-variable RBE model for protons 
                                     % LEM: Local Effect Model for carbon ions              HEL: data-driven RBE parametrization for helium
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode, modelName);
 
 % dose calculation settings
 pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]

@@ -65,12 +65,12 @@ pln.propOpt.runSequencing = 0;
 % Define the flavor of biological optimization for treatment planning along
 % with the quantity that should be used for optimization.
 
-quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
+pln.propOpt.quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
 modelName     = 'constRBE';         % none: for photons, protons, carbon                                    constRBE: constant RBE model
                                     % MCN: McNamara-variable RBE model for protons                          WED: Wedenberg-variable RBE model for protons 
                                     % LEM: Local Effect Model for carbon ions
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'nomScen');

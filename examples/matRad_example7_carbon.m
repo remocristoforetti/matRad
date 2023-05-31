@@ -56,7 +56,7 @@ pln.machine       = 'Generic';
 % As we use carbons, we use the local effect model.
 % Therefore we set modelName to LEM
 modelName           = 'LEM';
-quantityOpt         = 'RBExD';   
+pln.propOpt.quantityOpt         = 'RBExD';   
 
 %%
 % The remaining plan parameters are set like in the previous example files
@@ -70,7 +70,7 @@ pln.propOpt.runDAO        = 0;
 pln.propOpt.runSequencing = 0;
 
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode,modelName);
 
 % retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'nomScen'); % optimize on the nominal scenario                                            
@@ -124,8 +124,8 @@ imagesc(resultGUI.LET(:,:,slice)),colorbar, colormap(jet);
 % To perform a dose optimization for carbon ions we can also use the
 % biological effect instead of the RBE-weighted dose. Therefore we have to
 % change the optimization mode and restart the optimization
-quantityOpt  = 'effect'; 
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
+pln.propOpt.quantityOpt  = 'effect'; 
+pln.bioParam = matRad_bioModel(pln.radiationMode,modelName);
 
 resultGUI_effect = matRad_fluenceOptimization(dij,cst,pln);
 

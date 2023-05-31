@@ -156,7 +156,7 @@ pln.machine       = 'Generic';
 % and possible quantityOpt are 'physicalDose', 'effect' or 'RBExD'.
 % As we use protons, we use a constant RBE of 1.1.
 modelName    = 'constRBE';
-quantityOpt  = 'RBExD';   
+pln.propOpt.quantityOpt  = 'RBExD';   
 
 %%
 % The remaining plan parameters are set like in the previous example files
@@ -170,7 +170,7 @@ pln.propOpt.runDAO        = 0;
 pln.propOpt.runSequencing = 0;
 
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode,modelName);
 
 % retrieve 9 worst case scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'wcScen');                                         

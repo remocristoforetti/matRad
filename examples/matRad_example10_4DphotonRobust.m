@@ -175,7 +175,7 @@ pln.machine       = 'Generic';
 % and possible quantityOpt are 'physicalDose', 'effect' or 'RBExD'.
 % As we use protons, we use a constant RBE of 1.1.
 modelName    = 'none';
-quantityOpt  = 'physicalDose';   
+pln.propOpt.quantityOpt  = 'physicalDose';   
 
 %%
 % The remaining plan parameters are set like in the previous example files
@@ -194,7 +194,7 @@ pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode,modelName);
 
 % retrieve 9 worst case scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'nomScen');                                         
@@ -249,33 +249,33 @@ totalPhaseMatrix = bsxfun(@times,totalPhaseMatrix,resultGUIrobust.w);         % 
 
 plane         = 3;
 slice         = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-maxDose       = max([max(resultGUI.([quantityOpt])(:,:,slice)) max(resultGUIrobust.([quantityOpt])(:,:,slice))])+1e-4;
+maxDose       = max([max(resultGUI.([pln.propOpt.quantityOpt])(:,:,slice)) max(resultGUIrobust.([pln.propOpt.quantityOpt])(:,:,slice))])+1e-4;
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 figure,
-subplot(121),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.([quantityOpt '_' 'beam1'])      ,plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('conventional plan - beam1')
-subplot(122),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.([quantityOpt])      ,plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('conventional plan')
+subplot(121),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.([pln.propOpt.quantityOpt '_' 'beam1'])      ,plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('conventional plan - beam1')
+subplot(122),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.([pln.propOpt.quantityOpt])      ,plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('conventional plan')
 
 figure
-subplot(121),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([quantityOpt '_' 'beam1']),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan - beam1')
-subplot(122),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([quantityOpt]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan')
+subplot(121),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([pln.propOpt.quantityOpt '_' 'beam1']),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan - beam1')
+subplot(122),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([pln.propOpt.quantityOpt]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan')
 
 
 figure
-subplot(131),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust4D.([quantityOpt]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan')
+subplot(131),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust4D.([pln.propOpt.quantityOpt]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan')
 subplot(132),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust4D.('accPhysicalDose'),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan dose accumulation')
 
 % create an interactive plot to slide through individual scnearios
 f       = figure; title('individual scenarios');
 numScen = 1;
-maxDose       = max(max(resultGUIrobust.([quantityOpt '_' num2str(round(numScen))])(:,:,slice)))+0.2;
+maxDose       = max(max(resultGUIrobust.([pln.propOpt.quantityOpt '_' num2str(round(numScen))])(:,:,slice)))+0.2;
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([quantityOpt '_' num2str(round(numScen))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([pln.propOpt.quantityOpt '_' num2str(round(numScen))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);
 
 [env,envver] = matRad_getEnvironment();
 if strcmp(env,'MATLAB') || str2double(envver(1)) >= 5
     b = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
         'value',numScen, 'min',1, 'max',pln.multScen.totNumScen,'SliderStep', [1/(pln.multScen.totNumScen-1) , 1/(pln.multScen.totNumScen-1)]);
-    set(b,'Callback',@(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(get(es,'Value')),resultGUIrobust.([quantityOpt '_' num2str(round(get(es,'Value')))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels));
+    set(b,'Callback',@(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(get(es,'Value')),resultGUIrobust.([pln.propOpt.quantityOpt '_' num2str(round(get(es,'Value')))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels));
 end
 
 %% Indicator calculation and show DVH and QI

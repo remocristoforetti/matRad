@@ -158,12 +158,12 @@ pln.propOpt.runSequencing   = false;  % 1/true: run sequencing, 0/false: don't /
 pln.multScen = matRad_multScen(ct,'nomScen');
 
 
-quantityOpt   = 'physicalDose';            % either  physicalDose / effect / RBExD
+pln.propOpt.quantityOpt   = 'physicalDose';            % either  physicalDose / effect / RBExD
 modelName     = 'none';         % none: for photons, protons, carbon                                    constRBE: constant RBE model
                                     % MCN: McNamara-variable RBE model for protons                          WED: Wedenberg-variable RBE model for protons 
                                     % LEM: Local Effect Model for carbon ions
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode, modelName);
 
 
 %% generate steering file

@@ -200,7 +200,7 @@ pln.machine       = 'Generic';
 % 'LEM':      Local Effect Model 
 % and possible quantityOpt are 'physicalDose', 'effect' or 'RBExD'.
 modelName    = 'none';
-quantityOpt  = 'physicalDose';                                             
+pln.propOpt.quantityOpt  = 'physicalDose';                                             
 
 %%
 % The remaining plan parameters are set like in the previous example files
@@ -214,7 +214,7 @@ pln.propOpt.runDAO        = 0;
 pln.propOpt.runSequencing = 0;
 
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode,modelName);
 
 % retrieve nominal scenario for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'nomScen'); 

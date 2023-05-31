@@ -43,11 +43,11 @@ pln.propStf.isoCenter       = ones(pln.propStf.numOfBeams,1) * matRad_getIsoCent
 pln.propOpt.runSequencing   = 0;
 pln.propOpt.runDAO          = 0;
 
-quantityOpt    = 'physicalDose';                                     
+pln.propOpt.quantityOpt    = 'physicalDose';                                     
 modelName      = 'none';  
 
 % retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
+pln.bioParam = matRad_bioModel(pln.radiationMode, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'nomScen');
