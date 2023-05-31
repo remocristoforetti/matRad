@@ -2,6 +2,7 @@
 matRad_rc;
 matRad_cfg = MatRad_Config.instance();
 load('BOXPHANTOM.mat');
+matRad_cfg.propOpt.defaultMaxIter = 10;
 %% Plan setup
 
 %Define generic plan info
@@ -21,8 +22,8 @@ pln.propDoseCalc.doseGrid.resolution.y = 8; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 8; % [mm]
 
 %% Instantiate table for output
-
 outcomeStruct = [];
+
 %% Select quantities to be tested
 quantitiesOptimization = {'physicalDose', 'RBExD', 'effect'};
 
@@ -45,15 +46,17 @@ for qtOpt = quantitiesOptimization
         %pln.bioParam = matRad_bioModel(pln.radiationMode,model{1});
 
         currentTable.model = [];
-        
+        backProjection = [];
         try
             pln.propOpt.quantityOpt = qtOpt{1};
             dij = matRad_calcPhotonDose(ct,stf,pln,cst,0);
-            resultGUI = matRad_fluenceOptimization(dij,cst,pln);
+            [resultGUI, ~, backProjection] = matRad_fluenceOptimization(dij,cst,pln);
             currentTable.calcBioParametrs = [];
+            currentTable.backProjection = class(backProjection);
             currentTable.optimized = true;
         catch
             currentTable.optimized = false;
+            currentTable.backProjection = class(backProjection);
         end
         outcomeStruct = [outcomeStruct, currentTable];
     %end
@@ -77,15 +80,17 @@ for qtOpt = quantitiesOptimization
         pln.bioParam = matRad_bioModel(pln.radiationMode,model{1});
 
         currentTable.model = pln.bioParam.model;
-        
+        backProjection = [];
         try
             pln.propOpt.quantityOpt = qtOpt{1};
             dij = matRad_calcParticleDose(ct,stf,pln,cst,0);
-            resultGUI = matRad_fluenceOptimization(dij,cst,pln);
             currentTable.calcBioParametrs = pln.bioParam.calcBioParameters;
+            [resultGUI, ~, backProjection] = matRad_fluenceOptimization(dij,cst,pln);
+            currentTable.backProjection  = class(backProjection);
             currentTable.optimized = true;
         catch
             currentTable.optimized = false;
+            currentTable.backProjection  = class(backProjection);
         end
         outcomeStruct = [outcomeStruct, currentTable];
     end
@@ -111,25 +116,27 @@ for qtOpt = quantitiesOptimization
         pln.bioParam = matRad_bioModel(pln.radiationMode,model{1});
 
         currentTable.model = pln.bioParam.model;
-        
+        backProjection = [];
         try
 
             pln.propOpt.quantityOpt = qtOpt{1};
             
             dij = matRad_calcParticleDose(ct,stf,pln,cst,0);
-            resultGUI = matRad_fluenceOptimization(dij,cst,pln);
+            [resultGUI, ~, backProjection] = matRad_fluenceOptimization(dij,cst,pln);
             currentTable.calcBioParametrs = pln.bioParam.calcBioParameters;
+            currentTable.backProjection = class(backProjection);
             currentTable.optimized = true;
         catch
             currentTable.optimized = false;
+            currentTable.backProjection  = class(backProjection);
         end
         outcomeStruct = [outcomeStruct, currentTable];
     end
 end
 
 %% Print table for results
-outcomeTable = table('Size', [length(outcomeStruct) 3], 'VariableTypes', {'string', 'logical', 'logical'});
-outcomeTable.Properties.VariableNames = {'model', 'calcBioParameters', 'optimized'};
+outcomeTable = table('Size', [length(outcomeStruct) 4], 'VariableTypes', {'string','logical','string', 'logical'});
+outcomeTable.Properties.VariableNames = {'model', 'calcBioParameters','backProjection', 'optimized'};
 %outcomeTable = outcomeStruct;
 
 for k = 1:(length(outcomeStruct))
@@ -139,24 +146,25 @@ end
 outcomeTable.Properties.RowNames = rowNames;
 outcomeTable.model               = {outcomeStruct.model}';
 outcomeTable.calcBioParameters   = {outcomeStruct.calcBioParametrs}';
+outcomeTable.backProjection       = {outcomeStruct.backProjection}';
 outcomeTable.optimized           = {outcomeStruct.optimized}';
 
-%% Rerun model photons
-pln.radiationMode = 'photons';
-quantityOpt = 'RBExD';
-modelName = 'none';
-stf = matRad_generateStf(ct,cst,pln);
-
-pln.bioParam = matRad_bioModel(pln.radiationMode, quantityOpt,modelName,pln.machine);
-dij = matRad_calcPhotonDose(ct,stf, pln, cst, 0);
-resultGUI = matRad_fluenceOptimization(dij,cst,pln);
-
-%% Rerun model protons
-pln.radiationMode = 'protons';
-quantityOpt = 'RBExD';
-modelName = 'constRBE';
-stf = matRad_generateStf(ct,cst,pln);
-
-pln.bioParam = matRad_bioModel(pln.radiationMode, quantityOpt,modelName,pln.machine);
-dij = matRad_calcParticleDose(ct,stf, pln, cst, 0);
-resultGUI = matRad_fluenceOptimization(dij,cst,pln);
+% %% Rerun model photons
+% pln.radiationMode = 'photons';
+% quantityOpt = 'RBExD';
+% modelName = 'none';
+% stf = matRad_generateStf(ct,cst,pln);
+% 
+% pln.bioParam = matRad_bioModel(pln.radiationMode, quantityOpt,modelName,pln.machine);
+% dij = matRad_calcPhotonDose(ct,stf, pln, cst, 0);
+% resultGUI = matRad_fluenceOptimization(dij,cst,pln);
+% 
+% %% Rerun model protons
+% pln.radiationMode = 'protons';
+% quantityOpt = 'RBExD';
+% modelName = 'constRBE';
+% stf = matRad_generateStf(ct,cst,pln);
+% 
+% pln.bioParam = matRad_bioModel(pln.radiationMode, quantityOpt,modelName,pln.machine);
+% dij = matRad_calcParticleDose(ct,stf, pln, cst, 0);
+% resultGUI = matRad_fluenceOptimization(dij,cst,pln);
