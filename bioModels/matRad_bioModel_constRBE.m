@@ -11,8 +11,6 @@ classdef matRad_bioModel_constRBE < matRad_BiologicalModel
         AvailableRadiationModalities = {'protons'};
         RequiredBaseData = {};
         RBE;
-        requiredDijFields = {'RBE'};
-
       end
 
       %% Methods
@@ -65,8 +63,6 @@ classdef matRad_bioModel_constRBE < matRad_BiologicalModel
 
                      case {'protons'}
                         str.RBE = [str.RBE, obj.default_RBE_protons];
-                     % case {'photons'}
-                     %    str.RBE = [str.RBE, obj.default_RBE_photons];
                   end
                   matRad_cfg.dispWarning(['Warning! Tissue parameter RBE for tissue not available, set to default'], cst{k,1});
               else
@@ -75,7 +71,7 @@ classdef matRad_bioModel_constRBE < matRad_BiologicalModel
 
               
               str.tissueABratio(k) = str.alphaX(k)./str.betaX(k);
-              tissueClass(cst{k,4}{1},1) = k; %What if there is an overlap between structures?
+              tissueClass(cst{k,4}{1},1) = k;
            end
            str.tissueClass = tissueClass(tissueClass>0);
        end

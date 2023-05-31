@@ -5,7 +5,6 @@ classdef matRad_bioModel_LEM < matRad_BiologicalModel
         RequiredBaseData = {'depths','offset','alpha', 'beta', 'alphaX', 'betaX'};  %required fields in basData
         default_AlphaX = 0.1;
         default_BetaX = 0.05;
-        requiredDijFields = {'mAlphaDose', 'mSqrtBetaDose'};
    end
 
       %% Methods
