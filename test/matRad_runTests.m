@@ -25,19 +25,6 @@ if matRad_cfg.isOctave
     warning('off','Octave:divide-by-zero');
 end
 
-% Start the parallel pool explicitly. Otherwise, R2023a seems to throw an
-% error during testing
-% if matRad_cfg.isMatlab
-% 
-%     %get current pool
-%     p = gcp('nocreate');
-% 
-%     %if empty, start
-%     if isempty(p)
-%         parpool;
-%     end
-% end
-
 % Define Scripts
 exampleScripts = {'../examples/matRad_example1_phantom.m',...
     '../examples/matRad_example2_photons.m',...
