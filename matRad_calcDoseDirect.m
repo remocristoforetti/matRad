@@ -83,22 +83,19 @@ if pln.multScen.totNumScen == 1
     else
         resultGUI    = matRad_calcCubes(ones(pln.propStf.numOfBeams,1),dij,1);
     end
-    
+
 % calc individual scenarios    
 else    
 
-   switch pln.propOpt.quantityOpt
-       case 'physicalDose'
-            quantityVis = 'physicalDose';
-       case {'RBExD', 'effect'}
-            quantityVis = 'RBExD';
-   end
    Cnt          = 1;
    ixForOpt     = find(~cellfun(@isempty, dij.physicalDose))';
    for i = ixForOpt
       tmpResultGUI = matRad_calcCubes(ones(pln.propStf.numOfBeams,1),dij,i);
+
+      if isfield(tmpResultGUI,'RBExD'), quantityVis  = 'RBExD'; else,  quantityVis = 'physicalDose';  end
+
       if i == 1
-         resultGUI.([quantityVis]) = tmpResultGUI.(quantityVis);
+         resultGUI.(quantityVis) = tmpResultGUI.(quantityVis);
       end
       resultGUI.([quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(quantityVis);
       Cnt = Cnt + 1;

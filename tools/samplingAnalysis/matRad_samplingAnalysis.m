@@ -109,13 +109,8 @@ switch env
         doseStat.stdCubeW(ix)  = doseStat.stdCube(ix);
      end
 end
-
-switch pln.propOpt.quantityOpt
-   case 'physicalDose'
-        quantityVis = 'physicalDose';
-   case {'RBExD', 'effect'}
-        quantityVis = 'RBExD';
-end    
+  
+if isfield(resultGUInomScen,'RBExD'), quantityVis  = 'RBExD'; else,  quantityVis = 'physicalDose';  end
 
 % gamma cube
 doseCube = resultGUInomScen.(quantityVis);

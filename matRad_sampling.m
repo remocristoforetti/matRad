@@ -46,14 +46,6 @@ if ct.numOfCtScen > 1
    ctSamp.numOfCtScen = 1;
 end
 
-switch pln.propOpt.quantityOpt
-   case 'physicalDose'
-        quantityVis = 'physicalDose';
-   case {'RBExD', 'effect'}
-        quantityVis = 'RBExD';
-end
-
-
 % either use existing multScen struct or create new one
 if exist('multScen','var') && ~isempty(multScen)
     pln.multScen = multScen;
@@ -114,6 +106,9 @@ end
 %% calculate nominal scenario
 nomScenTimer     = tic;
 resultGUInomScen = matRad_calcDoseDirect(ct,stf,plnNominal,cst,w);
+
+if isfield(resultGUInomScen,'RBExD'), quantityVis  = 'RBExD'; else,  quantityVis = 'physicalDose';  end
+
 nomScenTime      = toc(nomScenTimer);
 matRad_cfg.dispInfo('Finished nominal Scenario Calculation. Computation time: %f h \n',round(nomScenTime / 3600));
 
@@ -161,6 +156,9 @@ if FlagParallToolBoxLicensed
           plnSamp.multScen = pln.multScen.extractSingleNomScen(ctScenSampling,i);
           
           resultSamp                 = matRad_calcDoseDirect(ct,stf,plnSamp,cst,w);
+
+          if isfield(resultSamp,'RBExD'), quantityVis  = 'RBExD'; else,  quantityVis = 'physicalDose';  end
+
           sampledDose                = resultSamp.(quantityVis)(subIx);
           mSampDose(:,i)             = single(reshape(sampledDose,[],1));
           caSampRes(i).bioParam      = pln.bioParam;
@@ -198,6 +196,9 @@ end
           plnSamp.multScen = pln.multScen.extractSingleNomScen(ctScenSampling,i);
           
           resultSamp                 = matRad_calcDoseDirect(ct,stf,plnSamp,cst,w);
+ 
+          if isfield(resultSamp,'RBExD'), quantityVis  = 'RBExD'; else,  quantityVis = 'physicalDose';  end
+
           sampledDose                = resultSamp.(quantityVis)(subIx);
           mSampDose(:,i)             = single(reshape(sampledDose,[],1));
           caSampRes(i).bioParam      = pln.bioParam;

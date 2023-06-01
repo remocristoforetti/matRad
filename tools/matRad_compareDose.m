@@ -234,8 +234,12 @@ if enable(2) == 1
         posZ = posZ - isoCenter(3);
     end
 
-    if exist('pln','var') && ~isempty(pln)
-        if strcmp(pln.bioParam.quantityVis,'physicalDose')
+    if exist('pln','var') && ~isempty(pln ) && isfield(pln, 'bioParam') && ~isempty(pln.bioParam)
+        
+        % This excludes tha case of constRBE. Need to adjust
+        if pln.bioParam.calcBioParameters, quantityVis = 'RBExD'; else quantityVis = 'physicalDose';
+        
+        if strcmp(quantityVis,'physicalDose')
             yLabelString = 'Dose [Gy]';
         else
             yLabelString = 'RBE x Dose [Gy(RBE)]';

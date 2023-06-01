@@ -104,11 +104,14 @@ if ~isprop(pln.propMC,'externalCalculation') || ~pln.propMC.externalCalculation
         ixForOpt     = find(~cellfun(@isempty, dij.physicalDose))';
         for i = ixForOpt
             tmpResultGUI = matRad_calcCubes(ones(size(dij.physicalDose{i},2),1),dij,i);
+
+            if isfield(tmpResultGUI,'RBExD'), quantityVis  = 'RBExD'; else,  quantityVis = 'physicalDose';  end
+
             if i == 1
-                resultGUI.([pln.bioParam.quantityVis]) = tmpResultGUI.(pln.bioParam.quantityVis);
+                resultGUI.(quantityVis) = tmpResultGUI.(quantityVis);
             end
-            resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
-            resultGUI.phaseDose{1,i} = tmpResultGUI.(pln.bioParam.quantityVis);
+            resultGUI.([quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(quantityVis);
+            resultGUI.phaseDose{1,i} = tmpResultGUI.(quantityVis);
             Cnt = Cnt + 1;
         end
 
