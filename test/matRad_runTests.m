@@ -27,16 +27,16 @@ end
 
 % Start the parallel pool explicitly. Otherwise, R2023a seems to throw an
 % error during testing
-if matRad_cfg.isMatlab
-    
-    %get current pool
-    p = gcp('nocreate');
-
-    %if empty, start
-    if isempty(p)
-        parpool;
-    end
-end
+% if matRad_cfg.isMatlab
+% 
+%     %get current pool
+%     p = gcp('nocreate');
+% 
+%     %if empty, start
+%     if isempty(p)
+%         parpool;
+%     end
+% end
 
 % Define Scripts
 exampleScripts = {'../examples/matRad_example1_phantom.m',...
