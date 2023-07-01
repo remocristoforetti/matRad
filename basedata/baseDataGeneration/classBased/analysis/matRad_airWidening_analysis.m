@@ -115,6 +115,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
 
                 if obj.fitParams.fitPositionSingleGaussian && (sum(obj.data(phantomIdx).histoX)>0)
                     [initFocus_phantom.sigma] = obj.fitSingleGaussian(obj.histogramProperties.Xcoord,obj.data(phantomIdx).histoX, obj.histogramProperties.XBins);
+
                 else
                     initFocus_phantom.sigma = 0;
                 end
@@ -134,7 +135,10 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                 end
 
                 if obj.fitParams.fitAngularDoubleGaussian && (sum(obj.data(phantomIdx).histoThetaX)>0)
-                    [initFocus_phantom.sigmaTheta1, initFocus_phantom.sigmaTheta2] = obj.fitDoubleGaussian(obj.histogramProperties.Xcoord_theta,obj.data(phantomIdx).histoThetaX,obj.histogramProperties.XBins, initFocus_phantom.weight);
+                    start = [0.1, 0.1];
+                    lb = [0, 0];
+                    ub = [100, 100];
+                    [initFocus_phantom.sigmaTheta1, initFocus_phantom.sigmaTheta2] = obj.fitDoubleGaussian(obj.histogramProperties.Xcoord_theta,obj.data(phantomIdx).histoThetaX,obj.histogramProperties.XBins,start,lb,ub, initFocus_phantom.weight);
                 else
                     initFocus_phantom.sigmaTheta1 = 0;
                     initFocus_phantom.sigmaTheta2 = 0;

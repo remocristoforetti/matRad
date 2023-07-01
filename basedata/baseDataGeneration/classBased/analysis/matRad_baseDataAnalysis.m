@@ -39,11 +39,21 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
         end
 
         function saveOutput(obj)
+            matRad_cfg = MatRad_Config.instance();
+
             for variableIdx = 1:length(obj.saveVariables)
                 prop = obj.saveVariables(variableIdx);
                 saveStr.(prop{1}) = obj.(prop{1});
             end
-            saveName = [obj.saveNamePrefix, '_', date(),'_', obj.MCparams.sourceParticle, '.mat'];
+            
+            saveFolder = [obj.workingDir, filesep, 'output', filesep];
+
+            if ~exist('saveFolder','dir')
+                mkdir(saveFolder);
+            end
+
+            saveName = [saveFolder,obj.saveNamePrefix, '_', date(),'_', obj.MCparams.sourceParticle, '.mat'];
+            
             save(saveName, 'saveStr');
         end
 
@@ -98,16 +108,16 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
                 case 6
                     ub = [1, 100, 100];
                 case 7
-                    start = [0.1, 0.1];
-                    lb = [0, 0];
-                    ub = [100, 100];
+
+                case 8
+
                 otherwise
                     start = [0.01, 0.1, 0.1];
                     lb = [0, 0, 0];
                     ub = [1, 100, 100];
             end
 
-            if nargin<7
+            if nargin<8
                 gauss2 =  @(w, p1, p2, x) ((1-w) * gauss1(p1,x) + w * gauss1(p2,x));
                 objFunc     = fittype(gauss2);
             else

@@ -53,6 +53,7 @@ airWideningAnalysis = matRad_airWidening_analysis();
 
 airWideningAnalysis.retriveMainClass([fileName]);
 
+
 airWideningAnalysis.performAnalysis();
 
 %% save the class object and output

@@ -11,21 +11,21 @@ classdef matRad_baseDataGeneration_airWidening < matRad_baseDataGeneration
 
         end
 
-        function retriveMainClass(obj, fileName)
-            matRad_cfg = MatRad_Config.instance;
-
-            try
-                load(fileName, 'saveStr');
-            catch
-                matRad_cfg.dispError('No file: ',fileName,' found');
-            end
-
-            if exist('saveStr', 'var')
-                obj.simulateEnergies = saveStr.simulateEnergies;
-                obj.energyParams.initFocus = saveStr.energyParams.initFocus;
-                obj.MCparams = saveStr.MCparams;
-            end
-        end
+        % function retriveMainClass(obj, fileName)
+        %     matRad_cfg = MatRad_Config.instance;
+        % 
+        %     try
+        %         load(fileName, 'saveStr');
+        %     catch
+        %         matRad_cfg.dispError('No file: ',fileName,' found');
+        %     end
+        % 
+        %     if exist('saveStr', 'var')
+        %         obj.simulateEnergies = saveStr.simulateEnergies;
+        %         obj.energyParams.initFocus = saveStr.energyParams.initFocus;
+        %         obj.MCparams = saveStr.MCparams;
+        %     end
+        % end
 
         function saveParameters(obj)
              matRad_cfg = MatRad_Config.instance();

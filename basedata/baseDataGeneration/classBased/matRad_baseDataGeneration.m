@@ -206,6 +206,24 @@ classdef matRad_baseDataGeneration < handle
             
             save([saveDirectory, filesep, variableName],'saveStr');
         end
+
+
+        function retriveMainClass(obj, fileName)
+               matRad_cfg = MatRad_Config.instance;
+            try
+                load(fileName, 'saveStr');
+            catch
+                matRad_cfg.dispError('No file: ',fileName,' found');
+            end
+
+            if exist('saveStr', 'var')
+                obj.simulateEnergies = saveStr.simulateEnergies;
+                obj.energyParams.initFocus = saveStr.energyParams.initFocus;
+                obj.MCparams = saveStr.MCparams;
+                obj.phantoms = saveStr.phantoms;
+                obj.scorerParams = saveStr.scorerParams;
+            end
+        end
         %% Setters
         function set.simulateEnergies(obj,values)
             obj.simulateEnergies = values;            
