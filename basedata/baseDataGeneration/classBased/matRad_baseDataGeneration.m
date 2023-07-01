@@ -6,13 +6,25 @@ classdef matRad_baseDataGeneration < handle
         MCparams;
         scorerParams;
         phantoms;
+
+        saveDir;
+        workingDir;
     end
 %% methods
     methods
         function obj = matRad_baseDataGeneration()
+            
+            matRad_cfg = MatRad_Config.instance();
+
             obj.energyParams = struct('simulateRanges', [], ...
                                   'simulateEnergySpread', [], ...
                                   'initFocus', []);
+
+            obj.workingDir = [matRad_cfg.matRadRoot, filesep, 'baseData', filesep, 'baseDataGeneration'];
+
+            if ~exist(obj.workingDir, 'dir')
+                mkdir(obj.workingDir);
+            end
         end
 
         
@@ -86,6 +98,7 @@ classdef matRad_baseDataGeneration < handle
         end
 
         function writeRunFiles(obj)
+            
             templateFile = fileread(fullfile(obj.MCparams.templateDir,'proton_run.txt'));
             for energyIdx=1:obj.energyParams.nEnergies
                 for runIdx=1:obj.MCparams.nRuns
@@ -174,13 +187,24 @@ classdef matRad_baseDataGeneration < handle
             
         function saveParameters(obj)
             
+            matRad_cfg = MatRad_Config.instance();
+            
             variableName = ['baseDataGeneration_', date(), obj.MCparams.sourceParticle, '.mat'];
-                
+
+            saveDirectory = [obj.workingDir,filesep, 'baseDataParameters'];
+            if ~exist(saveDirectory, 'dir')
+                mkdir(saveDirectory);
+            end
+            
+            obj.saveDir = saveDirectory;
+            
             classProperties = properties(obj);
             for propIdx =1:size(classProperties,1)
                 saveStr.(classProperties{propIdx}) = obj.(classProperties{propIdx});
             end
-            save(variableName,'saveStr');
+
+            
+            save([saveDirectory, filesep, variableName],'saveStr');
         end
         %% Setters
         function set.simulateEnergies(obj,values)

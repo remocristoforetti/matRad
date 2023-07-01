@@ -1,12 +1,12 @@
-classdef matRad_airWideningBaseData < matRad_baseDataGeneration
+classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
     properties
 
     end
 
 
     methods
-        function obj = matRad_airWideningBaseData()
-            obj@matRad_baseDataGeneration();
+        function obj = matRad_airWidening_simulation
+            obj@matRad_baseDataGeneration_airWidening();
         end
 
         function writeSimulationParameters(obj)
@@ -64,7 +64,7 @@ classdef matRad_airWideningBaseData < matRad_baseDataGeneration
                     fprintf(fID, '\n');
                     fprintf(fID, 's:Sc/phantom_%u/%s/Quantity                     = Sim/ScoredQuantity_%s\n',phantomIdx,scorerName,scorerName);
                     fprintf(fID, 's:Sc/phantom_%u/%s/Component                    = "Phantom%u"\n',phantomIdx,scorerName,phantomIdx);
-                    fprintf(fID, 's:Sc/phantom_%u/%s/OutputToConsole              = "False"\n',phantomIdx,scorerName);
+                    fprintf(fID, 'b:Sc/phantom_%u/%s/OutputToConsole              = "False"\n',phantomIdx,scorerName);
                     fprintf(fID, 's:Sc/phantom_%u/%s/IfOutputFileAlreadyExists    = "Increment"\n',phantomIdx,scorerName);
                     fprintf(fID, 's:Sc/phantom_%u/%s/OutputType                   = Sim/OutputType_%s\n',phantomIdx,scorerName, scorerName);
                     fprintf(fID, 's:Sc/phantom_%u/%s/OutputFile                   = "./Results/%s/Ps_phantom_%u"\n',phantomIdx,scorerName,scorerName,phantomIdx);
@@ -74,8 +74,7 @@ classdef matRad_airWideningBaseData < matRad_baseDataGeneration
                 fclose(fID);
             end
         end
-
-
+        
         function writeBasicFile(obj)
             templateFile = fileread(fullfile(obj.MCparams.templateDir,'proton_basic_air_widening.txt'));
             fID = fopen(fullfile(obj.MCparams.runDirectory,'proton_basic_air_widening.txt'), 'w');
@@ -102,6 +101,25 @@ classdef matRad_airWideningBaseData < matRad_baseDataGeneration
             end
            obj.writeSource(fID);
            fclose(fID);
+        end
+
+
+        function retriveMainClass(obj,fileName)
+
+            matRad_cfg = MatRad_Config.instance;
+            try
+                load(fileName, 'saveStr');
+            catch
+                matRad_cfg.dispError('No file: ',fileName,' found');
+            end
+
+            if exist('saveStr', 'var')
+                obj.simulateEnergies = saveStr.simulateEnergies;
+                obj.energyParams.initFocus = saveStr.energyParams.initFocus;
+                obj.MCparams = saveStr.MCparams;
+                obj.phantoms = saveStr.phantoms;
+                obj.scorerParams = saveStr.scorerParams;
+            end
         end
     end
 end

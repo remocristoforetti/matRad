@@ -1,4 +1,5 @@
-classdef matRad_baseDataAnalysisAirWidening < matRad_baseDataAnalysis
+classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & matRad_baseDataAnalysis
+
     properties
        particleID = 2212; %protons
        data;
@@ -34,8 +35,9 @@ classdef matRad_baseDataAnalysisAirWidening < matRad_baseDataAnalysis
     end
 
     methods
-        function obj = matRad_baseDataAnalysisAirWidening(mainSimulationClass)
-            obj@matRad_baseDataAnalysis(mainSimulationClass);
+        function obj = matRad_airWidening_analysis()
+            obj@matRad_baseDataGeneration_airWidening();
+            obj@matRad_baseDataAnalysis();
         end
 
         function loadPhaseSpace(obj, energyIdx)
@@ -91,8 +93,8 @@ classdef matRad_baseDataAnalysisAirWidening < matRad_baseDataAnalysis
                 obj.data(phantomIdx).histoX      = histcounts(obj.data(phantomIdx).posX, obj.histogramProperties.XBins);
                 obj.data(phantomIdx).histoThetaX = histcounts(obj.data(phantomIdx).thetaX, obj.histogramProperties.XBins_theta); 
             end
-        end
 
+        end
 
         function analysis(obj)
 
@@ -160,78 +162,6 @@ classdef matRad_baseDataAnalysisAirWidening < matRad_baseDataAnalysis
             obj.store_initFocus(singleEnergy_initFocus);
             
             fprintf('done\n');
-        end
-
-        function sigma = fitSingleGaussian(obj,x,y,binEdges)
-
-            if ~iscolumn(x)
-                x = x';
-            end
-
-            if ~iscolumn(y)
-                y=y';
-            end
-
-            if ~iscolumn(binEdges)
-                binEdges=binEdges';
-            end
-            
-            dx = binEdges(2:end) - binEdges(1:end-1);
-
-            gauss1       = @(p,x) (1./(sqrt(2*pi)*p)) * exp(-x.^2./(2*p.^2));
-            objFunc     = fittype(gauss1);
-            
-            start = 0.1;
-            lb = 0;
-            ub = 100;
-            
-            [fitObject1] = fit(x,y./sum(y.*dx), objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
-            
-            sigma = fitObject1.p;
-        end
-
-        function [sigma1,sigma2,w_out] = fitDoubleGaussian(obj,x,y,binEdges,w)
-            if ~iscolumn(x)
-                x = x';
-            end
-
-            if ~iscolumn(y)
-                y=y';
-            end
-
-            if ~iscolumn(binEdges)
-                binEdges=binEdges';
-            end
-            
-            dx = binEdges(2:end) - binEdges(1:end-1);
-            
-            gauss1       = @(p,x) (1./(sqrt(2*pi)*p)) * exp(-x.^2./(2*p.^2));
-            
-            if nargin<5
-                gauss2 =  @(w, p1, p2, x) ((1-w) * gauss1(p1,x) + w * gauss1(p2,x));
-                objFunc     = fittype(gauss2);
-
-                start = [0.01, 0.1, 0.1];
-                lb = [0, 0, 0];
-                ub = [1,100,100];
-            else
-                gauss2    = @(p1, p2, x) ((1-w).* gauss1(p1,x) + w.* gauss1(p2,x));
-                objFunc     = fittype(gauss2,'coeff',{'p1','p2'}, 'independent', {'x'});
-
-                start = [0.01, 0.1];
-                lb = [0, 0];
-                ub = [100,100];
-            end
-            
-            [fitObject] = fit(x,y./sum(y.*dx), objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
-            
-            sigma1 = fitObject.p1;
-            sigma2 = fitObject.p2;
-            if nargin<5
-                w_out = fitObject.w;
-            else
-                w_out = w;
-            end
         end
 
         function store_initFocus(obj, singleEnergy_initFocus)
