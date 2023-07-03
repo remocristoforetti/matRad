@@ -43,6 +43,7 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
         end
 
         function writeScorers(obj)
+
             templateFile = fileread(fullfile(obj.MCparams.templateDir,'scorer.txt'));
             for energyIdx=1:obj.energyParams.nEnergies
                 fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'scorers.txt'), 'w');
@@ -104,6 +105,19 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
         end
 
 
+        function writeBeamPosition(obj)
+
+            fprintf(fID, '#Beam Position\n');
+            fprintf(fID, 's:Ge/BeamPosition/Parent      = "World"\n');
+            fprintf(fID, 's:Ge/BeamPosition/Type        = "Group"\n');
+            fprintf(fID, 'd:Ge/BeamPosition/TransX      = 0 m\n');
+            fprintf(fID, 'd:Ge/BeamPosition/TransY      = 0 m\n');
+            fprintf(fID, 'd:Ge/BeamPosition/TransZ      = %d m\n', obj.phantoms.sourcePosition);
+            fprintf(fID, 'd:Ge/BeamPosition/RotX        = 0 deg\n');
+            fprintf(fID, 'd:Ge/BeamPosition/RotY        = 0 deg\n');
+            fprintf(fID, 'd:Ge/BeamPosition/RotZ        = 0 deg\n');
+
+        end 
         % function retriveMainClass(obj,fileName)
         % 
         %     matRad_cfg = MatRad_Config.instance;

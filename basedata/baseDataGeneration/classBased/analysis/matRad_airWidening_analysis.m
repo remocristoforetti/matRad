@@ -40,6 +40,10 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
             obj@matRad_baseDataAnalysis();
         end
 
+        function loadData(obj,energyIdx, ~)
+            obj.loadPhaseSpace(energyIdx);
+        end
+
         function loadPhaseSpace(obj, energyIdx)
             %Here load only the phase space data, combine them into a
             %structure data that has 1 element for each phantom
@@ -96,7 +100,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
 
         end
 
-        function analysis(obj)
+        function analysis(obj,~,~)
 
             fprintf('Performing analysis...');
 
@@ -135,10 +139,10 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                 end
 
                 if obj.fitParams.fitAngularDoubleGaussian && (sum(obj.data(phantomIdx).histoThetaX)>0)
-                    start = [0.1, 0.1];
+                    start = [0.0001, 0.001];
                     lb = [0, 0];
                     ub = [100, 100];
-                    [initFocus_phantom.sigmaTheta1, initFocus_phantom.sigmaTheta2] = obj.fitDoubleGaussian(obj.histogramProperties.Xcoord_theta,obj.data(phantomIdx).histoThetaX,obj.histogramProperties.XBins,start,lb,ub, initFocus_phantom.weight);
+                    [initFocus_phantom.sigmaTheta1, initFocus_phantom.sigmaTheta2] = obj.fitDoubleGaussian(obj.histogramProperties.Xcoord_theta,obj.data(phantomIdx).histoThetaX,obj.histogramProperties.XBins_theta,start,lb,ub, initFocus_phantom.weight);
                 else
                     initFocus_phantom.sigmaTheta1 = 0;
                     initFocus_phantom.sigmaTheta2 = 0;

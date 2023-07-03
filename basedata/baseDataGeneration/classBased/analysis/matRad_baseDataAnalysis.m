@@ -19,23 +19,22 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
         function performAnalysis(obj)
             
             for energyIdx = 1:obj.energyParams.nEnergies
-                obj.loadData(energyIdx);
-                obj.analysis();
-                
+                for scorerIdx = 1:obj.scorerParams.nScorers
+                    data = obj.loadData(energyIdx, scorerIdx);
+                    obj.analysis(energyIdx,data);
+                end
+            
             end
+                
         end
         
         function loadData(obj,energyIdx)
             % to be defined by specific subclass
-            for scorerIdx = 1:obj.scorerParams.nScorers
-                switch obj.scorerParams.scorers{scorerIdx}
+        end
 
-                    case 'PhaseSpace'
-                       obj.loadPhaseSpace(energyIdx);
-                    otherwise
-                        fprintf('Scorer not yet implemented');
-                end
-            end
+        function analysis(obj)
+
+            % to be defined by specific subclass
         end
 
         function saveOutput(obj)
@@ -112,7 +111,7 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
                 case 8
 
                 otherwise
-                    start = [0.01, 0.1, 0.1];
+                    start = [0.01, 0.1, 1];
                     lb = [0, 0, 0];
                     ub = [1, 100, 100];
             end
@@ -134,6 +133,17 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
                 w_out = fitObject.w;
             else
                 w_out = w;
+            end
+
+            visBool = 0;
+            if visBool
+                figure;
+                plot(x,y./sum(y.*dx), '.-');
+                hold on;
+                plot(x, fitObject(x));
+                grid on;
+
+                grid minor;
             end
         end
 

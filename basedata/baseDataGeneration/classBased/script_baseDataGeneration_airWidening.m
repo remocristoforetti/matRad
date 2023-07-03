@@ -22,6 +22,8 @@ baseData_airWidening.phantoms.depths    = [0, 500, 1000, 1500, 2000];
 baseData_airWidening.phantoms.HL        = 0.05; %mm
 baseData_airWidening.phantoms.rMax      = 50; %mm
 
+obj.phantoms.sourcePosition             = -baseData_airWidening.MCparams.BAMtoISO;
+
 baseData_airWidening.saveParameters();
 
 %% Set fileName saved

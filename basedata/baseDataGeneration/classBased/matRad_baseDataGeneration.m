@@ -115,29 +115,48 @@ classdef matRad_baseDataGeneration < handle
         end
 
         function writeSimulationParameters(obj)
+            
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispWarning('Virtual function to be implemented by the subclass');
             %virtual Function to be implemented
         end
 
         function writeScorers(obj)
+
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispWarning('Virtual function to be implemented by the subclass');
+
             %virtual Function to be implemented
         end
 
         function writeBasicFile(obj)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispWarning('Virtual function to be implemented by the subclass');
+
             %virtual Function to be implemented
+        end
+
+        function writeBeamPosition(obj,fID)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispWarning('Virtual function to be implemented by the subclass');
+
+            %virtual Function to be implemented
+
         end
 
         function writeSource(obj, fID)
             
-            fprintf(fID, '#Beam Position\n');
-            fprintf(fID, 's:Ge/BeamPosition/Parent      = "World"\n');
-            fprintf(fID, 's:Ge/BeamPosition/Type        = "Group"\n');
-            fprintf(fID, 'd:Ge/BeamPosition/TransX      = 0 m\n');
-            fprintf(fID, 'd:Ge/BeamPosition/TransY      = 0 m\n');
-            fprintf(fID, 'd:Ge/BeamPosition/TransZ      = -1 * Ge/BeamPosition/BAMStoIsoDis m\n');
-            fprintf(fID, 'd:Ge/BeamPosition/RotX        = 0 deg\n');
-            fprintf(fID, 'd:Ge/BeamPosition/RotY        = 0 deg\n');
-            fprintf(fID, 'd:Ge/BeamPosition/RotZ        = 0 deg\n');
-            
+            % fprintf(fID, '#Beam Position\n');
+            % fprintf(fID, 's:Ge/BeamPosition/Parent      = "World"\n');
+            % fprintf(fID, 's:Ge/BeamPosition/Type        = "Group"\n');
+            % fprintf(fID, 'd:Ge/BeamPosition/TransX      = 0 m\n');
+            % fprintf(fID, 'd:Ge/BeamPosition/TransY      = 0 m\n');
+            % fprintf(fID, 'd:Ge/BeamPosition/TransZ      = -1 * Ge/BeamPosition/BAMStoIsoDis m\n');
+            % fprintf(fID, 'd:Ge/BeamPosition/RotX        = 0 deg\n');
+            % fprintf(fID, 'd:Ge/BeamPosition/RotY        = 0 deg\n');
+            % fprintf(fID, 'd:Ge/BeamPosition/RotZ        = 0 deg\n');
+            obj.writeBeamPosition(fID);
+
             if ~(obj.MCparams.doubleSource)
                 fprintf(fID, '#Beam Source\n');
                 fprintf(fID, 's:So/MySource/Type                    = "Emittance"\n');
