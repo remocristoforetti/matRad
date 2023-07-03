@@ -51,7 +51,7 @@ airWideningSimulation.saveParameters();
 %% Instantiate the class
 airWideningAnalysis = matRad_airWidening_analysis();
 
-airWideningAnalysis.retriveMainClass([fileName]);
+airWideningAnalysis.retriveMainClass(fileName);
 
 
 airWideningAnalysis.performAnalysis();
