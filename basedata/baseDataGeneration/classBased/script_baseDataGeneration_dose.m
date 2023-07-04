@@ -70,11 +70,11 @@ doseSimulation.writeSimulationFiles();
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 doseAnalysis = matRad_dose_analysis();
-fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters',filesep, 'doseSimulation03-Jul-2023proton.mat'];
+fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters',filesep, 'doseSimulation04-Jul-2023proton'];
 doseAnalysis.retriveMainClass(fileName);
 
 
-doseAnalysis.performAnalysis();
+%doseAnalysis.performAnalysis();
 %% save output
 
 doseAnalysis.saveOutput();
@@ -89,7 +89,7 @@ airWideningFit = airWideningFit.saveStr;
 machine = doseAnalysis.generateMachineFile(doseFit.fitDoseOutput,airWideningFit.initFocus);
 
 %% Save machine
-%save('testClassGenericProton.mat', 'machine');
+%save('protons_testClassGenericProton.mat', 'machine');
 %% Visulaize PDDs
 protonMachine = load('C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\protons_Generic.mat');
 protonMachine = protonMachine.machine;

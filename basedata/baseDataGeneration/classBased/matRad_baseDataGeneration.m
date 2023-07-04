@@ -266,13 +266,13 @@ classdef matRad_baseDataGeneration < handle
             
                 machine_data(energyIdx).range      = doseFit(energyIdx).range;
                 machine_data(energyIdx).energy     = obj.simulateEnergies(energyIdx);
-                machine_data(energyIdx).depths     = doseFit(energyIdx).depths;
+                machine_data(energyIdx).depths     = doseFit(energyIdx).depths';
                 machine_data(energyIdx).Z          = doseFit(energyIdx).PDD;
                 machine_data(energyIdx).peakPos    = doseFit(energyIdx).peakPos;
-                machine_data(energyIdx).sigma      = doseFit(energyIdx).sigma;
-                machine_data(energyIdx).sigma1     = doseFit(energyIdx).sigma1;
-                machine_data(energyIdx).sigma2     = doseFit(energyIdx).sigma2;
-                machine_data(energyIdx).weigth     = doseFit(energyIdx).weight;
+                machine_data(energyIdx).sigma      = doseFit(energyIdx).sigma';
+                machine_data(energyIdx).sigma1     = doseFit(energyIdx).sigma1';
+                machine_data(energyIdx).sigma2     = doseFit(energyIdx).sigma2';
+                machine_data(energyIdx).weight     = doseFit(energyIdx).weight';
                 machine_data(energyIdx).offset     = 0;
 
                 initFocusStruct.dist            = airWideningFit(energyIdx).depths;
@@ -300,7 +300,7 @@ classdef matRad_baseDataGeneration < handle
         end
 
         function machine_meta = generateMachineMeta(obj)
-            machine_meta.radiationMode = obj.MCparams.sourceParticle;
+            machine_meta.radiationMode = 'protons';%obj.MCparams.sourceParticle;
             machine_meta.dataType = 'doubleGaussian';
             machine_meta.createdOn = date();
             machine_meta.createdBy = 'r408i';
