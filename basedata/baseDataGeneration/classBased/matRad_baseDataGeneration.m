@@ -38,9 +38,11 @@ classdef matRad_baseDataGeneration < handle
             obj.energyParams.simulateRanges = arrayfun(@(energy) roughEnergyRange(energy), obj.simulateEnergies);
             
             %energySpread. this LUT is generated with MCemittanceBaseData
-            %for protons, starting from generic base data
+            %for protons, starting from generic base data. This is a spread
+            %in MeV (?)
             energySpreadLUT.energies = [31.728980 36.798565 41.378823 45.597814 49.535352 53.245263 56.765931 60.125900 63.347093 66.446795 69.438927 72.334902 75.144217 77.874882 80.533723 83.126619 85.658677 88.134366 90.557625 92.931948 95.260451 97.545927 99.790893 101.997626 104.168192 106.304476 108.408202 110.480952 112.524181 114.539232 116.527348 118.489682 120.427304 122.341212 124.232337 126.101551 127.949669 129.777457 131.585634 133.374878 135.145827 136.899084 138.635220 140.354773 142.058255 143.746152 145.418923 147.077007 148.720821 150.350762 151.967209 153.570524 155.161052 156.739124 158.305055 159.859149 161.401695 162.932972 164.453247 165.962777 167.461807 168.950576 170.429311 171.898232 173.357551 174.807471 176.248189 177.679896 179.102774 180.517001 181.922747 183.320179 184.709456 186.090733 187.464160 188.829883 190.188042 191.538773 192.882210 194.218479 195.547707 196.870013 198.185516 199.494329 200.796564 202.092328 203.381726 204.664860 205.941829 207.212731 208.477658 209.736703 210.989956 212.237502 213.479427 214.715814 215.946742 217.172292 218.392539 219.607559 220.817425 222.022207 223.221977 224.416802 225.606748 226.791881 227.972264 229.147960 230.319030 231.485532 232.647526 233.805068 234.958214 236.107018];
             energySpreadLUT.energySpread =  [2.866453 3.326473 3.755067 4.153248 4.525126 4.874823 5.205823 5.719472 4.929327 4.424452 4.059499 3.777324 3.549428 3.359572 3.197674 3.057047 2.933063 2.822386 2.722548 2.631672 2.548306 2.471301 2.399739 2.332872 2.270084 2.210865 2.154785 2.101476 2.050629 2.001975 1.955276 1.910324 1.866940 1.824964 1.784246 1.744654 1.706071 1.668393 1.631514 1.595348 1.559807 1.524815 1.490293 1.456176 1.422393 1.388880 1.355579 1.322431 1.289371 1.256348 1.223302 1.190171 1.156899 1.123420 1.089668 1.055573 1.021059 0.986037 0.950419 0.914088 0.876925 0.838788 0.799491 0.758825 0.716526 0.672243 0.625519 0.575731 0.521949 0.462754 0.395668 0.315632 0.208148 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.00000];
+
 
             obj.energyParams.simulateEnergySpread = interp1(energySpreadLUT.energies,energySpreadLUT.energySpread, obj.simulateEnergies);
 
@@ -242,6 +244,73 @@ classdef matRad_baseDataGeneration < handle
                 obj.phantoms = saveStr.phantoms;
                 obj.scorerParams = saveStr.scorerParams;
             end
+        end
+
+        function machine = generateMachineFile(obj,doseFit,airWideningFit)
+            machine_data = struct('range', [], ...
+                             'energy', [],   ...
+                             'depths', [], ...
+                             'Z', [], ...
+                             'peakPos', [], ...
+                             'sigma', [], ...
+                             'sigma1', [], ...
+                             'sigma2', [], ...
+                             'weight', [], ...
+                             'offset', [], ...
+                             'initFocus', [], ...
+                             'energySpectrum', []);
+            
+            machine_meta = obj.generateMachineMeta();
+            
+            for energyIdx = 1:obj.energyParams.nEnergies
+            
+                machine_data(energyIdx).range      = doseFit(energyIdx).range;
+                machine_data(energyIdx).energy     = obj.simulateEnergies(energyIdx);
+                machine_data(energyIdx).depths     = doseFit(energyIdx).depths;
+                machine_data(energyIdx).Z          = doseFit(energyIdx).PDD;
+                machine_data(energyIdx).peakPos    = doseFit(energyIdx).peakPos;
+                machine_data(energyIdx).sigma      = doseFit(energyIdx).sigma;
+                machine_data(energyIdx).sigma1     = doseFit(energyIdx).sigma1;
+                machine_data(energyIdx).sigma2     = doseFit(energyIdx).sigma2;
+                machine_data(energyIdx).weigth     = doseFit(energyIdx).weight;
+                machine_data(energyIdx).offset     = 0;
+
+                initFocusStruct.dist            = airWideningFit(energyIdx).depths;
+                initFocusStruct.sigma           = airWideningFit(energyIdx).sigma;
+                initFocusStruct.SisFWHMAtIso    = 2*sqrt(2*log(2))*interp1(airWideningFit(energyIdx).depths, airWideningFit(energyIdx).sigma, obj.MCparams.BAMtoISO);
+
+                initFocusStruct.emittance.type      = 'bigaussian';
+                initFocusStruct.emittance.sigmaX    = obj.energyParams.initFocus(energyIdx).initSigma;
+                initFocusStruct.emittance.divX      = obj.energyParams.initFocus(energyIdx).initThetaSigma;
+                initFocusStruct.emittance.corrX     = obj.energyParams.initFocus(energyIdx).correlation;
+                initFocusStruct.emittance.sigmaY    = obj.energyParams.initFocus(energyIdx).initSigma;
+                initFocusStruct.emittance.divY      = obj.energyParams.initFocus(energyIdx).initThetaSigma;
+                initFocusStruct.emittance.corrY     = obj.energyParams.initFocus(energyIdx).correlation;
+                
+                
+                machine_data(energyIdx).initFocus = initFocusStruct;
+
+                machine_data(energyIdx).energySpectrum.type  = 'gaussian';
+                machine_data(energyIdx).energySpectrum.mean  = obj.simulateEnergies(energyIdx);
+                machine_data(energyIdx).energySpectrum.sigma = obj.energyParams.simulateEnergySpread(energyIdx); % This is a sigma in MeV
+
+            end
+            machine.meta = machine_meta;
+            machine.data = machine_data;
+        end
+
+        function machine_meta = generateMachineMeta(obj)
+            machine_meta.radiationMode = obj.MCparams.sourceParticle;
+            machine_meta.dataType = 'doubleGaussian';
+            machine_meta.createdOn = date();
+            machine_meta.createdBy = 'r408i';
+            machine_meta.description = '';
+            machine_meta.SAD = obj.MCparams.BAMtoISO;
+            machine_meta.SCD = '';
+            machine_meta.BAMStiIsoDist = obj.MCparams.BAMtoISO;
+            machine_meta.machine = 'GenericProtonSpectra';
+            machine_meta.LUT_bxWidthminFWHM = [0 realmax;...
+                                                    5 5];
         end
         %% Setters
         function set.simulateEnergies(obj,values)

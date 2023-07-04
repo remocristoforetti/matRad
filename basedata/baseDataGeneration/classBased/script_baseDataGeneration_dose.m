@@ -20,7 +20,7 @@ doseSimulation.retriveMainClass([folder,fileName]);
 doseSimulation.MCparams.runDirectory = [doseSimulation.workingDir,filesep,'SimulationDose']; %-> This could go in the class constructor
 
 %Retrive results for initFocus
-initFocus = load([doseSimulation.workingDir,filesep, 'output', filesep,'airWideningAnalysis_03-Jul-2023_proton.mat']);
+initFocus = load([doseSimulation.workingDir,filesep, 'output', filesep,'airWideningAnalysis_04-Jul-2023_proton']);
 initFocus = initFocus.saveStr.initFocus;
 
 
@@ -28,7 +28,7 @@ doseSimulation.interpInitFocus(initFocus);
 doseSimulation.MCparams.doubleSource = 1;
 %% Define phantoms and scorers
 doseSimulation.scorerParams.scorers = {'DoseToMedium'};%, 'Fluence','EdBinned', 'ProtonLET'};
-doseSimulation.scorerParams.nScorers = size(baseData_airWidening.scorerParams.scorers,2);
+doseSimulation.scorerParams.nScorers = size(doseSimulation.scorerParams.scorers,2);
 doseSimulation.scorerParams.ions = {'protons'};
 doseSimulation.scorerParams.ionsZ = 1;
 
@@ -75,3 +75,41 @@ doseAnalysis.retriveMainClass(fileName);
 
 
 doseAnalysis.performAnalysis();
+%% save output
+
+doseAnalysis.saveOutput();
+
+%% generate machine file
+doseFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'doseAnalysis_04-Jul-2023_proton.mat']);
+doseFit = doseFit.saveStr;
+airWideningFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'airWideningAnalysis_04-Jul-2023_proton']);
+
+airWideningFit = airWideningFit.saveStr;
+
+machine = doseAnalysis.generateMachineFile(doseFit.fitDoseOutput,airWideningFit.initFocus);
+
+%% Save machine
+%save('testClassGenericProton.mat', 'machine');
+%% Visulaize PDDs
+protonMachine = load('C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\protons_Generic.mat');
+protonMachine = protonMachine.machine;
+[~, eIdx] = intersect([protonMachine.data(:).energy], doseSimulation.simulateEnergies);
+
+
+figure;
+for k=1:length(eIdx)
+    plot(protonMachine.data(eIdx(k)).depths, protonMachine.data(eIdx(k)).Z, '.-', 'color', 'k');
+    hold on;
+    plot(machine.data(k).depths, machine.data(k).Z, '.-', 'color', 'r');
+    
+end
+
+
+%% Vis lateral
+
+figure;
+for k=11:11%length(eIdx)
+    plot(protonMachine.data(eIdx(k)).depths, protonMachine.data(eIdx(k)).sigma, '.-', 'color', 'k');
+    hold on;
+    plot(machine.data(k).depths, machine.data(k).sigma, '.-', 'color', 'r');
+end

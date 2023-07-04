@@ -1,6 +1,9 @@
 classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
     properties
-        
+        outputAnalysis;
+        saveVariables;
+        saveNamePrefix;
+    
     end
 
 
@@ -17,12 +20,13 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
         end
 
         function performAnalysis(obj)
-            
+            obj.outputAnalysis = [];
             for energyIdx = 1:obj.energyParams.nEnergies
-                for scorerIdx = 1:obj.scorerParams.nScorers
+                %for scorerIdx = 1:obj.scorerParams.nScorers
+                scorerIdx = 1;
                     data = obj.loadData(energyIdx, scorerIdx);
                     obj.analysis(energyIdx,data);
-                end
+                %end
             
             end
                 
@@ -116,36 +120,171 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
                     ub = [1, 100, 100];
             end
 
-            if nargin<8
-                gauss2 =  @(w, p1, p2, x) ((1-w) * gauss1(p1,x) + w * gauss1(p2,x));
-                objFunc     = fittype(gauss2);
+            if ~(ub(2) - lb(2) < 10^(-3)) || (ub(3) - lb(3) < 10^(-3))
+
+
+                if nargin<8
+                    gauss2 =  @(w, p1, p2, x) ((1-w) * gauss1(p1,x) + w * gauss1(p2,x));
+                    objFunc     = fittype(gauss2);
+                else
+                    gauss2    = @(p1, p2, x) ((1-w).* gauss1(p1,x) + w.* gauss1(p2,x));
+                    objFunc     = fittype(gauss2,'coeff',{'p1','p2'}, 'independent', {'x'});
+    
+                end
+                
+                [fitObject] = fit(x,y./sum(y.*dx), objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
+                
+                sigma1 = fitObject.p1;
+                sigma2 = fitObject.p2;
+                if nargin<8
+                    w_out = fitObject.w;
+                else
+                    w_out = w;
+                end
+
+                visBool = 0;
+                if visBool
+                    figure;
+                    plot(x,y./sum(y.*dx), '.-');
+                    hold on;
+                    plot(x, fitObject(x));
+                    grid on;
+    
+                    grid minor;
+                end
             else
-                gauss2    = @(p1, p2, x) ((1-w).* gauss1(p1,x) + w.* gauss1(p2,x));
-                objFunc     = fittype(gauss2,'coeff',{'p1','p2'}, 'independent', {'x'});
-
-            end
-            
-            [fitObject] = fit(x,y./sum(y.*dx), objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
-            
-            sigma1 = fitObject.p1;
-            sigma2 = fitObject.p2;
-            if nargin<7
-                w_out = fitObject.w;
-            else
-                w_out = w;
-            end
-
-            visBool = 0;
-            if visBool
-                figure;
-                plot(x,y./sum(y.*dx), '.-');
-                hold on;
-                plot(x, fitObject(x));
-                grid on;
-
-                grid minor;
+                sigma1 = 0;
+                sigma2 = 0;
+                w_out = 0;
             end
         end
 
+         function sigma = fitSingleRadialGaussian(obj,x,y,binEdges,start,lb,ub)
+            %check that they are all columns
+            if ~iscolumn(x), x = x'; end
+
+            if ~iscolumn(y), y=y'; end
+              
+            if ~iscolumn(binEdges), binEdges=binEdges'; end
+            
+            dx = binEdges(2:end) - binEdges(1:end-1);
+
+            gauss1      = @(p,x) 1./(2*pi*p.^2) * exp(-x.^2./(2*p.^2));
+            objFunc     = fittype(gauss1);
+            
+            if ~exist('start', 'var')
+                start = 0.1;
+            end
+            if ~exist('lb', 'var')
+                lb = 0;
+            end
+            if ~exist('ub', 'var')
+                ub = 100;
+            end
+
+            if ~(ub - lb < 10^(-3))
+            
+                [fitObject1] = fit(x,y, objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
+                
+                sigma = fitObject1.p;
+    
+                visBool = 0;
+                if visBool
+                    figure;
+                    subplot(1,2,1);
+                    plot(x,y, '.-');
+                    hold on;
+                    plot(x, fitObject1(x));
+                    grid on;
+                    grid minor;
+    
+                    subplot(1,2,2);
+                    semilogy(x,y, '.-');
+                    hold on;
+                    semilogy(x, fitObject1(x));
+                    grid on;
+                    grid minor;
+                    sgtitle('Sigma');
+                end
+            else
+                sigma = start;
+            end
+         end
+
+         function [sigma1,sigma2,w_out] = fitDoubleRadialGaussian(obj,x,y,binEdges,start, lb, ub, w)
+            %check that they are all columns
+            if ~iscolumn(x), x = x'; end
+
+            if ~iscolumn(y), y=y'; end
+              
+            if ~iscolumn(binEdges), binEdges=binEdges'; end
+
+            
+            dx = binEdges(2:end) - binEdges(1:end-1);            
+            gauss1       = @(p,x) (1./(2*pi*p.^2)) * exp(-x.^2./(2*p.^2));
+            
+            switch nargin
+                case 5
+                    lb = [0, 0, 0];
+                    ub = [1, 100, 100];
+                case 6
+                    ub = [1, 100, 100];
+                case 7
+
+                case 8
+
+                otherwise
+                    start = [0.01, 0.1, 1];
+                    lb = [0, 0, 0];
+                    ub = [1, 100, 100];
+            end
+
+            if ~(ub(2) - lb(2) < 10^(-3)) || (ub(3) - lb(3) < 10^(-3))
+
+                if nargin<8
+                    gauss2 =  @(w, p1, p2, x) ((1-w) * gauss1(p1,x) + w * gauss1(p2,x));
+                    objFunc     = fittype(gauss2);
+                else
+                    gauss2    = @(p1, p2, x) ((1-w).* gauss1(p1,x) + w.* gauss1(p2,x));
+                    objFunc     = fittype(gauss2,'coeff',{'p1','p2'}, 'independent', {'x'});
+    
+                end
+                
+                [fitObject] = fit(x,y, objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
+                
+                sigma1 = fitObject.p1;
+                sigma2 = fitObject.p2;
+                if nargin<8
+                    w_out = fitObject.w;
+                else
+                    w_out = w;
+                end
+
+                visBool = 0;
+                if visBool
+                    figure;
+                    
+                    subplot(1,2,1);
+                    plot(x,y, '.-');
+                    hold on;
+                    plot(x, fitObject(x));
+                    grid on;
+                    grid minor;
+                    subplot(1,2,2);
+                    semilogy(x,y, '.-');
+                    hold on;
+                    semilogy(x, fitObject(x));
+                    grid on;
+                    grid minor;
+                    sgtitle('Double Sigma');
+                end
+            else
+                sigma1 = start(2);
+                sigma2 = start(3);
+                w_out = start(1);
+            end
+        end
+
+         
     end
 end

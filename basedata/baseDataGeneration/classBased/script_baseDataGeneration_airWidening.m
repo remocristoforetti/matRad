@@ -27,7 +27,7 @@ obj.phantoms.sourcePosition             = -baseData_airWidening.MCparams.BAMtoIS
 baseData_airWidening.saveParameters();
 
 %% Set fileName saved
-fileName = [baseData_airWidening.saveDir, filesep, 'AirWideningSimulation01-Jul-2023proton.mat'];
+fileName = [baseData_airWidening.workingDir, filesep, 'baseDataParameters', filesep,'AirWideningSimulation01-Jul-2023proton.mat'];
 %% Instantiate the simulation subclass
 % this should then be a subclass method that calls all the functions.
 % Every subclass can in principle have different files to write

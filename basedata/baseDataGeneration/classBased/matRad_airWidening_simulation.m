@@ -18,7 +18,8 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
 
                     fprintf(fID, 'd:Sim/HL = %3.3f mm\n', obj.phantoms.HL);
                     fprintf(fID, 'd:Sim/MySource/BeamEnergy = %3.3f MeV\n',obj.simulateEnergies(energyIdx));
-                    fprintf(fID, 'u:Sim/MySource/BeamEnergySpread = %3.3f\n', obj.energyParams.simulateEnergySpread(energyIdx));
+                    energySpread = (obj.energyParams.simulateEnergySpread(energyIdx)*100)/obj.simulateEnergies(energyIdx);
+                    fprintf(fID, 'u:Sim/MySource/BeamEnergySpread = %3.3f\n', energySpread);
                     if ~obj.MCparams.doubleSource
                         fprintf(fID, 'd:Sim/MySource/SigmaX = %3.3f mm\n', obj.energyParams.initFocus.initSigma(energyIdx));
                         fprintf(fID, 'u:Sim/MySource/SigmaThetaX = %3.4f\n',obj.energyParams.initFocus.initThetaSigma(energyIdx));

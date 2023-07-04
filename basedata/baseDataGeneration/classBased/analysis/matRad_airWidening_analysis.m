@@ -40,8 +40,9 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
             obj@matRad_baseDataAnalysis();
         end
 
-        function loadData(obj,energyIdx, ~)
+        function data = loadData(obj,energyIdx, ~)
             obj.loadPhaseSpace(energyIdx);
+            data = [];
         end
 
         function loadPhaseSpace(obj, energyIdx)
@@ -88,8 +89,8 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                     end
                 end
                 obj.data(phantomIdx).depth = obj.phantoms.depths(phantomIdx);
-                obj.data(phantomIdx).posX = data_run{1};
-                obj.data(phantomIdx).posY = data_run{2};
+                obj.data(phantomIdx).posX = data_run{1}*10; %topas output is in cm
+                obj.data(phantomIdx).posY = data_run{2}*10;
                 obj.data(phantomIdx).thetaX = getAngle(data_run{4});
                 obj.data(phantomIdx).thetaY = getAngle(data_run{5});
 
