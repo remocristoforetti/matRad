@@ -18,7 +18,12 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
 
                     fprintf(fID, 'd:Sim/HL = %3.3f mm\n', obj.phantoms.HL);
                     fprintf(fID, 'd:Sim/MySource/BeamEnergy = %3.3f MeV\n',obj.simulateEnergies(energyIdx));
-                    energySpread = (obj.energyParams.simulateEnergySpread(energyIdx)*100)/obj.simulateEnergies(energyIdx);
+                    
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    energySpread = obj.energyParams.simulateEnergySpread(energyIdx);
+                    %energySpread = (obj.energyParams.simulateEnergySpread(energyIdx)*100)/obj.simulateEnergies(energyIdx);
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    
                     fprintf(fID, 'u:Sim/MySource/BeamEnergySpread = %3.3f\n', energySpread);
                     if ~obj.MCparams.doubleSource
                         fprintf(fID, 'd:Sim/MySource/SigmaX = %3.3f mm\n', obj.energyParams.initFocus.initSigma(energyIdx));
@@ -106,14 +111,14 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
         end
 
 
-        function writeBeamPosition(obj)
+        function writeBeamPosition(obj,fID)
 
             fprintf(fID, '#Beam Position\n');
             fprintf(fID, 's:Ge/BeamPosition/Parent      = "World"\n');
             fprintf(fID, 's:Ge/BeamPosition/Type        = "Group"\n');
             fprintf(fID, 'd:Ge/BeamPosition/TransX      = 0 m\n');
             fprintf(fID, 'd:Ge/BeamPosition/TransY      = 0 m\n');
-            fprintf(fID, 'd:Ge/BeamPosition/TransZ      = %d m\n', obj.phantoms.sourcePosition);
+            fprintf(fID, 'd:Ge/BeamPosition/TransZ      = %d mm\n', obj.phantoms.sourcePosition);
             fprintf(fID, 'd:Ge/BeamPosition/RotX        = 0 deg\n');
             fprintf(fID, 'd:Ge/BeamPosition/RotY        = 0 deg\n');
             fprintf(fID, 'd:Ge/BeamPosition/RotZ        = 0 deg\n');

@@ -8,7 +8,7 @@ clear machine;
 %airWideningSimulation = matRad_airWideningBaseData();
 mainBaseDataGenerationClass = matRad_baseDataGeneration();
 %% Specify energies to be simulated
-simulateEnergies = [protons_machine.data(1:10:114).energy];
+simulateEnergies = [protons_machine.data.energy];
 [~,eIdx] = intersect([protons_machine.data.energy], simulateEnergies);
 
 %Load them into the class
@@ -26,7 +26,7 @@ end
 
 mainBaseDataGenerationClass.energyParams.initFocus = initFocus;
 %% Define MC parameters
-mainBaseDataGenerationClass.MCparams.runDirectory = [mainBaseDataGenerationClass.workingDir,filesep,'SimulationProtonsAirWidening'];
+mainBaseDataGenerationClass.MCparams.runDirectory = [mainBaseDataGenerationClass.workingDir,filesep];
 mainBaseDataGenerationClass.MCparams.nRuns = 4;               
 mainBaseDataGenerationClass.MCparams.previousRuns = 0;     %additionaRuns to add (for later)
 mainBaseDataGenerationClass.MCparams.doubleSource = 0;        %boolean to choose double source to add, for air widening is signe source

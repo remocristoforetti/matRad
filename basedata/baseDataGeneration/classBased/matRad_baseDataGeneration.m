@@ -280,12 +280,12 @@ classdef matRad_baseDataGeneration < handle
                 initFocusStruct.SisFWHMAtIso    = 2*sqrt(2*log(2))*interp1(airWideningFit(energyIdx).depths, airWideningFit(energyIdx).sigma, obj.MCparams.BAMtoISO);
 
                 initFocusStruct.emittance.type      = 'bigaussian';
-                initFocusStruct.emittance.sigmaX    = obj.energyParams.initFocus(energyIdx).initSigma;
-                initFocusStruct.emittance.divX      = obj.energyParams.initFocus(energyIdx).initThetaSigma;
-                initFocusStruct.emittance.corrX     = obj.energyParams.initFocus(energyIdx).correlation;
-                initFocusStruct.emittance.sigmaY    = obj.energyParams.initFocus(energyIdx).initSigma;
-                initFocusStruct.emittance.divY      = obj.energyParams.initFocus(energyIdx).initThetaSigma;
-                initFocusStruct.emittance.corrY     = obj.energyParams.initFocus(energyIdx).correlation;
+                initFocusStruct.emittance.sigmaX    = obj.energyParams.initFocus.initSigma(energyIdx);
+                initFocusStruct.emittance.divX      = obj.energyParams.initFocus.initThetaSigma(energyIdx);
+                initFocusStruct.emittance.corrX     = obj.energyParams.initFocus.correlation(energyIdx);
+                initFocusStruct.emittance.sigmaY    = obj.energyParams.initFocus.initSigma(energyIdx);
+                initFocusStruct.emittance.divY      = obj.energyParams.initFocus.initThetaSigma(energyIdx);
+                initFocusStruct.emittance.corrY     = obj.energyParams.initFocus.correlation(energyIdx);
                 
                 
                 machine_data(energyIdx).initFocus = initFocusStruct;
@@ -294,6 +294,7 @@ classdef matRad_baseDataGeneration < handle
                 machine_data(energyIdx).energySpectrum.mean  = obj.simulateEnergies(energyIdx);
                 machine_data(energyIdx).energySpectrum.sigma = obj.energyParams.simulateEnergySpread(energyIdx); % This is a sigma in MeV
 
+                machine_data(energyIdx).samples     = doseFit(energyIdx).samples;
             end
             machine.meta = machine_meta;
             machine.data = machine_data;
@@ -307,7 +308,7 @@ classdef matRad_baseDataGeneration < handle
             machine_meta.description = '';
             machine_meta.SAD = obj.MCparams.BAMtoISO;
             machine_meta.SCD = '';
-            machine_meta.BAMStiIsoDist = obj.MCparams.BAMtoISO;
+            machine_meta.BAMStoIsoDist = obj.MCparams.BAMtoISO;
             machine_meta.machine = 'GenericProtonSpectra';
             machine_meta.LUT_bxWidthminFWHM = [0 realmax;...
                                                     5 5];

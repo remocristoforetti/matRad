@@ -60,7 +60,7 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
             save(saveName, 'saveStr');
         end
 
-        function sigma = fitSingleGaussian(obj,x,y,binEdges,start,lb,ub)
+        function sigma = fitSingleGaussian(obj,x,y,binEdges,start,lb,ub,visBool)
             %check that they are all columns
             if ~iscolumn(x), x = x'; end
 
@@ -86,6 +86,27 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
             [fitObject1] = fit(x,y./sum(y.*dx), objFunc, 'Start', start, 'Lower', lb, 'Upper', ub);
             
             sigma = fitObject1.p;
+
+            if ~exist('visBool', 'var')
+                visBool = 0;
+            end
+            if visBool
+                figure;
+                subplot(1,2,1);
+                plot(x,y./sum(y.*dx), '.-');
+                hold on;
+                plot(x, fitObject1(x));
+                grid on;
+                grid minor;
+
+                subplot(1,2,2);
+                semilogy(x,y./sum(y.*dx), '.-');
+                hold on;
+                semilogy(x, fitObject1(x));
+                grid on;
+                grid minor;
+                sgtitle('Sigma');
+            end
         end
 
 
@@ -100,7 +121,7 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
               
             if ~iscolumn(binEdges), binEdges=binEdges'; end
 
-            
+            if ~exist('w', 'var'), w = []; end
             dx = binEdges(2:end) - binEdges(1:end-1);            
             gauss1       = @(p,x) (1./(sqrt(2*pi)*p)) * exp(-x.^2./(2*p.^2));
             
@@ -136,20 +157,47 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
                 
                 sigma1 = fitObject.p1;
                 sigma2 = fitObject.p2;
-                if nargin<8
-                    w_out = fitObject.w;
+                % if isempty(w)
+                %     w_out = fitObject.w;
+                % else
+                %     w_out = w;
+                % end
+
+
+                sigma1 = fitObject.p1;
+                sigma2 = fitObject.p2;
+
+                if sigma1 > sigma2
+                    if isempty(w)
+                        tmp = [sigma1, sigma2, fitObject.w];
+                        sigma1 = tmp(2);
+                        sigma2 = tmp(1);
+                        w_out      = 1 - tmp(3);
+                    end
                 else
-                    w_out = w;
+                    if isempty(w)
+                        w_out = fitObject.w;
+                    else
+                        w_out = w;
+                    end
+
                 end
 
                 visBool = 0;
                 if visBool
                     figure;
+                    subplot(1,2,1);
                     plot(x,y./sum(y.*dx), '.-');
                     hold on;
                     plot(x, fitObject(x));
                     grid on;
-    
+                    grid minor;
+
+                    subplot(1,2,2);
+                    semilogy(x,y./sum(y.*dx), '.-');
+                    hold on;
+                    semilogy(x, fitObject(x));
+                    grid on;
                     grid minor;
                 end
             else
@@ -211,7 +259,7 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
             end
          end
 
-         function [sigma1,sigma2,w_out] = fitDoubleRadialGaussian(obj,x,y,binEdges,start, lb, ub, w)
+         function [sigma1,sigma2,w_out] = fitDoubleRadialGaussian(obj,x,y,binEdges,start, lb, ub, w, visBool)
             %check that they are all columns
             if ~iscolumn(x), x = x'; end
 
@@ -221,7 +269,7 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
 
             
             dx = binEdges(2:end) - binEdges(1:end-1);            
-            gauss1       = @(p,x) (1./(2*pi*p.^2)) * exp(-x.^2./(2*p.^2));
+            gauss1       = @(p,x) 1./(2*pi*p.^2) * exp(-x.^2./(2*p.^2));
             
             switch nargin
                 case 5
@@ -233,6 +281,8 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
 
                 case 8
 
+                case 9
+
                 otherwise
                     start = [0.01, 0.1, 1];
                     lb = [0, 0, 0];
@@ -241,7 +291,7 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
 
             if ~(ub(2) - lb(2) < 10^(-3)) || (ub(3) - lb(3) < 10^(-3))
 
-                if nargin<8
+                if isempty(w)
                     gauss2 =  @(w, p1, p2, x) ((1-w) * gauss1(p1,x) + w * gauss1(p2,x));
                     objFunc     = fittype(gauss2);
                 else
@@ -254,13 +304,24 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
                 
                 sigma1 = fitObject.p1;
                 sigma2 = fitObject.p2;
-                if nargin<8
-                    w_out = fitObject.w;
+
+                if sigma1 > sigma2
+                    if isempty(w)
+                        tmp = [sigma1, sigma2, fitObject.w];
+                        sigma1 = tmp(2);
+                        sigma2 = tmp(1);
+                        w_out      = 1 - tmp(3);
+                    end
                 else
-                    w_out = w;
+                    if isempty(w)
+                        w_out = fitObject.w;
+                    else
+                        w_out = w;
+                    end
+
                 end
 
-                visBool = 0;
+                %visBool = 0;
                 if visBool
                     figure;
                     

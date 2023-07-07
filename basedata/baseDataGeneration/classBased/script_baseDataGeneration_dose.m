@@ -8,49 +8,53 @@ matRad_cfg = MatRad_Config.instance();
 doseGeneration = matRad_baseDataGeneration_dose;
 
 doseGeneration.retriveMainClass([folder, fileName]);
+%% Define phantoms and scorers
+doseGeneration.scorerParams.scorers = {'DoseToMedium'};%, 'Fluence','EdBinned', 'ProtonLET'};
+doseGeneration.scorerParams.nScorers = size(doseGeneration.scorerParams.scorers,2);
+doseGeneration.scorerParams.ions = {'protons'};
+doseGeneration.scorerParams.ionsZ = 1;
+
+
+%%% Phantoms could then become a class per se, so that will have a clas for
+%%% the dose phantom, which is diveded in three and dorectly place it here
+doseGeneration.phantoms.nPhantoms = 3;
+
+peakPhantomHL = 20*ones(doseGeneration.energyParams.nEnergies,1); %mm
+proximalPhantomHL = round((doseGeneration.energyParams.simulateRanges-peakPhantomHL)/2);
+proximalPhantomHL(proximalPhantomHL<1) = 1;
+distalPhantomHL  = 25*ones(doseGeneration.energyParams.nEnergies,1); %mm
+
+doseGeneration.phantoms.depths    = [proximalPhantomHL, (2*proximalPhantomHL + peakPhantomHL), 2*(proximalPhantomHL + peakPhantomHL)+distalPhantomHL];
+doseGeneration.phantoms.HL        = [proximalPhantomHL, peakPhantomHL, distalPhantomHL]; %mm
+doseGeneration.phantoms.rMax      = [50, 50, 50]; %mm
+doseGeneration.phantoms.Zbins     = [proximalPhantomHL,peakPhantomHL*10,distalPhantomHL]; % resolution [2 mm, 0.2 mm, 2 mm]
+doseGeneration.phantoms.Rbins     = [100, 100, 100];
+
+doseGeneration.phantoms.sourcePosition = -0.1; %mm
+
+doseGeneration.parameterVariableName = 'doseGeeneration';
+doseGeneration.MCparams.runDirectory = [doseGeneration.workingDir, filesep, 'SimulationDose'];
+%% Save parameters
+
+doseGeneration.saveParameters();
 
 %% Instantiate subclass
-
 doseSimulation = matRad_dose_simulation();
 
-
-doseSimulation.retriveMainClass([folder,fileName]);
+fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeeneration06-Jul-2023proton.mat'];
+doseSimulation.retriveMainClass(fileName);
 
 % Define MCparams
 doseSimulation.MCparams.runDirectory = [doseSimulation.workingDir,filesep,'SimulationDose']; %-> This could go in the class constructor
 
 %Retrive results for initFocus
-initFocus = load([doseSimulation.workingDir,filesep, 'output', filesep,'airWideningAnalysis_04-Jul-2023_proton']);
+initFocus = load([doseSimulation.workingDir,filesep, 'output', filesep,'airWideningAnalysis_06-Jul-2023_proton.mat']);
 initFocus = initFocus.saveStr.initFocus;
 
 
 doseSimulation.interpInitFocus(initFocus);
 doseSimulation.MCparams.doubleSource = 1;
-%% Define phantoms and scorers
-doseSimulation.scorerParams.scorers = {'DoseToMedium'};%, 'Fluence','EdBinned', 'ProtonLET'};
-doseSimulation.scorerParams.nScorers = size(doseSimulation.scorerParams.scorers,2);
-doseSimulation.scorerParams.ions = {'protons'};
-doseSimulation.scorerParams.ionsZ = 1;
 
-
-%%% Phantoms could then become a class per se, so that will have a clas for
-%%% the dose phantom, which is diveded in three and dorectly place it here
-doseSimulation.phantoms.nPhantoms = 3;
-
-peakPhantomHL = 20*ones(doseSimulation.energyParams.nEnergies,1); %mm
-proximalPhantomHL = round((doseSimulation.energyParams.simulateRanges-peakPhantomHL)/2);
-proximalPhantomHL(proximalPhantomHL<1) = 1;
-distalPhantomHL  = 25*ones(doseSimulation.energyParams.nEnergies,1); %mm
-
-doseSimulation.phantoms.depths    = [proximalPhantomHL, (2*proximalPhantomHL + peakPhantomHL), 2*(proximalPhantomHL + peakPhantomHL)+distalPhantomHL];
-doseSimulation.phantoms.HL        = [proximalPhantomHL, peakPhantomHL, distalPhantomHL]; %mm
-doseSimulation.phantoms.rMax      = [50, 50, 50]; %mm
-doseSimulation.phantoms.Zbins     = [proximalPhantomHL,peakPhantomHL*10,distalPhantomHL]; % resolution [2 mm, 0.2 mm, 2 mm]
-doseSimulation.phantoms.Rbins     = [100, 100, 100];
-
-doseSimulation.phantoms.sourcePosition = -0.1; %mm
-%% Save parameters
-doseSimulation.saveParameters();
 
 %% write parameter files
 doseSimulation.generateTreeDirectory();
@@ -62,34 +66,35 @@ doseSimulation.writeSimulationFiles();
 %doseSimulation.writeBasicFile();
 
 %doseSimulation.writeScorers();
-
-
+doseGeneration.parameterVariableName = 'doseSimulation';
+doseSimulation.saveParameters();
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%% Execute the analysis%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 doseAnalysis = matRad_dose_analysis();
-fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters',filesep, 'doseSimulation04-Jul-2023proton'];
+fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeeneration06-Jul-2023proton'];
 doseAnalysis.retriveMainClass(fileName);
 
-
-%doseAnalysis.performAnalysis();
+doseAnalysis.performAnalysis();
 %% save output
 
 doseAnalysis.saveOutput();
 
 %% generate machine file
-doseFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'doseAnalysis_04-Jul-2023_proton.mat']);
+
+doseFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'doseAnalysis_06-Jul-2023_proton.mat']);
 doseFit = doseFit.saveStr;
-airWideningFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'airWideningAnalysis_04-Jul-2023_proton']);
+airWideningFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'airWideningAnalysis_06-Jul-2023_proton.mat']);
 
 airWideningFit = airWideningFit.saveStr;
 
 machine = doseAnalysis.generateMachineFile(doseFit.fitDoseOutput,airWideningFit.initFocus);
 
 %% Save machine
-%save('protons_testClassGenericProton.mat', 'machine');
+
+save('protons_testClassGenericProton.mat', 'machine');
 %% Visulaize PDDs
 protonMachine = load('C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\protons_Generic.mat');
 protonMachine = protonMachine.machine;
@@ -108,8 +113,48 @@ end
 %% Vis lateral
 
 figure;
+
 for k=11:11%length(eIdx)
+
     plot(protonMachine.data(eIdx(k)).depths, protonMachine.data(eIdx(k)).sigma, '.-', 'color', 'k');
     hold on;
     plot(machine.data(k).depths, machine.data(k).sigma, '.-', 'color', 'r');
+
 end
+
+%% Vis sigmas
+n = 7;
+depths = machine.data(n).depths;
+sigma = machine.data(n).sigma;
+sigma1 = machine.data(n).sigma1;
+sigma2 = machine.data(n).sigma2;
+weight = machine.data(n).weight;
+
+
+
+figure;
+% plot(depths,sigma, '.-');
+% grid on;
+% grid minor;
+% ylim([0,12]);
+
+
+figure;
+subplot(1,3,1);
+plot(depths,sigma1, '.-');
+grid on;
+grid minor;
+ylim([0,12]);
+
+subplot(1,3,2);
+plot(depths,sigma2, '.-');
+grid on;
+grid minor;
+ylim([0,100]);
+
+subplot(1,3,3);
+plot(depths,weight, '.-');
+grid on;
+grid minor;
+
+ylim([0,1]);

@@ -6,7 +6,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
        
        
        histogramProperties = struct('binResolution', 0.1, ... %in deg/rad     %this can be turnet to class at a certain point
-                                    'binNumber', 100, ...,
+                                    'binNumber', 500, ...,
                                      'Xcoord', [], ...
                                      'XBins', [], ...
                                      'binResolution_theta', 0.001, ...
@@ -29,15 +29,18 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                           'fitAngularSingleGaussian', 1, ...
                           'fitPositionDoubleGaussian', 1, ...
                           'fitAngularDoubleGaussian',1);
-       saveVariables = {'initFocus', 'fitParams', 'histogramProperties'};
-       saveNamePrefix = 'airWideningAnalysis';
-
+       
+       
     end
 
     methods
         function obj = matRad_airWidening_analysis()
             obj@matRad_baseDataGeneration_airWidening();
             obj@matRad_baseDataAnalysis();
+
+            obj.saveVariables = {'initFocus', 'fitParams', 'histogramProperties'};
+            obj.saveNamePrefix = 'airWideningAnalysis';
+
         end
 
         function data = loadData(obj,energyIdx, ~)
@@ -101,7 +104,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
 
         end
 
-        function analysis(obj,~,~)
+        function analysis(obj,energyIdx,~)
 
             fprintf('Performing analysis...');
 
@@ -116,10 +119,11 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                           'sigmaTheta2', []);
 
             singleEnergy_initFocus.depths = obj.phantoms.depths;
+            sigma_start = obj.energyParams.initFocus.initSigma(energyIdx);
             for phantomIdx =1:obj.phantoms.nPhantoms
 
                 if obj.fitParams.fitPositionSingleGaussian && (sum(obj.data(phantomIdx).histoX)>0)
-                    [initFocus_phantom.sigma] = obj.fitSingleGaussian(obj.histogramProperties.Xcoord,obj.data(phantomIdx).histoX, obj.histogramProperties.XBins);
+                    [initFocus_phantom.sigma] = obj.fitSingleGaussian(obj.histogramProperties.Xcoord,obj.data(phantomIdx).histoX, obj.histogramProperties.XBins,sigma_start, 0, 100,0);
 
                 else
                     initFocus_phantom.sigma = 0;
