@@ -1,4 +1,4 @@
-function dose = matRad_calcParticleDoseBixel(radDepths, radialDist_sq, sigmaIni_sq, baseData)
+function dose = matRad_calcParticleDoseBixel(radDepths, radialDist_sq, sigmaIni_sq, baseData,multiLateralSigma)
 % matRad visualization of two-dimensional dose distributions 
 % on ct including segmentation
 % 
@@ -36,18 +36,16 @@ depths = baseData.depths + baseData.offset;
 % convert from MeV cm^2/g per primary to Gy mm^2 per 1e6 primaries
 conversionFactor = 1.6021766208e-02;
 
-if ~isfield(baseData,'LatCutOff')
-    baseData.LatCutOff.CompFac = 1;
-end
-
-if ~isfield(baseData,'sigma')
+%The switch this if statement. If ~multiLateralSigma & sigma, use sigle
+%sigma, else do double
+if isfield(baseData,'sigma1') && isfield(baseData,'sigma2') && isfield(baseData,'weight') && multiLateralSigma
     
     % interpolate depth dose, sigmas, and weights    
     X = matRad_interp1(depths,[conversionFactor*baseData.Z baseData.sigma1 baseData.weight baseData.sigma2],radDepths,'extrap');
     
     % set dose for query > tabulated depth dose values to zero
     X(radDepths > max(depths),1) = 0;
-        
+
     % compute lateral sigmas
     sigmaSq_Narr = X(:,2).^2 + sigmaIni_sq;
     sigmaSq_Bro  = X(:,4).^2 + sigmaIni_sq;
@@ -56,8 +54,10 @@ if ~isfield(baseData,'sigma')
     L_Narr =  exp( -radialDist_sq ./ (2*sigmaSq_Narr))./(2*pi*sigmaSq_Narr);
     L_Bro  =  exp( -radialDist_sq ./ (2*sigmaSq_Bro ))./(2*pi*sigmaSq_Bro );
     L = baseData.LatCutOff.CompFac * ((1-X(:,3)).*L_Narr + X(:,3).*L_Bro);
-
+    
+    
     dose = X(:,1).*L;
+    %dose = L;
 else
     
     % interpolate depth dose and sigma

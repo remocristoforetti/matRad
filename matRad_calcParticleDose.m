@@ -214,6 +214,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
     counter = 0;
 
+
     % compute SSDs only for first scenario
     stf = matRad_computeSSD(stf,ct);
 
@@ -225,7 +226,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
         % Determine lateral cutoff
         matRad_cfg.dispInfo('matRad: calculate lateral cutoff...');
         visBoolLateralCutOff = 0;
-        machine = matRad_calcLateralParticleCutOff(machine,pln.propDoseCalc.lateralCutOff,stf(i),visBoolLateralCutOff);
+        machine = matRad_calcLateralParticleCutOff(machine,pln.propDoseCalc.lateralCutOff,stf(i),pln,visBoolLateralCutOff);
         matRad_cfg.dispInfo('Done!\n');
 
         for j = 1:stf(i).numOfRays % loop over all rays
@@ -491,7 +492,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                         currRadDepths(currIx), ...
                                         currRadialDist_sq(currIx), ...
                                         sigmaIni_sq, ...
-                                        machine.data(energyIx));
+                                        machine.data(energyIx),pln.propDoseCalc.multiLateralSigma);
 
                                     % dij sampling is exluded for particles until we investigated the influence of voxel sampling for particles
                                     %relDoseThreshold   =  0.02;   % sample dose values beyond the relative dose

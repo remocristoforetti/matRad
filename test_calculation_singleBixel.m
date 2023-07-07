@@ -4,13 +4,13 @@ matRad_rc
 matRad_cfg = MatRad_Config.instance();
 load 'BOXPHANTOM.mat'
 
-targetVoxels = cst{2,4}{1};
-bodyVoxels = cst{1,4}{1};
+%targetVoxels = cst{2,4}{1};
+%bodyVoxels = cst{1,4}{1};
 % %ct.cubeHU{1}(targetVoxels) = 8;
 % %ct.cubeHU{1}(bodyVoxels) = 8;
 % 
-outerVolume = ones(ct.cubeDim);
-outerVolume([targetVoxels;bodyVoxels]) = 0;
+%outerVolume = ones(ct.cubeDim);
+%outerVolume([targetVoxels;bodyVoxels]) = 0;
 % %ct.cubeHU{1}(logical(outerVolume)) = -989;
 % 
 % 
@@ -32,7 +32,7 @@ pln.propDoseCalc.ignoreOutsideDensities = 1;
 
 pln.numOfFractions  = 25;
 pln.radiationMode   = 'protons';           % either photons / protons / helium / carbon
-pln.machine         = 'testClassGenericProton';%'generic_TOPAS_stripped';%'fakeMachineDoubleSource';%'fake70machineFakeAir_correlationSingleSigma';%'testNewNewGeneric'; %testNewGeneric_70DoseSigma
+pln.machine         = 'testClassGenericProton_samples';%'generic_TOPAS_stripped';%'fakeMachineDoubleSource';%'fake70machineFakeAir_correlationSingleSigma';%'testNewNewGeneric'; %testNewGeneric_70DoseSigma
 
 % beam geometry settings
 pln.propStf.bixelWidth      = 3; % [mm] / also corresponds to lateral spot spacing for particles
@@ -116,8 +116,6 @@ pln.propMC.materialConverter.loadConverterFromFile = 1;
 
 
 
-
-
 %% Load MC data
 [MCplan_filename, MCplan_folder] = uigetfile('.bin', 'MultiSelect', 'on');
 %MCplan_filename = [MCplan_folder, filesep, MCplan_filename];
@@ -147,7 +145,7 @@ MCplan = permute(MCplan, [2,1,3]);
 %% Visualize
 
 Slice = 80;
-LatProfile = 71;
+LatProfile = 81;
 Profile = 80;
 
 x = [1:dij.doseGrid.dimensions(1)]*dij.doseGrid.resolution.x;
@@ -162,6 +160,7 @@ plan_DepthProfile   = plan(:,Profile,Slice);
 
 MCplan_LateralProfile = squeeze(sum(MCplan(LatProfile,:,:),3));
 plan_LateralProfile   = squeeze(sum(plan(LatProfile,:,:),3));
+
 
 figure;
 subplot(1,3,1);
@@ -190,10 +189,11 @@ xlabel('depth [mm]');
 ylabel('dose [Gy]');
 title('Integrated profile');
 sgtitle(['Slice ',num2str(Slice) ,'Profile ', num2str(Profile)]);
-xlim([0 400]);
+xlim([100 350]);
 
 
 figure;
+
 subplot(1,2,1);
 imagesc(MCplan(:,:,Slice));
 yline(LatProfile);
@@ -203,12 +203,61 @@ hold on;
 plot(x,MCplan_LateralProfile, '.-');
 grid on;
 grid minor;
+
 legend('matRad', 'TOPAS');
 xlim([-50 50]);
 xlabel('x [mm]');
 ylabel('dose [Gy]');
 sgtitle(['Slice ',num2str(Slice),' Profile ', num2str(LatProfile)]);
 
+%% Visualize Multiple profiles
+Slice = 80;
+LatProfile = [41, 71, 101];
+Profile = 80;
+
+x = [1:dij.doseGrid.dimensions(1)]*dij.doseGrid.resolution.x;
+x = x - (x(end) - x(1))/2 -1.5;
+depth = [1:dij.doseGrid.dimensions(2)]*dij.doseGrid.resolution.x;
+
+MCplan_DepthProfile = MCplan(:,Profile,Slice);
+plan_DepthProfile   = plan(:,Profile,Slice);
+
+x = [1:dij.doseGrid.dimensions(1)]*dij.doseGrid.resolution.x;
+x = x - (x(end) - x(1))/2 -1.5;
+depth = [1:dij.doseGrid.dimensions(2)]*dij.doseGrid.resolution.x;
+
+MCplan_DepthProfile = MCplan(:,Profile,Slice);
+plan_DepthProfile   = plan(:,Profile,Slice);
+
+%MCplan_LateralProfile = MCplan(LatProfile,:,Slice);
+%plan_LateralProfile   = plan(LatProfile,:,Slice);
+
+figure;
+
+subplot(2,2,1);
+imagesc(MCplan(:,:,Slice));
+yline(LatProfile);
+
+for profIdx = 1:size(LatProfile,2)
+    MCplan_LateralProfile = squeeze(sum(MCplan(LatProfile(profIdx),:,:),3));
+    plan_LateralProfile   = squeeze(sum(plan(LatProfile(profIdx),:,:),3));
+
+
+    subplot(2,2,profIdx+1);
+    plot(x,plan_LateralProfile, '.-');
+    hold on;
+    plot(x,MCplan_LateralProfile, '.-');
+    grid on;
+    grid minor;
+    legend('matRad', 'TOPAS');
+    xlim([-50 50]);
+    xlabel('x [mm]');
+    ylabel('dose [Gy]');
+    title(['depth =', num2str(depth(LatProfile(profIdx))), 'mm']);
+end
+
+
+sgtitle(['Energy = ', num2str(stf.ray.energy),'MeV Slice ',num2str(Slice),' Profile ', num2str(LatProfile)]);
 %% Test plot expected gaussian
 % figure;
 % plot(x,plan_LateralProfile./sum(plan_LateralProfile), '.-');
@@ -773,17 +822,17 @@ title('sigma2');
 
 %% Fake calculation
 rLenghts = [0.25:0.5:50];%[0.0025:0.05:50];%[0.25:0.5:50];
-depthsBixel = load('z.mat');
-depthsBixel = depthsBixel.zdepth';
+depthsBixel = machine.data(7).depths; %load('z.mat');
+%depthsBixel = depthsBixel.zdepth';
 rLength_Sq = rLenghts.^2;
-sigmaIniSq = (interp1(machine.data(70).initFocus.dist, machine.data(70).initFocus.sigma,0))^2;%(2.5^2);%(2.6642)^2;
+sigmaIniSq = (interp1(machine.data(7).initFocus.dist, machine.data(7).initFocus.sigma,1000))^2;%(2.5^2);%(2.6642)^2;
 
 tmp = repmat(rLength_Sq,size(depthsBixel,1),1);
 coordinates = [];
 coordinates(:,1) = repmat(depthsBixel,size(rLenghts,2),1);
 coordinates(:,2) = tmp(:);
 
-baseData = machine.data(70);
+baseData = machine.data(7);
 baseData.LatCutOff.CompFac = 1;
 bixelDose = matRad_calcParticleDoseBixel(coordinates(:,1), coordinates(:,2),sigmaIniSq,baseData,1);
 
@@ -793,7 +842,31 @@ R = 0:0.5:50;
 
 scoringArea = pi.*(R(2:end).^2-R(1:end-1).^2);
 
+
 %bixelDose = (bixelDose./((10^6).*scoringArea));
+%% Vis samples
+LatProfile = [2,4,45,100];
+for k=1:size(LatProfile,2)
+    subplot(2,2,k);
+    analytical_profile = bixelDose(LatProfile(k),:);
+    %analytical_profile = analytical_profile.*scoringArea;
+    %analytical_profile = analytical_profile./sum(analytical_profile);
+    %analytical_profile = analytical_profile./scoringArea;
+    MCprofile = machine.data(7).samples(:,LatProfile(k));
+
+    % MCprofile = machine.data(7).samples(:,k).*scoringArea';
+    % MCprofile = MCprofile./sum(MCprofile);
+    % MCprofile = MCprofile./scoringArea';
+    plot(rLenghts,MCprofile, '.-');
+
+    hold on;
+    plot(rLenghts,analytical_profile, '.-');
+    title(['depth = ', num2str(depthsBixel(LatProfile(k)))]);
+    grid on;
+    grid minor;
+    legend('base Data MC simulation', 'matRad');
+    xlim([0,25]);
+end
 %% Vis
 %LatProfile = 170;
 % baseData_mat = load('baseData_mat.mat');

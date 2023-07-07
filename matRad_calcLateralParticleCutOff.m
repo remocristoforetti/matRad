@@ -1,4 +1,4 @@
-function [ machine ] = matRad_calcLateralParticleCutOff(machine,cutOffLevel,stf,visBool)
+function [ machine ] = matRad_calcLateralParticleCutOff(machine,cutOffLevel,stf,pln,visBool)
 % matRad function to calculate a depth dependend lateral cutoff 
 % for each pristine particle beam
 % 
@@ -153,7 +153,7 @@ for energyIx = vEnergiesIx
         else
         
             % calculate dose
-            dose_r = matRad_calcParticleDoseBixel(depthValues(j) + baseData.offset, radialDist_sq, largestSigmaSq4uniqueEnergies(cnt), baseData);
+            dose_r = matRad_calcParticleDoseBixel(depthValues(j) + baseData.offset, radialDist_sq, largestSigmaSq4uniqueEnergies(cnt), baseData,pln.propDoseCalc.multiLateralSigma);
 
             cumArea = cumsum(2*pi.*r_mid.*dose_r.*dr);
             relativeTolerance = 0.5; %in [%]
@@ -174,9 +174,13 @@ for energyIx = vEnergiesIx
             machine.data(energyIx).LatCutOff.CutOff(j) = depthDoseCutOff;
 
         end
-    end    
+    end
+    %%%%%%%%%%%%%%%
+% machine.data(energyIx).LatCutOff.CutOff = 100*ones(size(machine.data(energyIx).LatCutOff.CutOff));
+% machine.data(energyIx).LatCutOff.CompFac = 1;
+%%%%%%%%%%%%%%%
 end    
-          
+
 %% visualization
 if visBool
     
@@ -222,7 +226,7 @@ if visBool
 
          end
 
-         mDose(:,:,kk) = reshape(matRad_calcParticleDoseBixel(radDepths(kk), radialDist_sq, sigmaIni_sq,baseData),[dimX dimX]);
+         mDose(:,:,kk) = reshape(matRad_calcParticleDoseBixel(radDepths(kk), radialDist_sq, sigmaIni_sq,baseData,pln.propDoseCalc.multiLateralSigma),[dimX dimX]);
           
          [~,IX]           = min(abs((machine.data(energyIx).LatCutOff.depths + machine.data(energyIx).offset) - radDepths(kk)));
          TmpCutOff        = machine.data(energyIx).LatCutOff.CutOff(IX);    
@@ -233,7 +237,7 @@ if visBool
          dr_Cut           = (vXCut(2:end) - vXCut(1:end-1))';
          radialDist_sqCut = r_mid_Cut.^2;    
          
-         dose_r_Cut       = matRad_calcParticleDoseBixel(radDepths(kk), radialDist_sqCut(:), sigmaIni_sq,baseData);
+         dose_r_Cut       = matRad_calcParticleDoseBixel(radDepths(kk), radialDist_sqCut(:), sigmaIni_sq,baseData,pln.propDoseCalc.multiLateralSigma);
          
          cumAreaCut = cumsum(2*pi.*r_mid_Cut.*dose_r_Cut.*dr_Cut);  
          
@@ -246,7 +250,7 @@ if visBool
         idd  = matRad_interp1(machine.data(energyIx).depths,machine.data(energyIx).Z,depthValues) * conversionFactor; 
 
     [~,peakixDepth] = max(idd); 
-    dosePeakPos = matRad_calcParticleDoseBixel(machine.data(energyIx).depths(peakixDepth), 0, sigmaIni_sq, baseData);   
+    dosePeakPos = matRad_calcParticleDoseBixel(machine.data(energyIx).depths(peakixDepth), 0, sigmaIni_sq, baseData,pln.propDoseCalc.multiLateralSigma);   
     
     vLevelsDose = dosePeakPos.*[0.01 0.05 0.1 0.9];
     doseSlice   = squeeze(mDose(midPos,:,:));
@@ -314,4 +318,3 @@ end
 
 
 end
-
