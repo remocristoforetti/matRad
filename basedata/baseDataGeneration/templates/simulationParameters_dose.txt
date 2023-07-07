@@ -1,0 +1,25 @@
+##############################################################################
+# This is the top file, all energy dependent quantities go here and are then
+# inherited by the files that include this one
+##############################################################################
+
+
+###############################################################################
+# World
+###############################################################################
+s:Ge/World/Material  = "Vacuum"
+d:Ge/World/HLX = 2. m # Half Length
+d:Ge/World/HLY = 2. m
+d:Ge/World/HLZ = 2. m
+################################################################################
+# My Water
+################################################################################
+sv:Ma/MyWater/Components = 2 "Hydrogen" "Oxygen"
+uv:Ma/MyWater/Fractions = 2 0.111894 0.888106
+d:Ma/MyWater/Density = 1.0 g/cm3
+d:Ma/MyWater/MeanExcitationEnergy = 78.0 eV
+s:Ma/MyWater/DefaultColor = "blue"
+
+################################################################################
+# Energy dependent quantities
+################################################################################

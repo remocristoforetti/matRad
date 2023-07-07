@@ -1,0 +1,11 @@
+################################################################################
+# Include the variable parameteers for the simulation
+################################################################################
+
+includeFile = simulationParameters.txt
+
+################################################################################
+
+s:Ge/MyPhantom/Parent            = "World"
+s:Ge/MyPhantom/Type              = "Group"
+d:Ge/MyPhantom/TransZ            = 0.0 cm #place group at isocenter and adjust position of subcomponents
