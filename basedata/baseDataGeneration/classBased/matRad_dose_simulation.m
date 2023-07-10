@@ -45,6 +45,12 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
                 fprintf(fID, 'i:Sim/MySource/NumberOfHistories2 = %u \n',nPrimaries2);
             end
 
+            if any(obj.scorerParams.energyBinned)
+                fprintf(fID, 'd:Sim/EMin_protons  = %3.3f MeV\n',obj.scorerParams.Ebinning.EMin);
+                fprintf(fID, 'd:Sim/EMax_protons  = %3.3f MeV\n',obj.scorerParams.Ebinning.EMax);
+                fprintf(fID, 'i:Sim/EBins_protons  = %u\n',obj.scorerParams.Ebinning.nEBins);           
+            end
+
             fprintf(fID, 'd:Ge/BeamPosition/BAMStoIsoDis = %3.3f mm\n',obj.MCparams.BAMtoISO);
 
             fclose(fID);
@@ -105,14 +111,26 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
             fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'scorers.txt'), 'w');
             fprintf(fID,templateFile);
             fprintf(fID, '\n');
+
             for scorerIdx = 1:obj.scorerParams.nScorers
-                fprintf(fID, 'includeFile = ../scorer_%s.txt\n', obj.scorerParams.scorers{scorerIdx});
+                scorerName = obj.scorers{scorerIdx};
+                %For the time being this is one, then will become ion-dependend
+
+                if  obj.scorerParams.filteredScorer(scorerIdx)
+                    scorerName = [scorerName, '_', obj.scorerParams.ions{1}];
+                end
+           
+                fprintf(fID, 'includeFile = ../scorer_%s.txt\n', scorerName);
             end
             fclose(fID);
         end
 
         function writeScorers(obj,templateFile,scorerIdx)
-            scorerName = obj.scorerParams.scorers{scorerIdx};
+            scorerName = obj.scorers{scorerIdx};
+            %For the time being this is one, then will become ion-dependend
+            if  obj.scorerParams.filteredScorer(scorerIdx)
+                scorerName = [scorerName, '_', obj.scorerParams.ions{1}];
+            end
             fID = fopen(fullfile(obj.MCparams.runDirectory,['scorer_',scorerName,'.txt']), 'w');
             fprintf(fID,templateFile);
             fprintf(fID, '\n');
@@ -124,6 +142,16 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
                 fprintf(fID, 's:Sc/phantom_%u/%s/IfOutputFileAlreadyExists    = "Increment"\n',phantomIdx,scorerName);
                 fprintf(fID, 's:Sc/phantom_%u/%s/OutputType                   = Sim/OutputType_%s\n',phantomIdx,scorerName, scorerName);
                 fprintf(fID, 's:Sc/phantom_%u/%s/OutputFile                   = "./Results/%s/Dose_phantom_%u"\n',phantomIdx,scorerName,scorerName,phantomIdx);
+                if obj.scorerParams.filteredScorer(scorerIdx)
+                    fprintf(fID, 'i:Sc/phantom_%u/%s/OnlyIncludeParticlesOfAtomicNumber                   = 1\n',phantomIdx,scorerName);
+                end
+
+                if obj.scorerParams.energyBinned(scorerIdx)
+                    fprintf(fID, 'd:Sc/phantom_%u/%s/EBinMax                   = Sim/EMax_protons MeV\n',phantomIdx,scorerName);
+                    fprintf(fID, 'd:Sc/phantom_%u/%s/EBinMin                   = Sim/EMin_protons MeV\n',phantomIdx,scorerName);
+                    fprintf(fID, 'i:Sc/phantom_%u/%s/EBins                     = Sim/EBins_protons\n',phantomIdx,scorerName);
+                    fprintf(fID, 's:Sc/phantom_%u/%s/EBinEnergy                = "PreStep"\n',phantomIdx,scorerName);
+                end
                 fprintf(fID, '\n');
             end
             fclose(fID);
