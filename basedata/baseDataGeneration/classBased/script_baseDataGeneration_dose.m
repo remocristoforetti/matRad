@@ -41,19 +41,19 @@ doseGeneration.saveParameters();
 %% Instantiate subclass
 doseSimulation = matRad_dose_simulation();
 
-fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeeneration06-Jul-2023proton.mat'];
+fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration07-Jul-2023proton'];
 doseSimulation.retriveMainClass(fileName);
-
+doseSimulation.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDose'];
 % Define MCparams
 doseSimulation.MCparams.runDirectory = [doseSimulation.workingDir,filesep,'SimulationDose']; %-> This could go in the class constructor
 
 %Retrive results for initFocus
-initFocus = load([doseSimulation.workingDir,filesep, 'output', filesep,'airWideningAnalysis_06-Jul-2023_proton.mat']);
+initFocus = load([doseSimulation.workingDir,filesep, 'output', filesep,'airWideningAnalysis_07-Jul-2023_proton.mat']);
 initFocus = initFocus.saveStr.initFocus;
 
 
 doseSimulation.interpInitFocus(initFocus);
-doseSimulation.MCparams.doubleSource = 1;
+doseSimulation.MCparams.doubleSource = 0;
 
 
 %% write parameter files
@@ -66,20 +66,22 @@ doseSimulation.writeSimulationFiles();
 %doseSimulation.writeBasicFile();
 
 %doseSimulation.writeScorers();
-doseGeneration.parameterVariableName = 'doseSimulation';
+doseSimulation.parameterVariableName = 'doseSimulation';
 doseSimulation.saveParameters();
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%% Execute the analysis%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
+
 doseAnalysis = matRad_dose_analysis();
-fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeeneration06-Jul-2023proton'];
+fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration07-Jul-2023proton'];
 doseAnalysis.retriveMainClass(fileName);
+doseAnalysis.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDose'];
+
 
 doseAnalysis.performAnalysis();
 %% save output
-
 doseAnalysis.saveOutput();
 
 %% generate machine file
