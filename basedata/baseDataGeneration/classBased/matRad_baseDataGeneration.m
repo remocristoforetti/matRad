@@ -2,6 +2,7 @@ classdef matRad_baseDataGeneration < handle
 %% properties
     properties
         simulateEnergies
+        scorers = [];
         energyParams;
         MCparams;
         scorerParams;
@@ -59,6 +60,16 @@ classdef matRad_baseDataGeneration < handle
             %initFocus need to be provided from the external at the moment
             %Could also add some checks on consistency
         end
+
+        function updateScorerParams(obj)
+            obj.scorerParams.nScorers = size(obj.scorers,2);
+            
+            
+            %Set default to zero
+            obj.scorerParams.filteredScorer = zeros(obj.scorerParams.nScorers,1);
+            obj.scorerParams.energyBinned = zeros(obj.scorerParams.nScorers,1);
+
+        end
         
         function generateTreeDirectory(obj)
             %Generate the directory tree for simulation
@@ -91,7 +102,12 @@ classdef matRad_baseDataGeneration < handle
                end
                
                for scorerIdx = 1:obj.scorerParams.nScorers
-                   scorerFolder = [resultFolder, filesep, obj.scorerParams.scorers{scorerIdx}];
+                   if obj.scorerParams.filteredScorer(scorerIdx)
+                        scorerName = [obj.scorers{scorerIdx}, '_', obj.scorerParams.ions{1}];
+                   else
+                        scorerName = obj.scorers{scorerIdx};
+                   end
+                   scorerFolder = [resultFolder, filesep, scorerName];
                    if ~exist(scorerFolder, 'dir')
                         mkdir(scorerFolder);
                    end
@@ -99,10 +115,10 @@ classdef matRad_baseDataGeneration < handle
            end
         end
 
-        function writeRunFiles(obj)
+        function writeRunFiles(obj,energyIdx)
             
             templateFile = fileread(fullfile(obj.MCparams.templateDir,'proton_run.txt'));
-            for energyIdx=1:obj.energyParams.nEnergies
+            %for energyIdx=1:obj.energyParams.nEnergies
                 for runIdx=1:obj.MCparams.nRuns
                     fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],['proton_run_', num2str(runIdx), '.txt']), 'w');
                     fprintf(fID,templateFile);
@@ -113,7 +129,7 @@ classdef matRad_baseDataGeneration < handle
                     fprintf(fID,'includeFile = scorers.txt');
                     fclose(fID);
                 end
-            end
+            %end
         end
 
         function writeSimulationParameters(obj)
@@ -239,6 +255,7 @@ classdef matRad_baseDataGeneration < handle
 
             if exist('saveStr', 'var')
                 obj.simulateEnergies = saveStr.simulateEnergies;
+                obj.scorers         = saveStr.scorers;
                 obj.energyParams.initFocus = saveStr.energyParams.initFocus;
                 obj.MCparams = saveStr.MCparams;
                 obj.phantoms = saveStr.phantoms;
@@ -317,6 +334,12 @@ classdef matRad_baseDataGeneration < handle
         function set.simulateEnergies(obj,values)
             obj.simulateEnergies = values;            
             obj.updateEnergyParams();
+        end
+
+        function set.scorers(obj, values)
+            obj.scorers = values;
+
+            obj.updateScorerParams();
         end
     end
 

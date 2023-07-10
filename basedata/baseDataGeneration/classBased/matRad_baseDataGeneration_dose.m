@@ -37,14 +37,14 @@ classdef matRad_baseDataGeneration_dose < matRad_baseDataGeneration
             for energyIdx=1:obj.energyParams.nEnergies
     
                 obj.writeSimulationParameters(templateFileSimulationParameters,energyIdx);
-                obj.writeRunFiles();
+                obj.writeRunFiles(energyIdx);
                 obj.writeScorerIncluder(templateScorerIncluder, energyIdx);
             end
 
             obj.writeBasicFile(templateBasicFile);
 
             for scorerIdx = 1:obj.scorerParams.nScorers
-                scorerName = obj.scorerParams.scorers{scorerIdx};
+                scorerName = obj.scorers{scorerIdx};
                 templateScorerFile = fileread(fullfile(obj.MCparams.templateDir,['scorer_',scorerName,'.txt']));
                 obj.writeScorers(templateScorerFile,scorerIdx);
             end
