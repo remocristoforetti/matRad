@@ -1,4 +1,6 @@
 classdef matRad_bioModelWED < matRad_bioModelLETBased
+% subclass that implements the WED model
+% (https://www.ncbi.nlm.nih.gov/pubmed/22909391) (accessed on 21/7/2023)
 %% Properties
     properties (SetAccess = private)
         p0_WED = 1;
@@ -7,7 +9,6 @@ classdef matRad_bioModelWED < matRad_bioModelLETBased
         p3_WED = 0;
 
         AvailableRadiationModalities = {'protons'};
-        RequiredBaseData = {'depths','offset','LET'};
     end
 
     properties (Hidden)

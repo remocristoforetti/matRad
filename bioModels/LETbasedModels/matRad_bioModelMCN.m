@@ -1,4 +1,6 @@
 classdef matRad_bioModelMCN < matRad_bioModelLETBased
+% subclass that implements the MCN model
+% (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4634882/) (accessed on 21/7/2023)
 %% Properties
     properties (SetAccess = private)
         p0_MCN = 0.999064;
@@ -7,7 +9,6 @@ classdef matRad_bioModelMCN < matRad_bioModelLETBased
         p3_MCN = -0.0038703;
 
         AvailableRadiationModalities = {'protons'};
-        RequiredBaseData = {'depths','offset','LET'};
     end
 
     properties (Hidden)

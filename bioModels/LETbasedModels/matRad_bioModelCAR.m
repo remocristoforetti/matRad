@@ -1,4 +1,7 @@
 classdef matRad_bioModelCAR < matRad_bioModelLETBased
+% subclass that implements the CAR model
+% (https://www.tandfonline.com/doi/full/10.1080/09553000601087176?journalCode=irab20)
+% (accessed on 21/7/2023)
 %% Properties
     properties (SetAccess = private)
         p0_CAR = 0.843;
@@ -8,7 +11,6 @@ classdef matRad_bioModelCAR < matRad_bioModelLETBased
         p4_CAR = 0.006;
 
         AvailableRadiationModalities = {'protons'};
-        RequiredBaseData = {'depths','offset','LET'};
     end
 
     properties (Hidden)

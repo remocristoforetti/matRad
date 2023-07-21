@@ -1,10 +1,42 @@
 classdef matRad_bioModelLETBased < matRad_BiologicalModel
-
+% main class for the calculation of LET based models
+% The general formuals for the alpha/beta calculation are:
+%
+%   alpha = RBEmax * alphaX;
+%   beta  = (RBEmin^2) * betaX;
+% where
+%   RBEmax = p0 + p1 * LET
+%   RBEmin = p2 + p3 * LET
+%
+% Definition of the coefficients [p0,p1,p2,p3] need to be provided by the
+% user through the specific sublclass, by designing the get functions:
+%
+%   p0 = getP0()
+%   p1 = getP1()
+%   p2 = getP2()
+%   p3 = getP3()
+%
+% While the 'RequiredBaseData' property is defined for all the LET based
+% models, the 'AvailableRadiationModalities' can still be assigned by the
+% user.
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2023 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties
         defaultAlphaX = 0.1;
         defaultBetaX  = 0.05;
 
-        requiredDijFields = {'mAlphaDose', 'mSqrtBetaDose'};
+        RequiredBaseData = {'depths','offset','LET'};
+        %requiredDijFields = {'mAlphaDose', 'mSqrtBetaDose'};
     end
 
     properties (Hidden)
@@ -23,7 +55,7 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
             obj@matRad_BiologicalModel(radiationMode);
         end
 
-        function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
+        function str = calcTissueParameters(obj,cst,numVoxels,~,~)
             str = struct('alphaX', [], ...
                         'betaX', [], ...
                         'tissueABratio', [], ...
@@ -48,7 +80,7 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
               end
               
               str.tissueABratio(k) = str.alphaX(k)./str.betaX(k);
-              tissueClass(cst{k,4}{1},1) = k; %What if there is an overlap between structures?
+              tissueClass(cst{k,4}{1},1) = k; %TODO: What if there is an overlap between structures?
            end
            str.tissueClass = tissueClass(tissueClass>0);
 
@@ -97,13 +129,14 @@ classdef matRad_bioModelLETBased < matRad_BiologicalModel
 
     end
 
-    methods (Abstract)
-       getP0();
-
-       getP1();
-
-       getP2();
-
-       getP3();
-    end
+    % Octave compatible?
+    % methods (Abstract)
+    %    getP0();
+    % 
+    %    getP1();
+    % 
+    %    getP2();
+    % 
+    %    getP3();
+    % end
 end
