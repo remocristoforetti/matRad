@@ -1,12 +1,13 @@
 classdef matRad_bioModel_constRBE < matRad_BiologicalModel
-      properties (SetAccess = private, Hidden)%constant
-        constRBE_protons = 1.1;
-        constRBE_photons = 1;
+% subclass for implementation of constRBE model
+      properties (SetAccess = private, Hidden)
+        %constRBE_protons = 1.1;
+        %constRBE_photons = 1;
         default_AlphaX = 0.1;
         default_BetaX = 0.05;
         
         default_RBE_protons = 1.1;
-        default_RBE_photons = 1;
+        %default_RBE_photons = 1;
         
         AvailableRadiationModalities = {'protons'};
         RequiredBaseData = {};
@@ -24,15 +25,11 @@ classdef matRad_bioModel_constRBE < matRad_BiologicalModel
          obj@matRad_BiologicalModel(radiationMode);
          obj.model = 'constRBE';
 
-         switch obj.radiationMode
-             % case {'photons'}
-             %       obj.RBE = obj.default_RBE_photons;
-             case {'protons'}
-                   obj.RBE = obj.default_RBE_protons;
-         end
+         obj.RBE = obj.default_RBE_protons;
+         
        end
  
-       function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
+       function str = calcTissueParameters(obj,cst,numVoxels,~,~)
            matRad_cfg = MatRad_Config.instance();
            str = struct('alphaX', [], ...
                         'betaX', [], ...
@@ -77,12 +74,17 @@ classdef matRad_bioModel_constRBE < matRad_BiologicalModel
        end
        
        function [bixelAlpha,bixelBeta] = calcLQParameter(obj,vRadDepths,baseDataEntry,TissueParam,ix)
-            
+           % This function should be called only when a variable RBE model is applied and should not be called by the standard matRad dose calculation engine.
+           % It is anyway provide for internal usage. If called by the dose engine when the
+           % backprojection is a variableRBE projection, should still give
+           % the same consRBE results. Use of this functionality is not
+           % recommended
+
             bixelAlpha = NaN*ones(numel(vRadDepths),1);
             bixelBeta  = NaN*ones(numel(vRadDepths),1);
             
             %This is done so that if proj_variableRBE is called with this
-            %model, it gives back RBExD anyway
+            %model, it gives back RBExD anyway.
             RBE = TissueParam.RBE(TissueParam.tissueClass(ix))';
             alphaX = TissueParam.alphaX(TissueParam.tissueClass(ix))';
             betaX = TissueParam.betaX(TissueParam.tissueClass(ix))';
