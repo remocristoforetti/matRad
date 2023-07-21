@@ -171,17 +171,17 @@ end
 % compute SSDs -> Removed for now because it is scenario-dependent
 % stf = matRad_computeSSD(stf,ct);
 
-% bioModel consistency check
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% bioModel consistency check %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if isfield(pln, 'bioParam') && ~isempty(pln.bioParam)
 
     if isa(pln.bioParam, 'matRad_BiologicalModel')
         if strcmp(pln.radiationMode, pln.bioParam.radiationMode)
             pln.bioParam.machine = machine;
         else
-            matRad_cfg.dispError(['Radiation modality does not coincide with radiationMode for current biological model.\n']);
+            matRad_cfg.dispError(['Radiation modality does not coincide with radiationMode for current biological model.']);
         end
     else
-        matRad_cfg.dispError(['pln field bioParam is reserved for instance of matRad_BiologicalModel class. The provided instance is not correct.\n']);
+        matRad_cfg.dispError(['pln field bioParam is reserved for instance of matRad_BiologicalModel class. The provided instance is not correct.']);
     end
 else
     pln.bioParam.model = 'no biological model has been loaded';
