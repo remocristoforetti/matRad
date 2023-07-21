@@ -1,8 +1,8 @@
 classdef matRad_bioModel_LEM < matRad_BiologicalModel
-
+% subclass that implements the LEM model
     properties (SetAccess = private)
-        AvailableRadiationModalities = {'carbon', 'helium'};                        %radiation modalities that can be optimized with this model
-        RequiredBaseData = {'depths','offset','alpha', 'beta', 'alphaX', 'betaX'};  %required fields in basData
+        AvailableRadiationModalities = {'carbon', 'helium'};
+        RequiredBaseData = {'depths','offset','alpha', 'beta', 'alphaX', 'betaX'};
         default_AlphaX = 0.1;
         default_BetaX = 0.05;
    end
@@ -12,6 +12,7 @@ classdef matRad_bioModel_LEM < matRad_BiologicalModel
       methods
        %Constructor
        function obj = matRad_bioModel_LEM(radiationMode)
+
           if ~ischar(radiationMode)
            matRad_cfg.dispWarning(['Something wrong with bioModel inputs']);
           end
@@ -21,7 +22,7 @@ classdef matRad_bioModel_LEM < matRad_BiologicalModel
        end
        
 
-       function str = calcTissueParameters(obj,cst,numVoxels,stf,ctScen)
+       function str = calcTissueParameters(obj,cst,numVoxels,~,~)
            matRad_cfg =  MatRad_Config.instance();
 
            str = struct('tissueClass', []);
@@ -50,9 +51,8 @@ classdef matRad_bioModel_LEM < matRad_BiologicalModel
             bixelBeta  = NaN*ones(numel(vRadDepths),1);
             
             % range shift
-            depths = baseDataEntry.depths;% + baseDataEntry.offset;
+            depths = baseDataEntry.depths + baseDataEntry.offset;
 
-            %numOfTissueClass = size(baseDataEntry(1).alpha,2);
              numOfTissueClass = size(unique(TissueParam.tissueClass),1);
              tissueIdxs = unique(TissueParam.tissueClass);
              for i = 1:numOfTissueClass
