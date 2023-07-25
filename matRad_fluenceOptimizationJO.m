@@ -126,7 +126,7 @@ else
         wOnes          = ones(dijt.totalNumOfBixels*dij.numOfSTscen(modality),1);
         wt             = zeros(dijt.totalNumOfBixels*dij.numOfSTscen(modality),1);
         
-        if strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'protons')
+        if strcmp(pln.originalPlans(modality).bioParam.model,'constRBE') && strcmp(pln.originalPlans(modality).radiationMode,'protons')
             % check if a constant RBE is defined - if not use 1.1
             if ~isfield(dijt,'RBE')
                 dijt.RBE = 1.1;
@@ -137,7 +137,7 @@ else
             wt       = wOnes * bixelWeight;
             matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
 
-        elseif pln.bioParam.bioOpt
+        elseif pln.originalPlans(modality).bioParam.bioOpt
 
             % retrieve photon LQM parameter
             [ax,bx] = matRad_getPhotonLQMParameters(cst,dijt.doseGrid.numOfVoxels,1);
@@ -173,8 +173,18 @@ else
                 bixelNum = 1;
                 SelectedBixels = [bixelNum:bixelNum+dijt.totalNumOfBixels*dij.numOfSTscen(modality)-1];
                 wIdx = reshape(wOnes(SelectedBixels),[dijt.totalNumOfBixels,dij.numOfSTscen(modality)]);
-                aTmp = dijt.mAlphaDose{1}*wIdx(:,1);
-                bTmp = dijt.mSqrtBetaDose{1}*wIdx(:,1);
+                
+                if isfield(dijt, 'mAlphaDose')
+                    aTmp = dijt.mAlphaDose{1}*wIdx(:,1);
+                else
+                    aTmp = (dijt.physicalDose{1}.*dijt.ax)*wIdx(:,1);
+                end
+
+                if isfield(dijt, 'mSqrtBetaDose')
+                    bTmp = dijt.mSqrtBetaDose{1}*wIdx(:,1);
+                else
+                    bTmp = (dijt.physicalDose{1}.*dijt.bx)*wIdx(:,1);
+                end
 
                 p = sum(aTmp(V)) / sum(bTmp(V).^2);
                 q = -(effectTarget * length(V)) / sum(bTmp(V,1).^2);
@@ -184,7 +194,7 @@ else
                 bixelNum = bixelNum + dijt.totalNumOfBixels;
 
 
-            elseif isequal(pln.bioParam.quantityOpt,'RBExD')
+            elseif isequal(pln.quantityOpt,'RBExD')
 
                 %pre-calculations
                 dijt.gamma             = zeros(dijt.doseGrid.numOfVoxels,1);
@@ -226,6 +236,8 @@ else
         end
         
         wInit = [wInit; wt./max(wt)];            
+%         wInit = [wInit; wt];            
+
     end
 end
 
@@ -293,12 +305,17 @@ else
    ixForOpt = linIxDIJ;
 end
 
+
 switch pln.bioParam.quantityOpt
     case 'effect'
         backProjection = matRad_EffectProjection;
     case 'RBExD'
         %Capture special case of constant RBE
-        if strcmp(pln.bioParam.model,'constRBE')
+        % This works only if one of the plans is photon. If asking for
+        % constRBE with photons, constRBE projection is selceted, this will
+        % not be possible with new bioModels
+        bioModels = [pln.originalPlans.bioParam];
+        if any(strcmp({bioModels.model},'constRBE'))
             backProjection = matRad_ConstantRBEProjection;
         else
             backProjection = matRad_VariableRBEProjection;
@@ -373,6 +390,15 @@ wOpt = optimizer.wResult;
 info = optimizer.resultInfo;
 bxidx = 1;
 for mod = 1: pln.numOfModalities
+
+    % For the time being compute also the mAlphaDose mSQRTBetaDose also for
+    % photons (triggers effect calculation in matRad_calcCubes)
+
+    if strcmp(pln.originalPlans(mod).radiationMode, 'photons') && strcmp(pln.originalPlans(mod).bioParam.quantityOpt, 'effect')
+        dij.original_Dijs{mod}.mAlphaDose{1} = dij.original_Dijs{mod}.physicalDose{1}.*dij.original_Dijs{mod}.ax; 
+        dij.original_Dijs{mod}.mSqrtBetaDose{1} = dij.original_Dijs{mod}.physicalDose{1}.*sqrt(dij.original_Dijs{mod}.bx); 
+    end
+
     wt = [];
     % split the w for current modality
     STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
@@ -382,28 +408,25 @@ for mod = 1: pln.numOfModalities
     if STrepmat>1
         for STscenIdx=1:STrepmat
             STresultGUI{STscenIdx} = matRad_calcCubes(wt(:,STscenIdx),dij.original_Dijs{mod});
-            STfractionWeight = dij.STfractions{mod}(STscenIdx);%./sum(dij.STfractions{mod});
-            STresultGUI_fractionWeighted{STscenIdx} = matRad_calcCubes(wt(:,STscenIdx).*STfractionWeight,dij.original_Dijs{mod});
         end
 
         fields = fieldnames(STresultGUI{1});
-        %resultGUI{mod} = cell2struct(cell(1,length(fields)), fields, 2);
-        for fieldIdx=1:size(fields,1)     %Accumulate the total quantity also
-             resultGUI{mod}.(fields{fieldIdx}) = zeros(size(STresultGUI_fractionWeighted{STscenIdx}.(fields{fieldIdx})));
+
+        for fieldIdx=1:size(fields,1)
+             resultGUI{mod}.(fields{fieldIdx}) = zeros(size(STresultGUI{STscenIdx}.(fields{fieldIdx})));
         end
-        
-        
+                
         for STscenIdx=1:STrepmat
             for fieldIdx=1:size(fields,1)
                 resultGUI{mod}.([fields{fieldIdx}, '_STscenario_', num2str(STscenIdx)]) = STresultGUI{STscenIdx}.(fields{fieldIdx});
 
                 %Accumulate the total quantity also
-                resultGUI{mod}.(fields{fieldIdx}) = resultGUI{mod}.(fields{fieldIdx}) + STresultGUI_fractionWeighted{STscenIdx}.(fields{fieldIdx});
+                resultGUI{mod}.(fields{fieldIdx}) = resultGUI{mod}.(fields{fieldIdx}) + STresultGUI{STscenIdx}.(fields{fieldIdx}).*dij.STfractions{mod}(STscenIdx)./sum(dij.STfractions{mod});
             end
         end
     else
 
-    resultGUI{mod} = matRad_calcCubes(wt*dij.STfractions{mod},dij.original_Dijs{mod});
+    resultGUI{mod} = matRad_calcCubes(wt,dij.original_Dijs{mod});
     resultGUI{mod}.wUnsequenced = wt;
     resultGUI{mod}.usedOptimizer = optimizer;
     resultGUI{mod}.info = info;
