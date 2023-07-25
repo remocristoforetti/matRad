@@ -336,6 +336,7 @@ for mod = 1: length(dij.original_Dijs)
     gt = optiProb.BP.GetGradient();
                      % review for ST optimization 
     for s = 1:numel(useScen)
+<<<<<<< HEAD
         gt{s} = gt{s}.*dij.STfractions{mod};
         gt{s} = reshape(gt{s}, [dij.original_Dijs{mod}.totalNumOfBixels*STrepmat 1]);
         g{s} = [g{s}; gt{s}];
@@ -345,15 +346,27 @@ end
     weightGradient = zeros(size(g{1}));
     for s = 1:numel(useScen)
         weightGradient = weightGradient + g{useScen(s)};
+=======
+        gt{s} = gt{s}*dij.STfractions{mod};  
+        g{s} = [g{s}; gt{s}];                     
+>>>>>>> af960fd94613e302978be489cdefd869456274c8
     end
+    bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
+end
 
-    if vOmega ~= 0
-        optiProb.BP.computeGradientProb(dij.original_Dijs{mod},doseGradientExp,vOmega,w);
-        gProb = optiProb.BP.GetGradientProb();
+weightGradient = zeros(dij.totalNumOfBixels,1);
+for s = 1:numel(useScen)
+    weightGradient = weightGradient + g{useScen(s)};
+end
 
-        %Only implemented for first scenario now
-        weightGradient = weightGradient + gProb{1};
-    end
+if vOmega ~= 0
+    optiProb.BP.computeGradientProb(dij.original_Dijs{mod},doseGradientExp,vOmega,w);
+    gProb = optiProb.BP.GetGradientProb();
+
+    %Only implemented for first scenario now
+    weightGradient = weightGradient + gProb{1};
+end
+
 % code snippet to check the gradient
     gradientChecker = 0;
 if gradientChecker == 1
