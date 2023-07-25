@@ -336,24 +336,15 @@ for mod = 1: length(dij.original_Dijs)
     gt = optiProb.BP.GetGradient();
                      % review for ST optimization 
     for s = 1:numel(useScen)
-<<<<<<< HEAD
+
         gt{s} = gt{s}.*dij.STfractions{mod};
         gt{s} = reshape(gt{s}, [dij.original_Dijs{mod}.totalNumOfBixels*STrepmat 1]);
         g{s} = [g{s}; gt{s}];
-        %norm(gt{s})
-    end 
-end   
-    weightGradient = zeros(size(g{1}));
-    for s = 1:numel(useScen)
-        weightGradient = weightGradient + g{useScen(s)};
-=======
-        gt{s} = gt{s}*dij.STfractions{mod};  
-        g{s} = [g{s}; gt{s}];                     
->>>>>>> af960fd94613e302978be489cdefd869456274c8
     end
     bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
-end
 
+
+end
 weightGradient = zeros(dij.totalNumOfBixels,1);
 for s = 1:numel(useScen)
     weightGradient = weightGradient + g{useScen(s)};
