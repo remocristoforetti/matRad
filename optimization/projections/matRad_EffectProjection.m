@@ -21,7 +21,19 @@ classdef matRad_EffectProjection < matRad_BackProjection
     
     methods
         function effect = computeSingleScenario(~,dij,scen,w)
-            if isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
+            if any(~isfield(dij, {'mAlphaDose', 'mSqrtBetaDose'}))
+                if all(isfield(dij, {'ax', 'bx'}))
+                    physicalDose = dij.physicalDose{scen}*w;
+
+                    effect = dij.ax.*physicalDose+ dij.bx.*(physicalDose).^2;
+
+                else
+                    effect = [];
+                    matRad_cfg = MatRad_Config.instance();
+                    matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
+                end
+            elseif isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
+            %if isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
                 effect = [];
                 matRad_cfg = MatRad_Config.instance();
                 matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
@@ -31,16 +43,34 @@ classdef matRad_EffectProjection < matRad_BackProjection
         end
         
         function wGrad = projectSingleScenarioGradient(~,dij,doseGrad,scen,w)
-            if isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
+             if any(~isfield(dij, {'mAlphaDose', 'mSqrtBetaDose'}))
+                if all(isfield(dij, {'ax', 'bx'}))
+                    vBias = ((doseGrad{scen}.*dij.ax)' * dij.physicalDose{scen})';
+                    physicalDose = dij.physicalDose{scen}*w;
+                    sqrtBeta = sqrt(dij.bx);
+                    quadTerm = physicalDose.*sqrtBeta;
+                    %quadTerm = sqrtBetaDose * w;
+
+                    mPsi = (2*(doseGrad{scen}.*quadTerm.*sqrtBeta)' * dij.physicalDose{scen})';
+                    wGrad = vBias + mPsi;
+                else
+                    effect = [];
+                    matRad_cfg = MatRad_Config.instance();
+                    matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
+                end
+             elseif isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
+             %if isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
                 wGrad = [];
                 matRad_cfg = MatRad_Config.instance();
                 matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
-            else
+             else
+
                 vBias = (doseGrad{scen}' * dij.mAlphaDose{scen})';
+                
                 quadTerm = dij.mSqrtBetaDose{scen} * w;
                 mPsi = (2*(doseGrad{scen}.*quadTerm)' * dij.mSqrtBetaDose{scen})';
                 wGrad = vBias + mPsi;
-            end
+             end
         end
         
         function [eExp,dOmegaV] = computeSingleScenarioProb(~,dij,scen,w)
