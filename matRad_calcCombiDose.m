@@ -55,17 +55,29 @@ if (strcmp(pln.radiationMode, 'MixMod'))
 
 
         if strcmp(radiationModalities{k},'photons')
+
             dijt = [dijt, {matRad_calcPhotonDose(ct,currStf,currPln,cst,CalcDoseDirect)}];
-                
-            if ~strcmp(pln.originalPlans(k).bioParam.quantityOpt, 'physicalDose')
+            
+            %%% matRad_cleanDijScenarios adds all-zero fields mAlphaDose
+            %%% mSqrtBetaDose to dij if pln.bioParam is active
+            if isfield(dijt{end},'mAlphaDose')
+                dijt{end} = rmfield(dijt{end}, 'mAlphaDose');
+            end
+
+            if isfield(dijt{end},'mSqrtBetaDose')
+                dijt{end} = rmfield(dijt{end}, 'mSqrtBetaDose');
+            end
+
+            if ~strcmp(pln.bioParam.quantityOpt, 'physicalDose')
                 cst = matRad_setOverlapPriorities(cst,ct.cubeDim);
                 [ax,bx] = matRad_getPhotonLQMParameters(matRad_resizeCstToGrid(cst,dijt{k}.ctGrid.x,  dijt{k}.ctGrid.y,  dijt{k}.ctGrid.z,...
                                  dijt{k}.doseGrid.x,dijt{k}.doseGrid.y,dijt{k}.doseGrid.z),dijt{k}.doseGrid.numOfVoxels,1);
                 dijt{k}.ax = ax;
                 dijt{k}.bx = bx;
                 dijt{k}.abx = ax./bx;
-                dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
-                dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
+                dijt{k}.RBE = 1;
+                %dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
+                %dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
             end
 
         elseif strcmp(radiationModalities{k},'protons') || strcmp(radiationModalities{k},'carbon')|| strcmp(radiationModalities{k},'helium')

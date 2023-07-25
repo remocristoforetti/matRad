@@ -28,6 +28,7 @@ function pln = matRad_plnConsistency(pln)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 matRad_cfg = MatRad_Config.instance();
+AvailableQuantitiesForOpt = {'physicalDose', 'RBExD', 'effect'};
 if numel(pln) == 1
     matRad_cfg.dispInfo(['single pln is by definition consistent with itself... \n']);
 elseif numel(pln) > 1
@@ -47,9 +48,18 @@ elseif numel(pln) > 1
     if numel(unique(maxh)) > 1
         maxh = max(maxh);
         %This will probably clash with new class based bioModel implementation
-        quantityOpt = pln(i).bioParam.AvailableQuantitiesForOpt{maxh};
+        %quantityOpt = pln(i).bioParam.AvailableQuantitiesForOpt{maxh};
+        quantityOpt = AvailableQuantitiesForOpt{maxh};
+        
         matRad_cfg.dispInfo(['make plan consistent. optimized quantity chosen by hirarchy is ' quantityOpt '. \n' ]);
         for i = 1:numel(pln)
+            % For the time being, try to force the quantity of
+            % optimization. If trying to turn proton RBExD into effect for
+            % example, it takes the default MCN and allows the proton model
+            % to be changed. In principle photon can have whatever you
+            % like, RBExD will be normal dose and effect will be photon
+            % effect. This has to trigger additional fields in the dij to
+            % be computed (ax, bx, etc).
             pln(i).bioParam = matRad_bioModel(pln(i).radiationMode, quantityOpt, pln(i).bioParam.model);
         end
     elseif numel(unique(maxh)) == 1
