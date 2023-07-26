@@ -9,12 +9,14 @@ doseGeneration = matRad_baseDataGeneration_dose;
 
 doseGeneration.retriveMainClass([folder, fileName]);
 %% Define phantoms and scorers
-doseGeneration.scorerParams.scorers = {'DoseToMedium'};%, 'Fluence','EdBinned', 'ProtonLET'};
-doseGeneration.scorerParams.nScorers = size(doseGeneration.scorerParams.scorers,2);
+doseGeneration.scorers = {'DoseToMedium'};%, 'Fluence','EdBinned', 'ProtonLET'};
+doseGeneration.scorerParams.nScorers = size(doseGeneration.scorers,2);
 doseGeneration.scorerParams.ions = {'protons'};
 doseGeneration.scorerParams.ionsZ = 1;
 
+doseGeneration.scorerParams.filteredScorer = 0;
 
+doseGeneration.scorerParams.energyBinned = 0;
 %%% Phantoms could then become a class per se, so that will have a clas for
 %%% the dose phantom, which is diveded in three and dorectly place it here
 doseGeneration.phantoms.nPhantoms = 3;
@@ -24,6 +26,7 @@ proximalPhantomHL = round((doseGeneration.energyParams.simulateRanges-peakPhanto
 proximalPhantomHL(proximalPhantomHL<1) = 1;
 distalPhantomHL  = 25*ones(doseGeneration.energyParams.nEnergies,1); %mm
 
+doseGeneration.phantoms.material = 'MyWater';
 doseGeneration.phantoms.depths    = [proximalPhantomHL, (2*proximalPhantomHL + peakPhantomHL), 2*(proximalPhantomHL + peakPhantomHL)+distalPhantomHL];
 doseGeneration.phantoms.HL        = [proximalPhantomHL, peakPhantomHL, distalPhantomHL]; %mm
 doseGeneration.phantoms.rMax      = [50, 50, 50]; %mm
@@ -32,7 +35,7 @@ doseGeneration.phantoms.Rbins     = [100, 100, 100];
 
 doseGeneration.phantoms.sourcePosition = -0.1; %mm
 
-doseGeneration.parameterVariableName = 'doseGeeneration';
+doseGeneration.parameterVariableName = 'doseGeneration';
 doseGeneration.MCparams.runDirectory = [doseGeneration.workingDir, filesep, 'SimulationDose'];
 %% Save parameters
 
@@ -41,7 +44,8 @@ doseGeneration.saveParameters();
 %% Instantiate subclass
 doseSimulation = matRad_dose_simulation();
 
-fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration07-Jul-2023proton'];
+fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration10-Jul-2023proton.mat'];
+
 doseSimulation.retriveMainClass(fileName);
 doseSimulation.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDose'];
 % Define MCparams
@@ -75,30 +79,31 @@ doseSimulation.saveParameters();
 %%
 
 doseAnalysis = matRad_dose_analysis();
-fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration07-Jul-2023proton'];
+fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration10-Jul-2023proton.mat'];
 doseAnalysis.retriveMainClass(fileName);
-doseAnalysis.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDose'];
+doseAnalysis.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDoseG4_WATER_DoseToMedium'];
 
 
 doseAnalysis.performAnalysis();
 %% save output
-doseAnalysis.saveOutput();
+%doseAnalysis.saveOutput();
 
 %% generate machine file
 
-doseFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'doseAnalysis_06-Jul-2023_proton.mat']);
-doseFit = doseFit.saveStr;
-airWideningFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'airWideningAnalysis_06-Jul-2023_proton.mat']);
+%doseFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'doseAnalysis_11-Jul-2023_proton.mat']);
+%doseFit = doseFit.saveStr;
+%airWideningFit = load(['C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\baseDataGeneration\output\', 'airWideningAnalysis_06-Jul-2023_proton.mat']);
 
-airWideningFit = airWideningFit.saveStr;
+%airWideningFit = airWideningFit.saveStr;
 
-machine = doseAnalysis.generateMachineFile(doseFit.fitDoseOutput,airWideningFit.initFocus);
+%machine = doseAnalysis.generateMachineFile(doseFit.fitDoseOutput,airWideningFit.initFocus);
 
 %% Save machine
 
-save('protons_testClassGenericProton.mat', 'machine');
+%save('protons_testClassGenericProton.mat', 'machine');
 %% Visulaize PDDs
 protonMachine = load('C:\r408i_data\r408i_data\matRad_varRBErobOpt\basedata\protons_Generic.mat');
+
 protonMachine = protonMachine.machine;
 [~, eIdx] = intersect([protonMachine.data(:).energy], doseSimulation.simulateEnergies);
 

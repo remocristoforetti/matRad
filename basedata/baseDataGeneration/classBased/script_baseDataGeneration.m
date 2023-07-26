@@ -11,10 +11,18 @@ mainBaseDataGenerationClass = matRad_baseDataGeneration();
 simulateEnergies = [protons_machine.data.energy];
 [~,eIdx] = intersect([protons_machine.data.energy], simulateEnergies);
 
+emittance = matRad_MCemittanceBaseData_new(protons_machine);
+
+
+mainBaseDataGenerationClass.energyParams.EsLUT.energies = [protons_machine.data(:).energy];
+
+mainBaseDataGenerationClass.energyParams.EsLUT.energySpread = [emittance.monteCarloData.EnergySpread];
+
 %Load them into the class
 mainBaseDataGenerationClass.simulateEnergies = simulateEnergies';
 
 %% Define initFocus
+
 
 initFocus = [];
 %The starting point for beam widening is 

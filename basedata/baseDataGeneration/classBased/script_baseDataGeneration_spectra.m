@@ -60,9 +60,18 @@ spectraSimulation.writeSimulationFiles();
 
 %% Analysis
 spectraAnalysis = matRad_spectra_analysis();
-fileName = [spectraAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'spectra07-Jul-2023proton.mat'];
+fileName = [spectraAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'spectra10-Jul-2023proton.mat'];
 spectraAnalysis.retriveMainClass(fileName);
 
-spectraAnalysis.MCparams.runDirectory = [spectraAnalysis.workingDir, filesep, 'SimulationSpectra'];
 
+spectraAnalysis.MCparams.runDirectory = [spectraAnalysis.workingDir, filesep, 'SimulationSpectra'];
+spectraAnalysis.scorerParams= rmfield(spectraAnalysis.scorerParams, 'scorers'); %This property needs to be eliminated
+
+spectraAnalysis.scorerParams.newEbinning.EMax = 300;
+spectraAnalysis.scorerParams.newEbinning.EMin = 0;
+spectraAnalysis.scorerParams.newEbinning.nEBins = 600;
 spectraAnalysis.performAnalysis();
+
+
+%% Save
+spectraAnalysis.saveOutput();
