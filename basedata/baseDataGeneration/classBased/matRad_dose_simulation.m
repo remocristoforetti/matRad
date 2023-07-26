@@ -67,7 +67,7 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
                fprintf(fID, '\n');
                fprintf(fID, 's:Ge/%s/Parent            = "MyPhantom"\n', phantomName);
                fprintf(fID, 's:Ge/%s/Type              = "TsCylinder"\n', phantomName);
-               fprintf(fID, 's:Ge/%s/Material          = "G4_WATER"\n', phantomName);
+               fprintf(fID, 's:Ge/%s/Material          = "%s"\n', phantomName, obj.phantoms.material);
                fprintf(fID, 'd:Ge/%s/RMin              = 0.0 cm\n', phantomName);
                fprintf(fID, 'd:Ge/%s/RMax              = %3.3f mm\n', phantomName, obj.phantoms.rMax(phantomIdx));
                fprintf(fID, 'd:Ge/%s/HL                = Sim/%s/HL mm\n', phantomName, phantomName);
@@ -100,7 +100,7 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
             fprintf(fID, 's:Ge/BeamPosition/Type        = "Group"\n');
             fprintf(fID, 'd:Ge/BeamPosition/TransX      = 0 m\n');
             fprintf(fID, 'd:Ge/BeamPosition/TransY      = 0 m\n');
-            fprintf(fID, 'd:Ge/BeamPosition/TransZ      = %d m\n', obj.phantoms.sourcePosition);
+            fprintf(fID, 'd:Ge/BeamPosition/TransZ      = %d mm\n', obj.phantoms.sourcePosition);
             fprintf(fID, 'd:Ge/BeamPosition/RotX        = 0 deg\n');
             fprintf(fID, 'd:Ge/BeamPosition/RotY        = 0 deg\n');
             fprintf(fID, 'd:Ge/BeamPosition/RotZ        = 0 deg\n');
@@ -141,11 +141,14 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
                 fprintf(fID, 'b:Sc/phantom_%u/%s/OutputToConsole              = "False"\n',phantomIdx,scorerName);
                 fprintf(fID, 's:Sc/phantom_%u/%s/IfOutputFileAlreadyExists    = "Increment"\n',phantomIdx,scorerName);
                 fprintf(fID, 's:Sc/phantom_%u/%s/OutputType                   = Sim/OutputType_%s\n',phantomIdx,scorerName, scorerName);
-                fprintf(fID, 's:Sc/phantom_%u/%s/OutputFile                   = "./Results/%s/Dose_phantom_%u"\n',phantomIdx,scorerName,scorerName,phantomIdx);
+                fprintf(fID, 's:Sc/phantom_%u/%s/OutputFile                   = "./Results/%s/%s_phantom_%u"\n',phantomIdx,scorerName,scorerName,scorerName,phantomIdx);
                 if obj.scorerParams.filteredScorer(scorerIdx)
                     fprintf(fID, 'i:Sc/phantom_%u/%s/OnlyIncludeParticlesOfAtomicNumber                   = 1\n',phantomIdx,scorerName);
                 end
 
+                if strcmp(obj.scorers{scorerIdx}, 'ProtonLET')
+                    fprintf(fID, 'd:Sc/phantom_%u/%s/MaxScoredLET = 100 MeV/mm/(g/cm3) # default 100 MeV/mm/(g/cm3)\n',phantomIdx,scorerName);
+                end
                 if obj.scorerParams.energyBinned(scorerIdx)
                     fprintf(fID, 'd:Sc/phantom_%u/%s/EBinMax                   = Sim/EMax_protons MeV\n',phantomIdx,scorerName);
                     fprintf(fID, 'd:Sc/phantom_%u/%s/EBinMin                   = Sim/EMin_protons MeV\n',phantomIdx,scorerName);

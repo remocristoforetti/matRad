@@ -73,7 +73,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                 data_run = cell(8,1);
 
                 for runIdx = 1:obj.MCparams.nRuns-1
-                    if runIdx >2
+                    if (runIdx>1)
                         fileName = ['Ps_phantom_', num2str(phantomIdx), '_', num2str(runIdx-1), '.phsp'];
                     else
                         fileName = ['Ps_phantom_', num2str(phantomIdx), '.phsp'];
