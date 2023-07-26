@@ -21,12 +21,17 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
 
         function performAnalysis(obj)
             obj.outputAnalysis = [];
+
+            if obj.MCparams.previousRuns > 0
+                obj.mergeResults();
+            end
+
             for energyIdx = 1:obj.energyParams.nEnergies
-                %for scorerIdx = 1:obj.scorerParams.nScorers
-                scorerIdx = 1;
+                for scorerIdx = 1:obj.scorerParams.nScorers
+                %scorerIdx = 1;
                     data = obj.loadData(energyIdx, scorerIdx);
-                    obj.analysis(energyIdx,data);
-                %end
+                    obj.analysis(energyIdx,data, scorerIdx);
+                end
             
             end
                 
@@ -346,6 +351,35 @@ classdef matRad_baseDataAnalysis < handle %matRad_baseDataGeneration
             end
         end
 
-         
+        function mergeResults(obj)
+            matRad_cfg = MatRad_Config.instance();
+    
+            if ~isfield(obj.MCparams, 'previousRunsDir') || isempty(obj.MCparams.previousRunsDir)
+                matRad_cfg.dispError('Previous runs are specified but no directory is present');
+            end
+
+            % dirCounter =1;
+            % 
+            % mergedDirectoryNameBase = [obj.workingDir,filesep,'MergedDirectroy', obj.scorers{1}];
+            % if ~exist(mergedDirectoryNameBase, 'dir')
+            %     mkdir(mergedDirectoryNameBase);
+            % 
+            % else
+            %     mergedDirectoryName = [mergedDirectoryNameBase, '_', num2str(dirCounter)];
+            %     while exist(mergedDirectoryName,'dir')
+            %             dirCounter = dirCounter +1;
+            %             mergedDirectoryName = [mergedDirectoryNameBase, '_', num2str(dirCounter)];
+            %     end
+            %     mkdir(mergedDirectoryName);
+            % 
+            % end
+            % 
+            % for rundDirectoryIdx = 1:size(obj.MCparams.previousRunsDir,1)
+            %     for runIdx=1:obj.MCparams.previousRuns(rundDirectoryIdx)
+            %         cp
+            %     end
+            % end
+        end
     end
+
 end
