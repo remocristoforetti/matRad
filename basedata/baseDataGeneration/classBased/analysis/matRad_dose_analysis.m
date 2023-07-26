@@ -30,16 +30,23 @@ classdef matRad_dose_analysis < matRad_baseDataAnalysis & matRad_baseDataGenerat
             for phantomIdx = 1:obj.phantoms.nPhantoms
                 data_run = [];
 
-                for runIdx = 1:obj.MCparams.nRuns-1
-                    if runIdx >2
-                        fileName = ['Dose_phantom_', num2str(phantomIdx), '_', num2str(runIdx-1), '.bin'];
+                for runIdx = 1:obj.MCparams.nRuns
+                    if (runIdx>1)
+                        %fileName = ['Dose_phantom_', num2str(phantomIdx), '_', num2str(runIdx-1), '.bin'];
+                        fileName = ['DoseToMedium_phantom_', num2str(phantomIdx), '_', num2str(runIdx-1), '.bin'];
                     else
-                        fileName = ['Dose_phantom_', num2str(phantomIdx), '.bin'];
-
+                        %fileName = ['Dose_phantom_', num2str(phantomIdx), '.bin'];
+                        fileName = ['DoseToMedium_phantom_', num2str(phantomIdx), '.bin'];
                     end
                     
-                    fID = fopen([fileFolder,fileName]);
-                    data_raw = fread(fID,obj.phantoms.Rbins(phantomIdx)*obj.phantoms.Zbins(energyIdx,phantomIdx), 'double');
+                    try
+                        fID = fopen([fileFolder,fileName]);
+                        data_raw = fread(fID,obj.phantoms.Rbins(phantomIdx)*obj.phantoms.Zbins(energyIdx,phantomIdx), 'double');
+                    catch
+                        %errorString = strcat('Cannot open file: ',fullfile(fileFolder,fileName));
+                        matRad_cfg.dispError(['Cannot open file: ', fileName]);
+                    end
+                       
                     data_raw = reshape(data_raw, [obj.phantoms.Rbins(phantomIdx),obj.phantoms.Zbins(energyIdx,phantomIdx)]);
                     fclose(fID);
 
@@ -50,7 +57,7 @@ classdef matRad_dose_analysis < matRad_baseDataAnalysis & matRad_baseDataGenerat
             end
         end
 
-        function analysis(obj,energyIdx,data)
+        function analysis(obj,energyIdx,data, ~)
             matRad_cfg = MatRad_Config.instance();
             
             combinedData = obj.combineScorers(data);
