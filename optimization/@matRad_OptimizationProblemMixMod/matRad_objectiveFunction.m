@@ -94,6 +94,10 @@ for  i = 1:size(cst,1)
                 objective = objective.setDoseParameters(doseParameter./dij.totalNumOfFractions);
 
                 objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+           
+                doseParameter = objective.getDoseParameters();
+                objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions); 
+
                 
                 doseParameter = objective.getDoseParameters();
                 objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions);                

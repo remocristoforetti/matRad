@@ -41,7 +41,7 @@ bxidx = 1; %modality  bixel index
 % Obtain cumulative dose cube 
 [d{1}]    = deal(zeros(dij.doseGrid.numOfVoxels,1));
 
-for mod = 1:length(dij.original_Dijs)
+for mod = 1: length(dij.original_Dijs)
     wt = [];
     % split the w for current modality
     STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
@@ -59,7 +59,7 @@ for mod = 1:length(dij.original_Dijs)
     % DIFFFERENT UNCERTAINTY SCENARIOS FOR DIFFERENT MODALITIES
     % currently for ST optimization 
     for scen = 1:numel(dt)
-         d{scen} = d{scen} + sum(dt{scen}.*dij.STfractions{mod},2);
+         d{scen} = d{scen} + sum(dt{scen}.*dij.STfractions{mod}',2);
     end
 end
 
@@ -102,12 +102,12 @@ end
                     % rescale dose parameters to biological optimization quantity if required
                     doseParameter = objective.getDoseParameters();
                     objective = objective.setDoseParameters(doseParameter./dij.totalNumOfFractions);
-    
+
                     objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
-                    
+               
                     doseParameter = objective.getDoseParameters();
-                    objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions);
-                    
+                    objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions); 
+
                     switch robustness
                         case 'none' % if conventional opt: just sum objectiveectives of nominal dose
                             for s = 1:numel(useScen)
@@ -328,23 +328,19 @@ for mod = 1: length(dij.original_Dijs)
     wt = [];
 
     % split the w and g for current modality
-    STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod)); %can this be the num of St scenrios?
-
+    STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
     wt = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
     
     optiProb.BP.computeGradient(dij.original_Dijs{mod},doseGradient,wt);
     gt = optiProb.BP.GetGradient();
                      % review for ST optimization 
     for s = 1:numel(useScen)
-
-        gt{s} = gt{s}.*dij.STfractions{mod};
-        gt{s} = reshape(gt{s}, [dij.original_Dijs{mod}.totalNumOfBixels*STrepmat 1]);
-        g{s} = [g{s}; gt{s}];
+        gt{s} = gt{s}*dij.STfractions{mod};  
+        g{s} = [g{s}; gt{s}];                     
     end
     bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
-
-
 end
+
 weightGradient = zeros(dij.totalNumOfBixels,1);
 for s = 1:numel(useScen)
     weightGradient = weightGradient + g{useScen(s)};
@@ -363,25 +359,7 @@ end
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
     epsilon = 1e-6;
-
-    %ix = unique(randi([1 numel(w)],1,5));
-    %ix = [21255       21429       21433       21415       20661]; 
-    ix = unique(randi([dij.original_Dijs{1}.totalNumOfBixels dij.totalNumOfBixels],1,5));
-    
-    %ix_particle = [ 16274        1161       18827        1058       13112];
-    ix_particle = unique(randi([1 dij.original_Dijs{1}.totalNumOfBixels],1,5));
-    
-    for i=ix_particle
-    
-        wInit = w;
-        wInit(i) = wInit(i) + epsilon;
-        fDel= matRad_objectiveFunction(optiProb,wInit,dij,cst);
-        numGrad = (fDel - f)/epsilon;
-        diff = (numGrad/weightGradient(i) - 1)*100;
-        fprintf(['grad val #' num2str(i) 'for modality 1 - rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
-        %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
-    end
-    epsilon = 1e-8;
+    ix = unique(randi([1 numel(w)],1,5));
     
     for i=ix
         wInit = w;
@@ -389,7 +367,7 @@ if gradientChecker == 1
         fDel= matRad_objectiveFunction(optiProb,wInit,dij,cst);
         numGrad = (fDel - f)/epsilon;
         diff = (numGrad/weightGradient(i) - 1)*100;
-        fprintf(['grad val #' num2str(i) ' for modality 2 - rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
+        fprintf(['grad val #' num2str(i) ' - rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
         %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
     end
     

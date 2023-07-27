@@ -45,6 +45,7 @@ if (strcmp(pln.radiationMode, 'MixMod'))
     dij_fields = [];
     dijt = [];
 
+    %bioModels = [pln.originalPlans.bioParam];
 
 
     for k = 1:pln.numOfModalities
@@ -53,35 +54,49 @@ if (strcmp(pln.radiationMode, 'MixMod'))
         currPln = pln.originalPlans(k);
         currPln.bioParam = pln.originalPlans(k).bioParam;
 
-
         if strcmp(radiationModalities{k},'photons')
-
             dijt = [dijt, {matRad_calcPhotonDose(ct,currStf,currPln,cst,CalcDoseDirect)}];
+           
+            cst = matRad_setOverlapPriorities(cst,ct.cubeDim);
+            [ax,bx] = matRad_getPhotonLQMParameters(matRad_resizeCstToGrid(cst,dijt{k}.ctGrid.x,  dijt{k}.ctGrid.y,  dijt{k}.ctGrid.z,...
+                              dijt{k}.doseGrid.x,dijt{k}.doseGrid.y,dijt{k}.doseGrid.z),dijt{k}.doseGrid.numOfVoxels,1);
+
+            switch pln.bioParam.quantityOpt % later on, if change th effect/varRBE BP to avoid calculation of mAlphaDose/mSqrtBetaDose, just check if quantityopt is not pD, compute ax,bx,RBE and store them in dij
+                case {'physicalDose'}
+
+                case {'effect'}
+                    dijt{k}.ax = ax;
+                    dijt{k}.bx = bx;
+                    dijt{k}.abx = ax./bx;
+                    dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
+                    dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
+                
+                case {'RBExD'}
+
+                    
+                    % if any(strcmp({bioModels.model}, 'constRBE'))
+                    %     dijt{k}.RBE = 1;
+                    % else
+                        dijt{k}.RBE = 1;
+                        dijt{k}.ax = ax;
+                        dijt{k}.bx = bx;
+                        dijt{k}.abx = ax./bx;
+                        dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
+                        dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
+
+                        dijt{k}.ixDose  = dijt{k}.bx~=0;
+                        dijt{k}.gamma   = zeros(dijt{k}.doseGrid.numOfVoxels,1);
+                        dijt{k}.gamma(dijt{k}.ixDose) = dijt{k}.ax(dijt{k}.ixDose)./(2*dijt{k}.bx(dijt{k}.ixDose));
+                        
+
+                    %end
             
-            %%% matRad_cleanDijScenarios adds all-zero fields mAlphaDose
-            %%% mSqrtBetaDose to dij if pln.bioParam is active
-            if isfield(dijt{end},'mAlphaDose')
-                dijt{end} = rmfield(dijt{end}, 'mAlphaDose');
-            end
-
-            if isfield(dijt{end},'mSqrtBetaDose')
-                dijt{end} = rmfield(dijt{end}, 'mSqrtBetaDose');
-            end
-
-            if ~strcmp(pln.bioParam.quantityOpt, 'physicalDose')
-                cst = matRad_setOverlapPriorities(cst,ct.cubeDim);
-                [ax,bx] = matRad_getPhotonLQMParameters(matRad_resizeCstToGrid(cst,dijt{k}.ctGrid.x,  dijt{k}.ctGrid.y,  dijt{k}.ctGrid.z,...
-                                 dijt{k}.doseGrid.x,dijt{k}.doseGrid.y,dijt{k}.doseGrid.z),dijt{k}.doseGrid.numOfVoxels,1);
-                dijt{k}.ax = ax;
-                dijt{k}.bx = bx;
-                dijt{k}.abx = ax./bx;
-                dijt{k}.RBE = 1;
-                %dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
-                %dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
             end
 
         elseif strcmp(radiationModalities{k},'protons') || strcmp(radiationModalities{k},'carbon')|| strcmp(radiationModalities{k},'helium')
             dijt = [dijt, {matRad_calcParticleDose(ct,currStf,currPln,cst,CalcDoseDirect)}];
+
+
         end
 
         dij_fields = [dij_fields; fieldnames(dijt{k})];            % is this ireally necessary ?
@@ -197,11 +212,9 @@ if (strcmp(pln.radiationMode, 'MixMod'))
     %             end
     %         end
     % this section needs to be reviewed
-
-    %for modalityIdx=1:
-    dij.spatioTemp  = [pln.propOpt.spatioTemp];
-    dij.numOfSTscen = [pln.propOpt.STscenarios];
-    dij.STfractions = [pln.propOpt.STfractions];
+    dij.spatioTemp = [pln.propOpt.spatioTemp];
+    dij.numOfSTscen = pln.propOpt.STscenarios;
+    dij.STfractions = pln.propOpt.STfractions;
 
 
     dij.numOfModalities = pln.numOfModalities;
