@@ -97,10 +97,6 @@ for  i = 1:size(cst,1)
            
                 doseParameter = objective.getDoseParameters();
                 objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions); 
-
-                
-                doseParameter = objective.getDoseParameters();
-                objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions);                
                 % retrieve the robustness type
                 robustness = objective.robustness;
                 
