@@ -269,31 +269,64 @@ for modality = 1: numOfModalities
     else 
         dijt = dij;
     end
-     linIxDIJ = [linIxDIJ , find(~cellfun(@isempty,dijt.physicalDose(scen4D,:,:)))'];
+     %linIxDIJ = [linIxDIJ , find(~cellfun(@isempty,dijt.physicalDose(scen4D,:,:)))'];
 
-     FLAG_CALC_PROB = false;
-     FLAG_ROB_OPT   = false;
+   %   FLAG_CALC_PROB = false;
+   %   FLAG_ROB_OPT   = false;
+   % 
+   %    for i = 1:size(cst,1)
+   %        for j = 1:numel(cst{i,6})
+   %           if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ{k}) > 1
+   %              FLAG_CALC_PROB = true;
+   %           end
+   %           if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ{k}) > 1
+   %              FLAG_ROB_OPT = true;
+   %           end
+   %        end
+   %    end
+   % 
+   % 
+   % if FLAG_CALC_PROB
+   %       if stcmp(pln.radiationMode, 'MixMod')
+   % 
+   %          [dij.original_Dijs{modality}] = matRad_calculateProbabilisticQuantities(dijt,cst,pln);
+   %       else
+   %          [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);            
+   %       end
+   % end
+end
 
-      for i = 1:size(cst,1)
-          for j = 1:numel(cst{i,6})
-             if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ{k}) > 1
-                FLAG_CALC_PROB = true;
-             end
-             if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ{k}) > 1
-                FLAG_ROB_OPT = true;
-             end
-          end
-      end
+%for the time being: use all scenarios
+if ~isa(pln.multScen, 'matRad_MixMod_nominalVsnominal')
+    linIxDIJ = 1;
+else
+    linIxDIJ = [1:pln.multScen.nSamples];
+end
+FLAG_CALC_PROB = false;
+FLAG_ROB_OPT   = false;
 
-
-   if FLAG_CALC_PROB
-         if stcmp(pln.radiationMode, 'MixMod')
-
-            [dij.original_Dijs{modality}] = matRad_calculateProbabilisticQuantities(dijt,cst,pln);
-         else
-            [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);            
+  for i = 1:size(cst,1)
+      for j = 1:numel(cst{i,6})
+         %Disable probability calculation for the time being
+         if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
+            matRad_cfg.dispError('At least one objective has PROB robustness, not yet supported');
+            %FLAG_CALC_PROB = true;
+            FLAG_CALC_PROB = false;
          end
-   end
+         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
+            FLAG_ROB_OPT = true;
+         end
+      end
+  end
+
+
+if FLAG_CALC_PROB
+     if stcmp(pln.radiationMode, 'MixMod')
+
+        [dij.original_Dijs{modality}] = matRad_calculateProbabilisticQuantities(dijt,cst,pln);
+     else
+        [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);            
+     end
 end
 
 % set optimization options
@@ -334,6 +367,7 @@ else
    optiProb = matRad_OptimizationProblem(backProjection);
 end
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
+optiProb.multiScen = pln.multScen;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
     optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
 end
@@ -382,6 +416,7 @@ optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
 
 wOpt = optimizer.wResult;
 info = optimizer.resultInfo;
+
 bxidx = 1;
 for mod = 1: pln.numOfModalities
     wt = [];
@@ -395,13 +430,23 @@ for mod = 1: pln.numOfModalities
     resultGUI{mod}.info = info;
     bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
 end
+bxidx = 1;
 %Robust quantities
-if FLAG_ROB_OPT || numel(ixForOpt) > 1   
-    Cnt = 1;
-    for i = find(~cellfun(@isempty,dij.physicalDose))'
-        tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
-        resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
-        Cnt = Cnt + 1;
+if FLAG_ROB_OPT || numel(ixForOpt) > 1  
+    for mod=1:pln.numOfModalities
+        scenarioIdexes = find(~cellfun('isempty', dij.original_Dijs{mod}.physicalDose));
+
+        wt = [];
+        % split the w for current modality
+        STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
+        wt = reshape(wOpt(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
+        
+        for scenarioIdx = 1:size(scenarioIdexes,1)
+            tmpResultGUI = matRad_calcCubes(wt,dij.original_Dijs{mod},scenarioIdexes(scenarioIdx));
+            resultGUI{mod}.([pln.bioParam.quantityVis '_' num2str(scenarioIdexes(scenarioIdx),'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
+        end
+        bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
+
     end
 end
 

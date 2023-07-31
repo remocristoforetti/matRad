@@ -1,4 +1,4 @@
-function plnJO = matRad_plnWrapper(pln)
+function plnJO = matRad_plnWrapper(pln,multiScenarioMode)
 % Combines the arbitrary number of input plans into a single plan for the
 % different modalities.
 % 
@@ -102,8 +102,45 @@ if nPlans>0
     % Feed the first bio model quantity, they are consistent
     plnJO.bioParam = matRad_bioModel(plnJO.radiationMode,pln(1).bioParam.quantityOpt, plnJO.radiationMode);
     plnJO.originalPlans = originalPlans;
-    plnJO.multScen = [pln(:).multScen];
 
+
+    % Multi scenario
+    dummyCt.numOfCtScen = 1;
+    if exist('multiScenarioMode', 'var')
+        switch multiScenarioMode
+            case 'nominal'
+                if ~strcmp(pln(1).multScen.name, pln(2).multScen.name)
+                    matRad_cfg.dispError('multiScen are different. Only supported value is nominalScenario');
+                else
+                    plnJO.multScen = matRad_mixMod_nominalScenario(dummyCt, {pln.multScen});
+                end
+            case 'nominalVsnominal'
+
+                currentScenarios = [pln(:).multScen];
+                if all(strcmp({currentScenarios.name}, 'nominal'))
+                    matRad_cfg.dispError('All single mod scenarios are nominal. there is only one way to combine them.');
+                else
+                    plnJO.multScen = matRad_mixMod_nominalVsnominal(dummyCt, {pln.multScen});
+                end
+            case 'allVsall'
+
+                currentScenarios = [pln(:).multScen];
+                if all(strcmp({currentScenarios.name}, 'nominal'))
+                    matRad_cfg.dispError('All single mod scenarios are nominal. there is only one way to combine them.');
+                else
+                    plnJO.multScen = matRad_mixMod_allVsall(dummyCt, {pln.multScen});
+                end
+
+            otherwise
+                matRad_cfg.dispError('Unknown multiScenario combination modality');
+        end
+    else
+        if ~strcmp(pln(1).multScen.name, pln(2).multScen.name)
+            matRad_cfg.dispError('multiScen are different. But no multiScenMode provided');
+        else
+            plnJO.multScen = matRad_mixMod_nominalScenario(dummyCt, {pln.multScen});
+        end
+    end
 
    % for k=1:length(currentFields)
    %    if isempty(getfield(plnJO,currentFields{1,k})) && isstruct(pln(1).(currentFields{1,k}))
