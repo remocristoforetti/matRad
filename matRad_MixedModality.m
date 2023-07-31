@@ -2,21 +2,25 @@ matRad_rc;
 matRad_cfg = MatRad_Config.instance();
 matRad_cfg.propOpt.defaultMaxIter = 50000;
 load 'TG119.mat'
+cst{1,6}{1}.parameters = {20};
 
+cst{1,6}{1}.penalty = 500;
+cst{3,6}{1}.parameters = {20};
+cst{1,6}{1}.penalty = 300;
 % 
 % meta information for treatment plan (1) 
-pln(1).numOfFractions  = 5;
+pln(1).numOfFractions  = 15;
 pln(1).radiationMode   = 'protons';           % either photons / protons / helium / carbon
 pln(1).machine         = 'Generic';
 
 % beam geometry settings
 pln(1).propStf.bixelWidth      = 3; % [mm] / also corresponds to lateral spot spacing for particles
-pln(1).propStf.gantryAngles    = [0]; % [?] ;
+pln(1).propStf.gantryAngles    = [45 315]; % [?] ;
 pln(1).propStf.couchAngles     = zeros(numel(pln(1).propStf.gantryAngles),1); % [?] ; 
 pln(1).propStf.numOfBeams      = numel(pln(1).propStf.gantryAngles);
 pln(1).propStf.isoCenter       = ones(pln(1).propStf.numOfBeams,1) * matRad_getIsoCenter(cst,ct,0);
 % optimization settings
-pln(1).propDoseCalc.calcLET = 1;
+pln(1).propDoseCalc.calcLET = 0;
 
 pln(1).propOpt.runDAO          = false;      % 1/true: run DAO, 0/false: don't / will be ignored for particles
 pln(1).propOpt.runSequencing   = false;      % 1/true: run sequencing, 0/false: don't / will be ignored for particles and also triggered by runDAO below
@@ -43,15 +47,17 @@ pln(1).bioParam = matRad_bioModel(pln(1).radiationMode,quantityOpt, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
 pln(1).multScen = matRad_multScen(ct,scenGenType);
+%pln(1).multScen.includeNominalScenario = 1;
+%pln(1).multScen.nSamples = 3;
 % 
 % meta information for treatment plan (2) 
-pln(2).numOfFractions  = 25;
+pln(2).numOfFractions  = 15;
 pln(2).radiationMode   = 'photons';           % either photons / protons / helium / carbon
 pln(2).machine         = 'Generic';
 
 % beam geometry settings
 pln(2).propStf.bixelWidth      = 5; % [mm] / also corresponds to lateral spot spacing for particles
-pln(2).propStf.gantryAngles    = [0:90:359]; % [?] ;
+pln(2).propStf.gantryAngles    = [0:50:359]; % [?] ;
 pln(2).propStf.couchAngles     = zeros(numel(pln(2).propStf.gantryAngles),1);  % [?] ; 
 pln(2).propStf.numOfBeams      = numel(pln(2).propStf.gantryAngles);
 pln(2).propStf.isoCenter       = ones(pln(2).propStf.numOfBeams,1) * matRad_getIsoCenter(cst,ct,0);
@@ -81,6 +87,8 @@ pln(2).bioParam = matRad_bioModel(pln(2).radiationMode,quantityOpt, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
 pln(2).multScen = matRad_multScen(ct,scenGenType);
+%pln(2).multScen.includeNominalScenario = 1;
+%pln(2).multScen.nSamples = 2;
 
 % prepping cst 
 % placing alpha/beta ratios in cst{:,6},
@@ -88,14 +96,54 @@ pln(2).multScen = matRad_multScen(ct,scenGenType);
 sparecst = 0;
 
 cst = matRad_prepCst(cst, sparecst);
+
+
 %% Plan Wrapper
-plnJO = matRad_plnWrapper(pln);
+plnJO = matRad_plnWrapper(pln,'nominal');
+%TODO: properly handle FLAGS for robustness in fluenceOpt
 %% Stf Wrapper
 stf = matRad_stfWrapper(ct,cst,plnJO);
 %% Dij Calculation
 dij = matRad_calcCombiDose(ct,stf,plnJO,cst,false);
-%% Fluence optimization 
+%% Fluence optimization
+% for voiIdx=1:size(cst,1)
+% 
+%     for objIdx=1:size(cst{voiIdx,6},1)
+%         cst{voiIdx,6}{objIdx}.robustness = 'STOCH'; 
+%     end
+% end
+resultGUI_nominal = matRad_fluenceOptimizationJO(dij,cst,plnJO);
+
+%% Robust
+scenGenType  = 'rndScen';          % scenario creation type 'nomScen'  'wcScen' 'impScen' 'rndScen'                                          
+
+pln(1).multScen = matRad_multScen(ct,scenGenType);
+pln(1).multScen.includeNominalScenario = 1;
+
+pln(1).multScen.nSamples = 7;
+
+scenGenType  = 'rndScen';          % scenario creation type 'nomScen'  'wcScen' 'impScen' 'rndScen'                                          
+pln(2).multScen = matRad_multScen(ct,scenGenType);
+pln(2).multScen.includeNominalScenario = 1;
+pln(2).multScen.nSamples = 5;
+
+
+plnJO = matRad_plnWrapper(pln,'allVsall');
+
+% Stf Wrapper
+stf = matRad_stfWrapper(ct,cst,plnJO);
+% Dij Calculation
+
+dij = matRad_calcCombiDose(ct,stf,plnJO,cst,false);
+%% Fluence optimization
+for voiIdx=1:size(cst,1)
+
+    for objIdx=1:size(cst{voiIdx,6},1)
+        cst{voiIdx,6}{objIdx}.robustness = 'STOCH'; 
+    end
+end
 resultGUI = matRad_fluenceOptimizationJO(dij,cst,plnJO);
+
 %% Visualization
 slice = 59;
 qtOpt = plnJO.bioParam.quantityOpt;
@@ -109,6 +157,7 @@ if any(plnJO.propOpt.spatioTemp)
         for scenarioIdx = 1:protonScenarios
             subplot(3,max([plnJO.propOpt.STscenarios])+1,scenarioIdx);
             imagesc(resultGUI{1}.([qtOpt, '_STscenario_', num2str(scenarioIdx)])(:,:,slice));
+
             matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
             title(['proton plan scenario ', num2str(scenarioIdx)]);
             colorbar();
@@ -156,4 +205,61 @@ else
     matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
 
     title('Total plan');
+end
+%% Visualization robust
+slice = 59;
+quantityOpt = 'physicalDose';
+
+if exist('resultGUI_nominal', 'var')
+
+    nominalPlan_photon = resultGUI_nominal{2}.(quantityOpt).*pln(2).numOfFractions;
+    nominalPlan_proton = resultGUI_nominal{1}.(quantityOpt).*pln(1).numOfFractions;
+    nominalPlan        = pln(1).numOfFractions * resultGUI_nominal{1}.(quantityOpt) + pln(2).numOfFractions * resultGUI_nominal{2}.(quantityOpt);
+
+    Plan_photon = resultGUI{2}.(quantityOpt).*pln(2).numOfFractions;
+    Plan_proton = resultGUI{1}.(quantityOpt).*pln(1).numOfFractions;
+    Plan        = pln(1).numOfFractions * resultGUI{1}.(quantityOpt) + pln(2).numOfFractions * resultGUI{2}.(quantityOpt);
+
+    f = figure;
+    subplot(2,3,1);
+    imagesc(nominalPlan_proton(:,:,slice));
+    matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
+    title('proton plan nominal');
+    colorbar();
+
+    subplot(2,3,2);
+    imagesc(nominalPlan_photon(:,:,slice));
+    matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
+    title(['photon plan nominal']);
+    colorbar();
+
+    subplot(2,3,3);
+    imagesc(nominalPlan(:,:,slice));
+    matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
+    title(['Nominal plan']);
+
+    colorbar();
+
+    subplot(2,3,4);
+    imagesc(Plan_proton(:,:,slice));
+    matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
+    title(['proton robust plan']);
+    colorbar();
+
+    subplot(2,3,5);
+    imagesc(Plan_photon(:,:,slice));
+    matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
+
+    title(['photon robust plan']);
+    colorbar();
+
+    subplot(2,3,6);
+    imagesc(Plan(:,:,slice));
+    matRad_plotVoiContourSlice(gca(f), cst,ct.cube, 1, 1,3,slice);
+    title(['Robust plan']);
+
+    colorbar();
+
+else
+
 end
