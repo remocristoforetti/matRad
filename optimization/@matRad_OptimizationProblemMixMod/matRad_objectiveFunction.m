@@ -36,7 +36,7 @@ matRad_cfg = MatRad_Config.instance();
 bxidx = 1; % modality starter-bixel index
 
 % Obtain cumulative dose cube 
-[d{1}]    = deal(zeros(dij.doseGrid.numOfVoxels,1));
+[d{numel(optiProb.BP.scenarios)}]    = deal(zeros(dij.doseGrid.numOfVoxels,1));
 
 for mod = 1: length(dij.original_Dijs)
     wt = [];
@@ -44,8 +44,9 @@ for mod = 1: length(dij.original_Dijs)
     STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
     wt = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
     % get current dose / effect / RBExDose vector
+    optiProb.BP.scenarios = find(~cellfun('isempty', dij.original_Dijs{mod}.physicalDose));
     optiProb.BP.compute(dij.original_Dijs{mod},wt);
-    dt = optiProb.BP.GetResult();
+    dt{mod} = optiProb.BP.GetResult();
 
     % also get probabilistic quantities (nearly no overhead if empty)
     [dExp,dOmega] = optiProb.BP.GetResultProb();                        % NOTE: not sure what exactly to do for the dOmegas 
@@ -55,14 +56,18 @@ for mod = 1: length(dij.original_Dijs)
     % Accumulat Dose for all scenarios FOR FUTURE REVIEW ON HOW TO COMBINE
     % DIFFFERENT UNCERTAINTY SCENARIOS FOR DIFFERENT MODALITIES
     % currently for ST optimization 
-    for scen = 1:numel(dt)
-         d{scen} = d{scen} + sum(dt{scen}.*dij.STfractions{mod},2);
-    end
+    % for scen = 1:numel(dt)
+    %      d{scen} = d{scen} + sum(dt{scen}.*dij.STfractions{mod},2);
+    % end
 end
 
+d = optiProb.multiScen.combineScenarios(optiProb.BP,dt,dij.STfractions)';
+
+
+
 % get the used scenarios
-useScen  = optiProb.BP.scenarios;
-scenProb = optiProb.BP.scenarioProb;
+useScen  = optiProb.multiScen.useScen;%optiProb.BP.scenarios;
+scenProb = optiProb.multiScen.scenProb; %optiProb.BP.scenarioProb;
 
 % retrieve matching 4D scenarios
 fullScen = cell(ndims(d),1);
@@ -97,6 +102,7 @@ for  i = 1:size(cst,1)
            
                 doseParameter = objective.getDoseParameters();
                 objective = objective.setDoseParameters(doseParameter.*dij.totalNumOfFractions); 
+ 
                 % retrieve the robustness type
                 robustness = objective.robustness;
                 
@@ -109,6 +115,7 @@ for  i = 1:size(cst,1)
                         
                     case 'STOCH' % if prob opt: sum up expectation value of objectives
                         for s = 1:numel(useScen)
+
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             

@@ -46,10 +46,14 @@ for mod = 1: length(dij.original_Dijs)
     % split the w for current modality
     STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
     wt = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
+    
     % get current dose / effect / RBExDose vector
-    optiProb.BP.compute(dij.original_Dijs{mod},wt);
-    dt = optiProb.BP.GetResult();
 
+    optiProb.BP.scenarios = find(~cellfun(@(scenPhysicalDose) isempty(scenPhysicalDose), dij.original_Dijs{mod}.physicalDose));
+    optiProb.BP.compute(dij.original_Dijs{mod},wt);
+    dt{mod} = optiProb.BP.GetResult();
+    
+    %dt = optiProb.BP.GetResult();
     % also get probabilistic quantities (nearly no overhead if empty)
     [dExp,dOmega] = optiProb.BP.GetResultProb();                        % NOTE: not sure what exactly to do for the dOmegas 
 
@@ -58,21 +62,26 @@ for mod = 1: length(dij.original_Dijs)
     % Accumulat Dose for all scenarios FOR FUTURE REVIEW ON HOW TO COMBINE
     % DIFFFERENT UNCERTAINTY SCENARIOS FOR DIFFERENT MODALITIES
     % currently for ST optimization 
-    for scen = 1:numel(dt)
-         d{scen} = d{scen} + sum(dt{scen}.*dij.STfractions{mod}',2);
-    end
+     % for scen = 1:numel(dt)
+     %      d{scen} = d{scen} + sum(dt{scen}.*dij.STfractions{mod}',2);
+     % end
+
 end
 
-    % get the used scenarios
-    useScen  = optiProb.BP.scenarios;
-    scenProb = optiProb.BP.scenarioProb;
+
+d = optiProb.multiScen.combineScenarios(optiProb.BP,dt,dij.STfractions)';
+
+% get the used scenarios
+    useScen  = optiProb.multiScen.useScen;
+
+    scenProb = optiProb.multiScen.scenProb;
 
     % retrieve matching 4D scenarios
     fullScen      = cell(ndims(dt),1);
     [fullScen{:}] = ind2sub(size(dt),useScen);
     contourScen   = fullScen{1};
 
-    doseGradient          = cell(size(dij.original_Dijs{mod}.physicalDose));
+    doseGradient          = cell(length(useScen),1);
     doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
     %For probabilistic optimization
@@ -321,38 +330,50 @@ end
                 doseGradient{ixScen} = doseGradient{ixScen} + fGrad(ixScen)*delta_COWC{ixScen};
             end
         end
+
     end
+
 g = cell(numel(useScen),1);
+
 bxidx = 1;
-for mod = 1: length(dij.original_Dijs)
-    wt = [];
+wt = [];
+%split the weights
+for mod = 1:length(dij.original_Dijs)
+
+
 
     % split the w and g for current modality
     STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
-    wt = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
+    wt{mod} = reshape(w(bxidx: bxidx+STrepmat*dij.original_Dijs{mod}.totalNumOfBixels-1),[dij.original_Dijs{mod}.totalNumOfBixels,STrepmat]);
     
-    optiProb.BP.computeGradient(dij.original_Dijs{mod},doseGradient,wt);
-    gt = optiProb.BP.GetGradient();
+    %optiProb.BP.computeGradient(dij.original_Dijs{mod},doseGradient,wt{mod});
+    %gt = optiProb.BP.GetGradient();
                      % review for ST optimization 
-    for s = 1:numel(useScen)
-        gt{s} = gt{s}*dij.STfractions{mod};  
-        g{s} = [g{s}; gt{s}];                     
-    end
+    % for s = 1:numel(useScen)
+    %     gt{s} = gt{s}*dij.STfractions{mod};  
+    %     g{s} = [g{s}; gt{s}];
+    % end
     bxidx = bxidx + STrepmat*dij.original_Dijs{mod}.totalNumOfBixels;
+
 end
 
+
+g = optiProb.multiScen.computeGradientOnScenarios(optiProb.BP, dij.original_Dijs, doseGradient, wt, dij.STfractions);
+
 weightGradient = zeros(dij.totalNumOfBixels,1);
+
 for s = 1:numel(useScen)
+
     weightGradient = weightGradient + g{useScen(s)};
 end
 
-if vOmega ~= 0
-    optiProb.BP.computeGradientProb(dij.original_Dijs{mod},doseGradientExp,vOmega,w);
-    gProb = optiProb.BP.GetGradientProb();
-
-    %Only implemented for first scenario now
-    weightGradient = weightGradient + gProb{1};
-end
+% if vOmega ~= 0
+%     optiProb.BP.computeGradientProb(dij.original_Dijs{mod},doseGradientExp,vOmega,w);
+%     gProb = optiProb.BP.GetGradientProb();
+% 
+%     %Only implemented for first scenario now
+%     weightGradient = weightGradient + gProb{1};
+% end
 
 % code snippet to check the gradient
     gradientChecker = 0;
