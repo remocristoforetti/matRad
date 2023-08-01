@@ -41,7 +41,7 @@ bxidx = 1; %modality  bixel index
 % Obtain cumulative dose cube 
 [d{1}]    = deal(zeros(dij.doseGrid.numOfVoxels,1));
 
-for mod = 1: length(dij.original_Dijs)
+for mod = 1:length(dij.original_Dijs)
     wt = [];
     % split the w for current modality
     STrepmat = (~dij.spatioTemp(mod) + dij.spatioTemp(mod)*dij.numOfSTscen(mod));
