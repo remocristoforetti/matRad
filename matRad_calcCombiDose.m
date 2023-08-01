@@ -68,12 +68,14 @@ if (strcmp(pln.radiationMode, 'MixMod'))
                     dijt{k}.ax = ax;
                     dijt{k}.bx = bx;
                     dijt{k}.abx = ax./bx;
-                    dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
-                    dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
+                    scenIdx = find(~cellfun('isempty', dijt{k}.physicalDose));
+                    dijt{k}.mAlphaDose = cell(size(dijt{k}.physicalDose));
+                    dijt{k}.mAlphaDose(scenIdx) = arrayfun(@(scen) dijt{k}.physicalDose{scen}.*ax, scenIdx, 'UniformOutput',false);
+                    dijt{k}.mSqrtBetaDose(scenIdx) = arrayfun(@(scen) dijt{k}.physicalDose{scen}.*sqrt(bx), scenIdx, 'UniformOutput',false);
                 
-                case {'RBExD'}
 
-                    
+                case {'RBExD'}
+                   
                     % if any(strcmp({bioModels.model}, 'constRBE'))
                     %     dijt{k}.RBE = 1;
                     % else
@@ -81,8 +83,11 @@ if (strcmp(pln.radiationMode, 'MixMod'))
                         dijt{k}.ax = ax;
                         dijt{k}.bx = bx;
                         dijt{k}.abx = ax./bx;
-                        dijt{k}.mAlphaDose{1} = dijt{k}.physicalDose{1}.*ax;
-                        dijt{k}.mSqrtBetaDose{1} = dijt{k}.physicalDose{1}.*sqrt(bx);
+                        scenIdx = find(~cellfun('isempty', dijt{k}.physicalDose));
+                        dijt{k}.mAlphaDose = cell(size(dijt{k}.physicalDose));
+                        dijt{k}.mAlphaDose(scenIdx) = arrayfun(@(scen) dijt{k}.physicalDose{scen}.*ax, scenIdx, 'UniformOutput',false);
+                        dijt{k}.mSqrtBetaDose(scenIdx) = arrayfun(@(scen) dijt{k}.physicalDose{scen}.*sqrt(bx), scenIdx, 'UniformOutput',false);
+          
 
                         dijt{k}.ixDose  = dijt{k}.bx~=0;
                         dijt{k}.gamma   = zeros(dijt{k}.doseGrid.numOfVoxels,1);
