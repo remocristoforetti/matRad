@@ -2,12 +2,25 @@ matRad_rc;
 matRad_cfg = MatRad_Config.instance();
 matRad_cfg.propOpt.defaultMaxIter = 50000;
 load 'TG119.mat'
-cst{1,6}{1}.parameters = {20};
 
-cst{1,6}{1}.penalty = 500;
-cst{3,6}{1}.parameters = {20};
-cst{1,6}{1}.penalty = 300;
-% 
+
+% Define objevtives
+
+%Target
+cst{2,6}{1} = struct(DoseObjectives.matRad_SquaredDeviation(1000,50));
+cst{2,6}{2} = struct(DoseObjectives.matRad_SquaredUnderdosing(1000,47.5));
+
+%Core
+cst{1,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(1000,20));
+cst{1,6}{2} = struct(DoseObjectives.matRad_MeanDose(500,0));
+
+
+
+%Body
+cst{3,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(500,25));
+cst{3,6}{2} = struct(DoseObjectives.matRad_MeanDose(500,0));
+
+ 
 % meta information for treatment plan (1) 
 pln(1).numOfFractions  = 15;
 pln(1).radiationMode   = 'protons';           % either photons / protons / helium / carbon
@@ -29,9 +42,9 @@ pln(1).propOpt.STscenarios     = 2;
 %pln(1).propOpt.STfractions     = [ 4 4 6 8 8];             % can also do different spread of the fractions between scenes ( make sure sum(STfractions == numOfFractions)
 
 % dose calculation settings
-pln(1).propDoseCalc.doseGrid.resolution.x = 8; % [mm]
-pln(1).propDoseCalc.doseGrid.resolution.y = 8; % [mm]
-pln(1).propDoseCalc.doseGrid.resolution.z = 8; % [mm]
+pln(1).propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+pln(1).propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+pln(1).propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 % pln(1).propDoseCalc.doseGrid.resolution = ct.resolution;
 quantityOpt  = 'physicalDose';     % options: physicalDose, effect, RBExD
 %=======================================> Model check error in bioModel
@@ -57,7 +70,7 @@ pln(2).machine         = 'Generic';
 
 % beam geometry settings
 pln(2).propStf.bixelWidth      = 5; % [mm] / also corresponds to lateral spot spacing for particles
-pln(2).propStf.gantryAngles    = [0:50:359]; % [?] ;
+pln(2).propStf.gantryAngles    = [0:45:359]; % [?] ;
 pln(2).propStf.couchAngles     = zeros(numel(pln(2).propStf.gantryAngles),1);  % [?] ; 
 pln(2).propStf.numOfBeams      = numel(pln(2).propStf.gantryAngles);
 pln(2).propStf.isoCenter       = ones(pln(2).propStf.numOfBeams,1) * matRad_getIsoCenter(cst,ct,0);
@@ -69,9 +82,9 @@ pln(2).propOpt.STscenarios     = 5;
 %pln(2).propOpt.STfractions     = [ 4 4 6 8 8];             % can also do different spread of the fractions between scenes ( make sure sum(STfractions == numOfFractions)
 
 % dose calculation settings
-pln(2).propDoseCalc.doseGrid.resolution.x = 8; % [mm]
-pln(2).propDoseCalc.doseGrid.resolution.y = 8; % [mm]
-pln(2).propDoseCalc.doseGrid.resolution.z = 8; % [mm]
+pln(2).propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+pln(2).propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+pln(2).propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 % pln(2).propDoseCalc.doseGrid.resolution = ct.resolution;
 
 quantityOpt  = 'physicalDose';     % options: physicalDose, effect, RBExD
@@ -102,6 +115,7 @@ cst = matRad_prepCst(cst, sparecst);
 plnJO = matRad_plnWrapper(pln,'nominal');
 %TODO: properly handle FLAGS for robustness in fluenceOpt
 %% Stf Wrapper
+
 stf = matRad_stfWrapper(ct,cst,plnJO);
 %% Dij Calculation
 dij = matRad_calcCombiDose(ct,stf,plnJO,cst,false);
@@ -138,9 +152,10 @@ dij = matRad_calcCombiDose(ct,stf,plnJO,cst,false);
 %% Fluence optimization
 for voiIdx=1:size(cst,1)
 
-    for objIdx=1:size(cst{voiIdx,6},1)
+    for objIdx=1:size(cst{voiIdx,6},2)
         cst{voiIdx,6}{objIdx}.robustness = 'STOCH'; 
     end
+
 end
 resultGUI = matRad_fluenceOptimizationJO(dij,cst,plnJO);
 
@@ -260,6 +275,56 @@ if exist('resultGUI_nominal', 'var')
 
     colorbar();
 
+
+    
+    nBins = 100;
+    hist_edges = linspace(0,cst{2,6}{1}.parameters{1},nBins+1);
+    hist_x = hist_edges(1:end-1) + (hist_edges(2) - hist_edges(1))/2;
+
+    voiTarget = cst{2,4}{1};
+    histogram_target_nominal_photon = histcounts(nominalPlan_photon(voiTarget), hist_edges);
+    histogram_target_nominal_proton = histcounts(nominalPlan_proton(voiTarget), hist_edges);
+
+    histogram_target_robust_photon = histcounts(Plan_photon(voiTarget), hist_edges);
+    histogram_target_robust_proton = histcounts(Plan_proton(voiTarget), hist_edges);
+
+
+    figure;
+    subplot(2,3,1);
+    bar(hist_x, histogram_target_nominal_proton);
+    title('nominal proton');
+
+    subplot(2,3,2);
+    bar(hist_x, histogram_target_nominal_photon);
+    title('nominal photon');
+
+    subplot(2,3,3);
+    bar(hist_x, histogram_target_nominal_proton);
+    hold on;
+    bar(hist_x, histogram_target_nominal_photon);
+    title('proton-photon');
+    legend('proton', 'photon');
+
+    subplot(2,3,4);
+    bar(hist_x, histogram_target_robust_proton);
+    title('robust proton');
+
+    subplot(2,3,5);
+    bar(hist_x, histogram_target_robust_photon);
+    title('robust photon');
+
+    subplot(2,3,6);
+
+    bar(hist_x, histogram_target_robust_proton);
+    hold on;
+    bar(hist_x, histogram_target_robust_photon);
+    title('proton-photon');
+    legend('proton', 'photon');
+
+
+    
+
+    
 else
 
 end
