@@ -26,7 +26,7 @@ proximalPhantomHL = round((doseGeneration.energyParams.simulateRanges-peakPhanto
 proximalPhantomHL(proximalPhantomHL<1) = 1;
 distalPhantomHL  = 25*ones(doseGeneration.energyParams.nEnergies,1); %mm
 
-doseGeneration.phantoms.material = 'MyWater';
+doseGeneration.phantoms.material = 'G4_WATER';
 doseGeneration.phantoms.depths    = [proximalPhantomHL, (2*proximalPhantomHL + peakPhantomHL), 2*(proximalPhantomHL + peakPhantomHL)+distalPhantomHL];
 doseGeneration.phantoms.HL        = [proximalPhantomHL, peakPhantomHL, distalPhantomHL]; %mm
 doseGeneration.phantoms.rMax      = [50, 50, 50]; %mm
@@ -44,10 +44,12 @@ doseGeneration.saveParameters();
 %% Instantiate subclass
 doseSimulation = matRad_dose_simulation();
 
-fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration10-Jul-2023proton.mat'];
+[fileName,folder] = uigetfile([matRad_cfg.matRadRoot, filesep, 'baseData',filesep, 'baseDataGeneration','.mat'], 'Select Parameter file for main baseData');
+
+%fileName = [doseSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration10-Jul-2023proton.mat'];
 
 doseSimulation.retriveMainClass(fileName);
-doseSimulation.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDose'];
+%doseSimulation.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDose'];
 % Define MCparams
 doseSimulation.MCparams.runDirectory = [doseSimulation.workingDir,filesep,'SimulationDose']; %-> This could go in the class constructor
 
@@ -58,10 +60,12 @@ initFocus = initFocus.saveStr.initFocus;
 
 doseSimulation.interpInitFocus(initFocus);
 doseSimulation.MCparams.doubleSource = 0;
-
+doseSimulation.MCparams.ionZ = doseSimulation.scorerParams.ionsZ;
 
 %% write parameter files
+
 doseSimulation.generateTreeDirectory();
+
 
 doseSimulation.writeSimulationFiles();
 
@@ -79,14 +83,14 @@ doseSimulation.saveParameters();
 %%
 
 doseAnalysis = matRad_dose_analysis();
-fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseGeneration10-Jul-2023proton.mat'];
+fileName = [doseAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'doseSimulation02-Aug-2023proton.mat'];
 doseAnalysis.retriveMainClass(fileName);
-doseAnalysis.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDoseG4_WATER_DoseToMedium'];
+%doseAnalysis.MCparams.runDirectory = [matRad_cfg.matRadRoot, filesep,'baseData', filesep, 'baseDataGeneration', filesep, 'SimulationDoseG4_WATER_DoseToMedium'];
 
 
 doseAnalysis.performAnalysis();
 %% save output
-%doseAnalysis.saveOutput();
+doseAnalysis.saveOutput();
 
 %% generate machine file
 

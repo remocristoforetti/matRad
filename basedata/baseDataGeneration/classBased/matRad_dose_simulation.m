@@ -21,7 +21,7 @@ classdef matRad_dose_simulation < matRad_baseDataGeneration_dose
                 fprintf(fID, 'd:Sim/%s/HL = %3.3f mm\n', phantomName, obj.phantoms.HL(energyIdx,phantomIdx));
                 fprintf(fID, 'u:Sim/%s/ZBins = %3u\n', phantomName, obj.phantoms.Zbins(energyIdx,phantomIdx));
             end
-            fprintf(fID, 'd:Sim/MySource/BeamEnergy = %3.3f MeV\n',obj.simulateEnergies(energyIdx));
+            fprintf(fID, 'd:Sim/MySource/BeamEnergy = %3.3f MeV\n',obj.simulateEnergies(energyIdx)*obj.MCparams.ionZ);
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             energySpread = obj.energyParams.simulateEnergySpread(energyIdx);

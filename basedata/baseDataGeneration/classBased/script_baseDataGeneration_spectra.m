@@ -20,17 +20,17 @@ spectraGeneration.scorerParams.Ebinning.nEBins = 1000;
 
 %%% Phantoms could then become a class per se, so that will have a clas for
 %%% the dose phantom, which is diveded in three and dorectly place it here
-spectraGeneration.phantoms.nPhantoms = 3;
-
-peakPhantomHL = 20*ones(spectraGeneration.energyParams.nEnergies,1); %mm
-proximalPhantomHL = round((spectraGeneration.energyParams.simulateRanges-peakPhantomHL)/2);
-proximalPhantomHL(proximalPhantomHL<1) = 1;
-distalPhantomHL  = 25*ones(spectraGeneration.energyParams.nEnergies,1); %mm
-
-spectraGeneration.phantoms.depths    = [proximalPhantomHL, (2*proximalPhantomHL + peakPhantomHL), 2*(proximalPhantomHL + peakPhantomHL)+distalPhantomHL];
-spectraGeneration.phantoms.HL        = [proximalPhantomHL, peakPhantomHL, distalPhantomHL]; %mm
-spectraGeneration.phantoms.rMax      = [50, 50, 50]; %mm
-spectraGeneration.phantoms.Zbins     = [proximalPhantomHL,peakPhantomHL*10,distalPhantomHL]; % resolution [2 mm, 0.2 mm, 2 mm]
+% spectraGeneration.phantoms.nPhantoms = 3;
+% 
+% peakPhantomHL = 20*ones(spectraGeneration.energyParams.nEnergies,1); %mm
+% proximalPhantomHL = round((spectraGeneration.energyParams.simulateRanges-peakPhantomHL)/2);
+% proximalPhantomHL(proximalPhantomHL<1) = 1;
+% distalPhantomHL  = 25*ones(spectraGeneration.energyParams.nEnergies,1); %mm
+% 
+% spectraGeneration.phantoms.depths    = [proximalPhantomHL, (2*proximalPhantomHL + peakPhantomHL), 2*(proximalPhantomHL + peakPhantomHL)+distalPhantomHL];
+% spectraGeneration.phantoms.HL        = [proximalPhantomHL, peakPhantomHL, distalPhantomHL]; %mm
+% spectraGeneration.phantoms.rMax      = [50, 50, 50]; %mm
+% spectraGeneration.phantoms.Zbins     = [proximalPhantomHL,peakPhantomHL*10,distalPhantomHL]; % resolution [2 mm, 0.2 mm, 2 mm]
 spectraGeneration.phantoms.Rbins     = [1, 1, 1];
 
 spectraGeneration.phantoms.sourcePosition = -0.1; %mm
@@ -48,7 +48,7 @@ spectraGeneration.saveParameters();
 %% Setup simulation class
 spectraSimulation = matRad_dose_simulation();
 
-fileName = [spectraSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'spectra07-Jul-2023proton.mat'];
+fileName = [spectraSimulation.workingDir, filesep, 'baseDataParameters', filesep, 'spectra04-Aug-2023proton.mat'];
 
 spectraSimulation.retriveMainClass(fileName);
 
@@ -60,17 +60,18 @@ spectraSimulation.writeSimulationFiles();
 
 %% Analysis
 spectraAnalysis = matRad_spectra_analysis();
-fileName = [spectraAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'spectra10-Jul-2023proton.mat'];
+fileName = [spectraAnalysis.workingDir, filesep, 'baseDataParameters', filesep, 'spectra04-Aug-2023proton.mat'];
 spectraAnalysis.retriveMainClass(fileName);
 
 
 spectraAnalysis.MCparams.runDirectory = [spectraAnalysis.workingDir, filesep, 'SimulationSpectra'];
-spectraAnalysis.scorerParams= rmfield(spectraAnalysis.scorerParams, 'scorers'); %This property needs to be eliminated
+%spectraAnalysis.scorerParams= rmfield(spectraAnalysis.scorerParams, 'scorers'); %This property needs to be eliminated
 
 spectraAnalysis.scorerParams.newEbinning.EMax = 300;
 spectraAnalysis.scorerParams.newEbinning.EMin = 0;
 spectraAnalysis.scorerParams.newEbinning.nEBins = 600;
 spectraAnalysis.performAnalysis();
+
 
 
 %% Save

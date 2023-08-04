@@ -11,7 +11,7 @@ mainBaseDataGenerationClass = matRad_baseDataGeneration();
 simulateEnergies = [protons_machine.data.energy];
 [~,eIdx] = intersect([protons_machine.data.energy], simulateEnergies);
 
-emittance = matRad_MCemittanceBaseData_new(protons_machine);
+emittance = matRad_MCemittanceBaseData(protons_machine);
 
 
 mainBaseDataGenerationClass.energyParams.EsLUT.energies = [protons_machine.data(:).energy];

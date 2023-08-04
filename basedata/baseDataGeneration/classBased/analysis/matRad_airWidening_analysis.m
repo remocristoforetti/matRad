@@ -15,7 +15,8 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                                      'Xcoord_theta', []); %has to be even
        
  
-       initFocus = struct('depths', [], ...
+       initFocus = struct('energy', [], ...
+                          'depths', [], ...
                           'sigma', [], ...
                           'sigmaTheta', [], ...
                           'correlation', [], ...
@@ -104,7 +105,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
 
         end
 
-        function analysis(obj,energyIdx,~)
+        function analysis(obj,energyIdx,~,~)
 
             fprintf('Performing analysis...');
 
@@ -171,7 +172,7 @@ classdef matRad_airWidening_analysis < matRad_baseDataGeneration_airWidening & m
                 singleEnergy_initFocus.sigmaTheta2 = [singleEnergy_initFocus.sigmaTheta2, initFocus_phantom.sigmaTheta2];
 
             end
-            
+            singleEnergy_initFocus.energy = obj.simulateEnergies(energyIdx);
             obj.store_initFocus(singleEnergy_initFocus);
             
             fprintf('done\n');

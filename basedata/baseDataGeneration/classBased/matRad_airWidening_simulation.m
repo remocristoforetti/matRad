@@ -9,61 +9,61 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
             obj@matRad_baseDataGeneration_airWidening();
         end
 
-        function writeSimulationParameters(obj)
-            templateFile = fileread(fullfile(obj.MCparams.templateDir,'simulationParameters.txt'));
-            for energyIdx=1:obj.energyParams.nEnergies
-                    fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'simulationParameters.txt'), 'w');
-                    fprintf(fID,templateFile);
-                    fprintf(fID, '\n');
+        function writeSimulationParameters(obj,templateFile, energyIdx)
+            %templateFile = fileread(fullfile(obj.MCparams.templateDir,'simulationParameters.txt'));
+            %for energyIdx=1:obj.energyParams.nEnergies
+            fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'simulationParameters.txt'), 'w');
+            fprintf(fID,templateFile);
+            fprintf(fID, '\n');
 
-                    fprintf(fID, 'd:Sim/HL = %3.3f mm\n', obj.phantoms.HL);
-                    fprintf(fID, 'd:Sim/MySource/BeamEnergy = %3.3f MeV\n',obj.simulateEnergies(energyIdx));
-                    
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    energySpread = obj.energyParams.simulateEnergySpread(energyIdx);
-                    %energySpread = (obj.energyParams.simulateEnergySpread(energyIdx)*100)/obj.simulateEnergies(energyIdx);
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    
-                    fprintf(fID, 'u:Sim/MySource/BeamEnergySpread = %3.3f\n', energySpread);
-                    if ~obj.MCparams.doubleSource
-                        fprintf(fID, 'd:Sim/MySource/SigmaX = %3.3f mm\n', obj.energyParams.initFocus.initSigma(energyIdx));
-                        fprintf(fID, 'u:Sim/MySource/SigmaThetaX = %3.4f\n',obj.energyParams.initFocus.initThetaSigma(energyIdx));
-                        fprintf(fID, 'u:Sim/MySource/Correlation = %3.4f\n',obj.energyParams.initFocus.correlation(energyIdx));
-                        fprintf(fID, 'i:Sim/MySource/NumberOfHistories = %u \n',obj.MCparams.nPrimaries);
+            fprintf(fID, 'd:Sim/HL = %3.3f mm\n', obj.phantoms.HL);
+            fprintf(fID, 'd:Sim/MySource/BeamEnergy = %3.3f MeV\n',obj.simulateEnergies(energyIdx)*obj.MCparams.ionZ);
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            energySpread = obj.energyParams.simulateEnergySpread(energyIdx);
+            %energySpread = (obj.energyParams.simulateEnergySpread(energyIdx)*100)/obj.simulateEnergies(energyIdx);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            fprintf(fID, 'u:Sim/MySource/BeamEnergySpread = %3.3f\n', energySpread);
+            if ~obj.MCparams.doubleSource
+                fprintf(fID, 'd:Sim/MySource/SigmaX = %3.3f mm\n', obj.energyParams.initFocus.initSigma(energyIdx));
+                fprintf(fID, 'u:Sim/MySource/SigmaThetaX = %3.4f\n',obj.energyParams.initFocus.initThetaSigma(energyIdx));
+                fprintf(fID, 'u:Sim/MySource/Correlation = %3.4f\n',obj.energyParams.initFocus.correlation(energyIdx));
+                fprintf(fID, 'i:Sim/MySource/NumberOfHistories = %u \n',obj.MCparams.nPrimaries);
 
-                    else
-                        nPrimaries1 = floor((1-obj.energyParams.initFocus.initW)*obj.MCparams.nPrimaries);
-                        nPrimaries2 = floor(obj.energyParams.initFocus.initW*obj.MCparams.nPrimaries);
-                        fprintf(fID, 'd:Sim/MySource/SigmaNarrow = %3.3f mm\n', obj.energyParams.initFocus.initSigma1(energyIdx));
-                        fprintf(fID, 'u:Sim/MySource/SigmaThetaNarrow = %3.3f\n',obj.energyParams.initFocus.initThetaSigma1(energyIdx));
-                        fprintf(fID, 'd:Sim/MySource/SigmaBroad = %3.3f mm\n', obj.energyParams.initFocus.initSigma2(energyIdx));
-                        fprintf(fID, 'u:Sim/MySource/SigmaThetaBroad = %3.3f\n',obj.energyParams.initFocus.initThetaSigma2(energyIdx));
-                        fprintf(fID, 'i:Sim/MySource/NumberOfHistories1 = %u \n',nPrimaries1);
-                        fprintf(fID, 'i:Sim/MySource/NumberOfHistories2 = %u \n',nPrimaries2);
-                    end
-
-                    fprintf(fID, 'd:Ge/BeamPosition/BAMStoIsoDis = %3.3f mm\n',obj.MCparams.BAMtoISO);
-
-                    fclose(fID);
+            else
+                nPrimaries1 = floor((1-obj.energyParams.initFocus.initW)*obj.MCparams.nPrimaries);
+                nPrimaries2 = floor(obj.energyParams.initFocus.initW*obj.MCparams.nPrimaries);
+                fprintf(fID, 'd:Sim/MySource/SigmaNarrow = %3.3f mm\n', obj.energyParams.initFocus.initSigma1(energyIdx));
+                fprintf(fID, 'u:Sim/MySource/SigmaThetaNarrow = %3.3f\n',obj.energyParams.initFocus.initThetaSigma1(energyIdx));
+                fprintf(fID, 'd:Sim/MySource/SigmaBroad = %3.3f mm\n', obj.energyParams.initFocus.initSigma2(energyIdx));
+                fprintf(fID, 'u:Sim/MySource/SigmaThetaBroad = %3.3f\n',obj.energyParams.initFocus.initThetaSigma2(energyIdx));
+                fprintf(fID, 'i:Sim/MySource/NumberOfHistories1 = %u \n',nPrimaries1);
+                fprintf(fID, 'i:Sim/MySource/NumberOfHistories2 = %u \n',nPrimaries2);
             end
+
+            fprintf(fID, 'd:Ge/BeamPosition/BAMStoIsoDis = %3.3f mm\n',obj.MCparams.BAMtoISO);
+
+            fclose(fID);
+            %end
         end
 
-        function writeScorers(obj)
+        function writeScorers(obj,templateFile, scorerIdx)
 
-            templateFile = fileread(fullfile(obj.MCparams.templateDir,'scorer.txt'));
-            for energyIdx=1:obj.energyParams.nEnergies
-                fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'scorers.txt'), 'w');
-                fprintf(fID,templateFile);
-                fprintf(fID, '\n');
-                for scorerIdx = 1:obj.scorerParams.nScorers
-                    fprintf(fID, 'includeFile = ../scorer_%s.txt\n', obj.scorerParams.scorers{scorerIdx});
-                end
-                fclose(fID);
-            end
+            %templateFile = fileread(fullfile(obj.MCparams.templateDir,'scorer.txt'));
+            % for energyIdx=1:obj.energyParams.nEnergies
+            %     fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'scorers.txt'), 'w');
+            %     fprintf(fID,templateFile);
+            %     fprintf(fID, '\n');
+            %     for scorerIdx = 1:obj.scorerParams.nScorers
+            %         fprintf(fID, 'includeFile = ../scorer_%s.txt\n', obj.scorerParams.scorers{scorerIdx});
+            %     end
+            %     fclose(fID);
+            % end
 
-            for scorerIdx = 1:obj.scorerParams.nScorers
-                scorerName = obj.scorerParams.scorers{scorerIdx};
-                templateFile = fileread(fullfile(obj.MCparams.templateDir,['scorer_',scorerName,'.txt']));
+            % for scorerIdx = 1:obj.scorerParams.nScorers
+                scorerName = obj.scorers{scorerIdx};
+                %templateFile = fileread(fullfile(obj.MCparams.templateDir,['scorer_',scorerName,'.txt']));
                 fID = fopen(fullfile(obj.MCparams.runDirectory,['scorer_',scorerName,'.txt']), 'w');
                 fprintf(fID,templateFile);
                 fprintf(fID, '\n');
@@ -79,11 +79,11 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
                     fprintf(fID, '\n');
                 end
                 fclose(fID);
-            end
+            % end
         end
         
-        function writeBasicFile(obj)
-            templateFile = fileread(fullfile(obj.MCparams.templateDir,'proton_basic_air_widening.txt'));
+        function writeBasicFile(obj,templateFile)
+            %templateFile = fileread(fullfile(obj.MCparams.templateDir,'proton_basic_air_widening.txt'));
             fID = fopen(fullfile(obj.MCparams.runDirectory,'proton_basic_air_widening.txt'), 'w');
             fprintf(fID,templateFile);
             fprintf(fID, '\n');
@@ -123,7 +123,26 @@ classdef matRad_airWidening_simulation < matRad_baseDataGeneration_airWidening
             fprintf(fID, 'd:Ge/BeamPosition/RotY        = 0 deg\n');
             fprintf(fID, 'd:Ge/BeamPosition/RotZ        = 0 deg\n');
 
-        end 
+        end
+
+        function writeScorerIncluder (obj, templateFile, energyIdx)
+            fID = fopen(fullfile(obj.MCparams.runDirectory,['Energy',num2str(obj.simulateEnergies(energyIdx))],'scorers.txt'), 'w');
+            fprintf(fID,templateFile);
+            fprintf(fID, '\n');
+
+            for scorerIdx = 1:obj.scorerParams.nScorers
+                scorerName = obj.scorers{scorerIdx};
+                %For the time being this is one, then will become ion-dependend
+
+                if  obj.scorerParams.filteredScorer(scorerIdx)
+                    scorerName = [scorerName, '_', obj.scorerParams.ions{1}];
+                end
+           
+                fprintf(fID, 'includeFile = ../scorer_%s.txt\n', scorerName);
+            end
+            fclose(fID);
+        end
+
         % function retriveMainClass(obj,fileName)
         % 
         %     matRad_cfg = MatRad_Config.instance;
