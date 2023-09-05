@@ -74,7 +74,7 @@ if ~isfield(pln.propOpt, 'clearUnusedVoxels')
 end
 
 if pln.propOpt.clearUnusedVoxels
-    dij = matRad_clearUnusedVoxels(cst, dij);
+    dij = matRad_clearUnusedOptimizationVoxels(cst, dij);
 end
 
 % find target indices and described dose(s) for weight vector
@@ -210,25 +210,40 @@ end
 
 linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 
+
+sparsity = cellfun(@nnz, dij.physicalDose(scen4D,:,:));
+
+
 FLAG_CALC_PROB = false;
+
 FLAG_ROB_OPT   = false;
 
 
 for i = 1:size(cst,1)
+
     for j = 1:numel(cst{i,6})
         if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
             FLAG_CALC_PROB = true;
+
         end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;
+
+        end
+
+
+        % robustness not set to none but all scenarios exept for nominal
+        % are empty
+        if ~strcmp(cst{i,6}{j}.robustness,'none') && sum(sparsity>0, 'all') == 1 && pln.propOpt.clearUnusedVoxels
+            matRad_cfg.dispError('All robust scenarios are empty, this should not happen. Check that dose calculation has been properly performed');
         end
     end
+
 end
 
 if FLAG_CALC_PROB
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
 end
-
 
 % set optimization options
 if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause

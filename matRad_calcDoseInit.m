@@ -170,3 +170,12 @@ end
 
 % compute SSDs -> Removed for now because it is scenario-dependent
 % stf = matRad_computeSSD(stf,ct);
+
+if ~isfield(pln.propDoseCalc, 'clearMultiScenarioUnusedVoxels')
+    pln.propDoseCalc.clearMultiScenarioUnusedVoxels = false;
+end
+
+if pln.propDoseCalc.clearMultiScenarioUnusedVoxels
+    robustVoxelsOnGrid = matRad_getRobustVoxelsOnGrid(cst, dij.doseGrid, VdoseGrid);
+    
+end

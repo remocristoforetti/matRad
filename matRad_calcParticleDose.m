@@ -407,6 +407,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                     matRad_cfg.dispError('Lateral Cut-Off must be a value between 0 and 1!')
                                 end
 
+                                if pln.propDoseCalc.clearMultiScenarioUnusedVoxels
                                 % empty bixels may happen during recalculation of error
                                 % scenarios -> skip to next bixel
                                 if ~any(currIx) 
