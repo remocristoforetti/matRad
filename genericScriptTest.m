@@ -1,10 +1,10 @@
 matRad_rc;
 matRad_cfg = MatRad_Config.instance();
 matRad_cfg.propOpt.defaultMaxIter = 10000;
-%load 'TG119.mat'
+load 'PROSTATE.mat'
 %load('C:\r408i_data\r408i_data\CTDatasetMotion\102_HM10395_333.mat');
 
-load('PROSTATE.mat');
+%load('PROSTATE.mat');
 %cst{3,6} = [];
 %% meta information for treatment plan (1) 
 pln.numOfFractions  = 5;
@@ -27,9 +27,9 @@ pln.propOpt.STscenarios     = 2;
 %pln.propOpt.STfractions     = [ 4 4 6 8 8];             % can also do different spread of the fractions between scenes ( make sure sum(STfractions == numOfFractions)
 
 % dose calculation settings
-pln.propDoseCalc.doseGrid.resolution.x = 8; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 8; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 8; % [mm]
+pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 % pln.propDoseCalc.doseGrid.resolution = ct.resolution;
 quantityOpt  = 'physicalDose';     % options: physicalDose, effect, RBExD
 %=======================================> Model check error in bioModel
@@ -38,7 +38,7 @@ modelName    = 'none';             % none: for photons, protons, carbon         
                                    % LEM: Local Effect Model for carbon ions
 
 
-scenGenType  = 'rndScen';          % scenario creation type 'nomScen'  'wcScen' 'impScen' 'rndScen'                                          
+scenGenType  = 'wcScen';          % scenario creation type 'nomScen'  'wcScen' 'impScen' 'rndScen'                                          
 
 % retrieve bio model parameters
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
@@ -46,36 +46,66 @@ pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 % retrieve scenarios for dose calculation and optimziation
 
 pln.multScen = matRad_multScen(ct,scenGenType);
-pln.multScen.nSamples = 5;
+%pln.multScen.nSamples = 5;
 
-load('plnMultiScen.mat');
+%load('plnMultiScen.mat');
 %% stf
 stf = matRad_generateStf(ct,cst,pln);
 
 %% cst
-for voiIdx=1:size(cst,1)
 
-    for objIdx=1:size(cst{voiIdx,6},2)
-        if ~isempty(cst{voiIdx,6})
-            cst{voiIdx,6}{objIdx}.robustness = 'none'; 
+% for voiIdx=1:size(cst,1)
+% 
+%     for objIdx=1:size(cst{voiIdx,6},2)
+%         if ~isempty(cst{voiIdx,6})
+%             cst{voiIdx,6}{objIdx}.robustness = 'none'; 
+%         end
+%     end
+% 
+% 
+% end
+% method = 'STOCH';
+% cst{1,6}{1}.robustness = method;
+% cst{6,6}{1}.robustness = method;
+% cst{7,6}{1}.robustness = method;
+% cst{8,6}{1}.robustness = method;
+
+% for voiIdx=1:size(cst,1)
+%     if isequal(cst{voiIdx,3}, 'TARGET')
+%         for objIdx=1:size(cst{voiIdx,6},2)
+% 
+%                 cst{voiIdx,6}{objIdx}.robustness = 'STOCH'; 
+%         end
+%     else
+% 
+%         for objIdx=1:size(cst{voiIdx,6},2)
+% 
+%                 cst{voiIdx,6}{objIdx}.robustness = 'none'; 
+%         end
+%     end
+% end
+for voiIdx=1:size(cst,1)
+    if isequal(cst{voiIdx,3}, 'TARGET')
+        %if ~isempty(cst{voiIdx,6})
+            for objIdx=1:size(cst{voiIdx,6},2)
+                cst{voiIdx,6}{objIdx}.robustness = 'none';
+            end
+        %end
+    else
+        for objIdx=1:size(cst{voiIdx,6},2)
+
+                cst{voiIdx,6}{objIdx}.robustness = 'STOCH'; 
         end
     end
-
-
 end
-method = 'STOCH';
-cst{1,6}{1}.robustness = method;
-cst{6,6}{1}.robustness = method;
-cst{7,6}{1}.robustness = method;
-cst{8,6}{1}.robustness = method;
+
 %% dij
-pln.propDoseCalc.clearMultiScenarioUnusedVoxels = false;
+
+pln.propDoseCalc.clearVoxelsForRobustness = 'none'; % none, targetOnly, oarOnly, objectivesOnly, [scenario indexes];
+
 
 tic
-
-
 dij_nominal  = matRad_calcParticleDose(ct,stf, pln,cst,0);
-
 nominal_dij_time = toc;
 
 
@@ -85,12 +115,13 @@ nominal_opt_time = toc;
 
 
 
+
 %% mod
+pln.propDoseCalc.clearVoxelsForRobustness = 'oarsOnly'; % none, targetOnly, oarsOnly, objectivesOnly, [scenario indexes];
+
 tic
-pln.propDoseCalc.clearMultiScenarioUnusedVoxels = true;
-
+%pln.propDoseCalc.clearMultiScenarioUnusedVoxels = true;
 dij_reduced  = matRad_calcParticleDose(ct,stf, pln,cst,0);
-
 reduced_dij_time = toc;
 
 
@@ -98,7 +129,53 @@ tic
 resultGUI_reduced = matRad_fluenceOptimization(dij_reduced,cst,pln);
 reduced_opt_time = toc;
 
-%% opt
+w_diff = resultGUI_reduced.w - resultGUI_nominal.w;
+
+%% Check
+w = 1000*ones(size(dij_nominal.physicalDose{1},2),1);
+
+nonEmptyScen = find(~cellfun(@isempty, dij_nominal.physicalDose));
+targetIdx = cst_n{2,4}{1};
+
+vi = [1:size(dij_nominal.physicalDose{1},1)]';
+vi(targetIdx) = 0;
+
+vi = vi(vi~=0);
+
+for s=2:numel(nonEmptyScen)
+     dist_nominal{s} = dij_nominal.physicalDose{nonEmptyScen(s)};%resultGUI_nominal.w;
+     dist_reduced{s} = dij_reduced.physicalDose{nonEmptyScen(s)};%resultGUI_reduced.w;
+     
+     diffTotal{s} = dist_nominal{s}(targetIdx,:) - dist_reduced{s}(targetIdx,:);
+     idxDiff{s} = find(diffTotal{s}>0);
+     % diffTarget(s) = sum(dist_nominal{s}(targetIdx,:) - dist_reduced{s}(targetIdx,:), 'all');
+     % diffOut(s) = sum(dist_nominal{s}(vi) - dist_reduced{s}(vi));
+     % 
+     % sumDistrib(s) = sum(dist_reduced{s});
+     % sumDistribTarget(s) = sum(dist_reduced{s}(targetIdx));
+     % 
+     % zerosDist(s) = sum(dist_reduced{s}) - sum(dist_reduced{s}(targetIdx));
+     % zeroDist2(s) = sumDistrib(s) -sumDistribTarget(s);
+     % compl(s) = sum(dist_reduced{s}(vi));
+end
+%% asfsadf
+ clear dist_nominal;
+ clear dist_reduced;
+ clear diffTarget;
+ clear diffOut;
+ clear sumDistrib;
+ clear sumDistribTarget;
+ clear zerosDist;
+ clear zeroDist2;
+ clear compl;
+
+%% Comparison
+for s=2:numel(nonEmptyScen)
+     dist_nominal{s} = dij_nominal.physicalDose{nonEmptyScen(s)}*resultGUI_nominal.w;
+     dist_reduced{s} = dij_reduced.physicalDose{nonEmptyScen(s)}*resultGUI_reduced.w;
+end
+
+ %% opt
 pln.propOpt.clearUnusedVoxels = 0;
 
 tic
