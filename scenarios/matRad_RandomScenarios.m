@@ -92,6 +92,17 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             matRad_cfg.dispDeprecationWarning('The property numOfRangeShiftScen of the scenario class will soon be deprecated! Use nSamples instead');
             value = this.nSamples;
         end
+
+
+        function set.includeNominalScenario(this, value)
+            if islogical(value)
+                this.includeNominalScenario = value;
+            elseif value == 1 || value == 0
+                this.includeNominalScenario = logical(value);
+            end
+            
+            this.updateScenarios();
+        end
         
         function scenarios = updateScenarios(this)
             matRad_cfg = MatRad_Config.instance();
