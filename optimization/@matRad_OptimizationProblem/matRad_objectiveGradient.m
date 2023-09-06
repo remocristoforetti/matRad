@@ -46,11 +46,13 @@ d = optiProb.BP.GetResult();
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
+useNominalCtScen = optiProb.BP.nominalCtScenarios;
 
 % retrieve matching 4D scenarios
 fullScen      = cell(ndims(d),1);
 [fullScen{:}] = ind2sub(size(d),useScen);
 contourScen   = fullScen{1};
+
 
 doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
@@ -70,6 +72,7 @@ for  i = 1:size(cst,1)
         % loop over the number of constraints and objectives for the current VOI
         for j = 1:numel(cst{i,6})
             
+
             %Get current optimization function
             objective = cst{i,6}{j};
             
@@ -79,12 +82,13 @@ for  i = 1:size(cst,1)
                 % retrieve the robustness type
                 robustness = objective.robustness;
                 
+                
                 % rescale dose parameters to biological optimization quantity if required
                 objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
                 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                        for s = 1:numel(useScen)
+                        for s = useNominalCtScen
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             d_i = d{ixScen}(cst{i,4}{ixContour});

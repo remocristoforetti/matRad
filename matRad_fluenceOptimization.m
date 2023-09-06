@@ -83,6 +83,7 @@ V          = [];
 doseTarget = [];
 ixTarget   = [];
 
+
 for i = 1:size(cst,1)
     if isequal(cst{i,3},'TARGET') && ~isempty(cst{i,6})
         V = [V;cst{i,4}{1}];
@@ -210,6 +211,8 @@ end
 
 linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 
+%Only select the indexes of the nominal ct Scenarios
+linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
 
 sparsity = cellfun(@nnz, dij.physicalDose(scen4D,:,:));
 
@@ -270,8 +273,15 @@ switch pln.bioParam.quantityOpt
 end
 
 %Give scenarios used for optimization
+
 backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenProb;
+%repeating this probability means that shift and range errorare correlated
+%over all the ct phases (does this make sense?). If ct is breathing cycle,
+%then positioning shifts might be the same for all cts, but otherwise what
+%does this mean? Probably best way to do this is to handle the scen.
+%probabilities in the pln.multScen.
+backProjection.scenarioProb = repmat(pln.multScen.scenProb, pln.multScen.numOfCtScen,1);
+backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
 optiProb = matRad_OptimizationProblem(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;

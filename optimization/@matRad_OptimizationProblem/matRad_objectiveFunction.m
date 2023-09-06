@@ -33,6 +33,7 @@ matRad_cfg = MatRad_Config.instance();
 
 % get current dose / effect / RBExDose vector
 optiProb.BP.compute(dij,w);
+
 d = optiProb.BP.GetResult();
 
 % get probabilistic quantities (nearly no overhead if empty)
@@ -64,7 +65,7 @@ for  i = 1:size(cst,1)
         for j = 1:numel(cst{i,6})
             
             objective = cst{i,6}{j};
-            
+           
             % only perform gradient computations for objectiveectives
             if isa(objective,'DoseObjectives.matRad_DoseObjective')
                 
@@ -73,12 +74,12 @@ for  i = 1:size(cst,1)
 
                 % retrieve the robustness type
                 robustness = objective.robustness;
-                
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
-                        for ixScen = useScen
-                            d_i = d{ixScen}(cst{i,4}{useScen(1)});
+                        for ixScen = useNominalCtScen
+                            d_i = d{ixScen}(cst{i,4}{useScen(ixScen)});
                             f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+
                         end
 
                     case 'STOCH' % if prob opt: sum up expectation value of objectives
@@ -89,7 +90,7 @@ for  i = 1:size(cst,1)
                             d_i = d{ixScen}(cst{i,4}{ixContour});
 
                             f   = f + scenProb(s) * objective.penalty*objective.computeDoseObjectiveFunction(d_i);
-
+                            %fprintf('\t robustness = %s, f=%f, fTot = %f\n', robustness, scenProb(s)*objective.penalty*objective.computeDoseObjectiveFunction(d_i), f);
                         end
 
                     case 'PROB' % if prob opt: sum up expectation value of objectives
