@@ -345,7 +345,7 @@ methods
     
                     machine_data(energyIdx).energySpectrum.type  = 'gaussian';
                     machine_data(energyIdx).energySpectrum.mean  = obj.simulateEnergies(energyIdx);
-                    machine_data(energyIdx).energySpectrum.sigma = obj.energyParams.simulateEnergySpread(energyIdx); % This is a sigma in MeV
+                    machine_data(energyIdx).energySpectrum.sigma = obj.energyParams.simulateEnergySpread(energyIdx); %(To verify, this is the sigma that comes from MCemittance and is pasted into topas, so is relative) (NOT This is a sigma in MeV)
                     
                     if exist('spectraFit', 'var')
                         machine_data(energyIdx).Fluence.energies     = spectraFit.fitParams(energyIdx).newEnergies';
