@@ -1,7 +1,7 @@
 matRad_rc;
 matRad_cfg = MatRad_Config.instance();
 matRad_cfg.propOpt.defaultMaxIter = 10000;
-load 'PROSTATE.mat'
+load 'TG119.mat'
 %load('C:\r408i_data\r408i_data\CTDatasetMotion\102_HM10395_333.mat');
 
 %load('PROSTATE.mat');
@@ -27,9 +27,9 @@ pln.propOpt.STscenarios     = 2;
 %pln.propOpt.STfractions     = [ 4 4 6 8 8];             % can also do different spread of the fractions between scenes ( make sure sum(STfractions == numOfFractions)
 
 % dose calculation settings
-pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
 % pln.propDoseCalc.doseGrid.resolution = ct.resolution;
 quantityOpt  = 'physicalDose';     % options: physicalDose, effect, RBExD
 %=======================================> Model check error in bioModel
@@ -88,13 +88,13 @@ for voiIdx=1:size(cst,1)
     if isequal(cst{voiIdx,3}, 'TARGET')
         %if ~isempty(cst{voiIdx,6})
             for objIdx=1:size(cst{voiIdx,6},2)
-                cst{voiIdx,6}{objIdx}.robustness = 'none';
+                cst{voiIdx,6}{objIdx}.robustness = 'STOCH';
             end
         %end
     else
         for objIdx=1:size(cst{voiIdx,6},2)
 
-                cst{voiIdx,6}{objIdx}.robustness = 'STOCH'; 
+                cst{voiIdx,6}{objIdx}.robustness = 'none'; 
         end
     end
 end
@@ -116,21 +116,76 @@ nominal_opt_time = toc;
 
 
 
-%% mod
-pln.propDoseCalc.clearVoxelsForRobustness = 'oarsOnly'; % none, targetOnly, oarsOnly, objectivesOnly, [scenario indexes];
+%% first method
+%this is for excluding voxels a priori, brings numerical differences in the
+%optimized weights
+pln.propDoseCalc.clearVoxelsForRobustness = 'targetOnly'; % none, targetOnly, oarsOnly, objectivesOnly, [scenario indexes];
+
+tic
+%pln.propDoseCalc.clearMultiScenarioUnusedVoxels = true;
+dij_reduced_first  = matRad_calcParticleDoseFirstMethod(ct,stf, pln,cst,0);
+reduced_dij_time_firstMethod = toc;
+
+
+tic
+resultGUI_reduced_first = matRad_fluenceOptimization(dij_reduced_first,cst,pln);
+reduced_opt_time_firstMethod = toc;
+
+w_diff_first = resultGUI_reduced_first.w - resultGUI_nominal.w;
+
+
+%% second method test
+%this computes the bixelDose regularly and only after sets voxels to zero.
+%Brings no numerical difference 
+pln.propDoseCalc.clearVoxelsForRobustness = 'targetOnly'; % none, targetOnly, oarsOnly, objectivesOnly, [scenario indexes];
 
 tic
 %pln.propDoseCalc.clearMultiScenarioUnusedVoxels = true;
 dij_reduced  = matRad_calcParticleDose(ct,stf, pln,cst,0);
 reduced_dij_time = toc;
 
-
 tic
 resultGUI_reduced = matRad_fluenceOptimization(dij_reduced,cst,pln);
 reduced_opt_time = toc;
-
 w_diff = resultGUI_reduced.w - resultGUI_nominal.w;
 
+%% Gamma analysis
+nominal_plan = dij_nominal.physicalDose{1}*resultGUI_nominal.w;
+reduced_plan_first = dij_nominal.physicalDose{1}*resultGUI_reduced_first.w;
+reduced_plan_second = dij_nominal.physicalDose{1}*resultGUI_reduced.w;
+
+nominal_plan = reshape(nominal_plan, dij_nominal.doseGrid.dimensions);
+reduced_plan_first = reshape(reduced_plan_first, dij_nominal.doseGrid.dimensions);
+reduced_plan_second = reshape(reduced_plan_second, dij_nominal.doseGrid.dimensions);
+
+slice = 31;
+gamma_first = matRad_gammaIndex(nominal_plan,reduced_plan_first,[dij_nominal.doseGrid.resolution.x,dij_nominal.doseGrid.resolution.y,dij_nominal.doseGrid.resolution.z],[3 3]);
+gamma_first = reshape(gamma_first, dij_nominal.doseGrid.dimensions);
+cMap = matRad_getColormap('gammaIndex');
+
+
+cst_n = matRad_resizeCstToGrid(cst,ct.x, ct.y, ct.z, dij_nominal.doseGrid.x, dij_nominal.doseGrid.y, dij_nominal.doseGrid.z);
+f = figure;
+imagesc(gamma_first(:,:,slice));
+c.cubeDim = dij_nominal.doseGrid.dimensions;%{zeros(dij_nominal.doseGrid.dimensions)};
+matRad_plotVoiContourSlice(gca(f), cst_n,c,1,1,3,slice);
+colormap(cMap);
+colorbar;
+title('first method');
+
+gamma_second= matRad_gammaIndex(nominal_plan,reduced_plan_second,[dij_nominal.doseGrid.resolution.x,dij_nominal.doseGrid.resolution.y,dij_nominal.doseGrid.resolution.z],[3 3]);
+gamma_second = reshape(gamma_second, dij_nominal.doseGrid.dimensions);
+cMap = matRad_getColormap('gammaIndex');
+
+
+f = figure;
+imagesc(gamma_second(:,:,slice));
+c.cubeDim = dij_nominal.doseGrid.dimensions;%{zeros(dij_nominal.doseGrid.dimensions)};
+matRad_plotVoiContourSlice(gca(f), cst_n,c,1,1,3,slice);
+colormap(cMap);
+
+colorbar;
+title('second method');
 %% Check
 w = 1000*ones(size(dij_nominal.physicalDose{1},2),1);
 
