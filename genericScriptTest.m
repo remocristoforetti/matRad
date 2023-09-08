@@ -7,7 +7,7 @@ load 'TG119.mat'
 %load('PROSTATE.mat');
 %cst{3,6} = [];
 %% meta information for treatment plan (1) 
-pln.numOfFractions  = 5;
+pln.numOfFractions  = 30;
 pln.radiationMode   = 'protons';           % either photons / protons / helium / carbon
 pln.machine         = 'Generic';
 
@@ -18,19 +18,18 @@ pln.propStf.couchAngles     = zeros(numel(pln.propStf.gantryAngles),1); % [?] ;
 pln.propStf.numOfBeams      = numel(pln.propStf.gantryAngles);
 pln.propStf.isoCenter       = ones(pln.propStf.numOfBeams,1) * matRad_getIsoCenter(cst,ct,0);
 % optimization settings
-pln.propDoseCalc.calcLET = 1;
+pln.propDoseCalc.calcLET = 0;
 
 pln.propOpt.runDAO          = false;      % 1/true: run DAO, 0/false: don't / will be ignored for particles
 pln.propOpt.runSequencing   = false;      % 1/true: run sequencing, 0/false: don't / will be ignored for particles and also triggered by runDAO below
 pln.propOpt.spatioTemp      = 0;
-pln.propOpt.STscenarios     = 2;
-%pln.propOpt.STfractions     = [ 4 4 6 8 8];             % can also do different spread of the fractions between scenes ( make sure sum(STfractions == numOfFractions)
+pln.propOpt.STscenarios     = 1;
 
 % dose calculation settings
-pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
-% pln.propDoseCalc.doseGrid.resolution = ct.resolution;
+pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+
 quantityOpt  = 'physicalDose';     % options: physicalDose, effect, RBExD
 %=======================================> Model check error in bioModel
 modelName    = 'none';             % none: for photons, protons, carbon            % constRBE: constant RBE for photons and protons 
@@ -84,6 +83,7 @@ stf = matRad_generateStf(ct,cst,pln);
 %         end
 %     end
 % end
+
 for voiIdx=1:size(cst,1)
     if isequal(cst{voiIdx,3}, 'TARGET')
         %if ~isempty(cst{voiIdx,6})
@@ -123,7 +123,8 @@ pln.propDoseCalc.clearVoxelsForRobustness = 'targetOnly'; % none, targetOnly, oa
 
 tic
 %pln.propDoseCalc.clearMultiScenarioUnusedVoxels = true;
-dij_reduced_first  = matRad_calcParticleDoseFirstMethod(ct,stf, pln,cst,0);
+
+dij_reduced_first  = matRad_calcParticleDose(ct,stf, pln,cst,0);
 reduced_dij_time_firstMethod = toc;
 
 

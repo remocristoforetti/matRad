@@ -175,4 +175,4 @@ if ~isfield(pln.propDoseCalc, 'clearVoxelsForRobustness')
     pln.propDoseCalc.clearVoxelsForRobustness = 'none';
 end
 
-robustVoxelsOnGrid = matRad_getRobustVoxelsOnGrid(cst, dij.doseGrid, VdoseGrid, pln.propDoseCalc.clearVoxelsForRobustness);
+robustVoxelsOnGrid = matRad_getRobustVoxelsOnGrid(cst, dij.doseGrid, pln.propDoseCalc.clearVoxelsForRobustness);

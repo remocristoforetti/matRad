@@ -201,12 +201,10 @@ end
 for shiftScen = 1:pln.multScen.totNumShiftScen
 
     %Find first instance of the shift to select the shift values
-    ixShiftScen = shiftScen;%find(pln.multScen.linearMask(:,2) == shiftScen,1);
+    ixShiftScen = find(pln.multScen.linearMask(:,2) == shiftScen,1);
 
     % manipulate isocenter
     for k = 1:length(stf)
-        % ??? just a test
-        %stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(shiftScen,:);
         stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(ixShiftScen,:);
     end
 
@@ -380,7 +378,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                             end
                         end
                         for rangeShiftScen = 1:pln.multScen.totNumRangeScen
-                            rangeScenIx = rangeShiftScen; %find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
+                            rangeScenIx = find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
                             if pln.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
 
                                 % manipulate radDepthCube for range scenarios
@@ -410,17 +408,17 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                                 end
 
 
-                                %%% get rid of currIdx
-                                % if isfield(pln.propDoseCalc, 'clearVoxelsForRobustness') && ~isequal(pln.propDoseCalc.clearVoxelsForRobustness, 'none')
-                                %     if (shiftScen>1) || (rangeShiftScen>1)
-                                % 
-                                %         ixOnRobustMask = robustVoxelsOnGrid{ctScen}(ix);
-                                % 
-                                %         currIx = currIx & ixOnRobustMask;
-                                % 
-                                %     end
-                                % end
-                                %%%%%
+                                % get rid of currIdx
+                                if isfield(pln.propDoseCalc, 'clearVoxelsForRobustness') && ~isequal(pln.propDoseCalc.clearVoxelsForRobustness, 'none')
+                                    if (shiftScen>1) || (rangeShiftScen>1)
+
+                                        ixOnRobustMask = robustVoxelsOnGrid{ctScen}(VdoseGrid(ix));
+
+                                        currIx = currIx & ixOnRobustMask;
+
+                                    end
+                                end
+                                
 
                                 % empty bixels may happen during recalculation of error
                                 % scenarios -> skip to next bixel
@@ -515,16 +513,17 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
 
                                     
-                                    
-                                    if isfield(pln.propDoseCalc, 'clearVoxelsForRobustness') && ~isequal(pln.propDoseCalc.clearVoxelsForRobustness, 'none')
-                                        if (shiftScen>1) || (rangeShiftScen>1)
-
-                                            ixOnRobustMask = robustVoxelsOnGrid{ctScen}(ix(currIx));
-
-                                            bixelDose = bixelDose.*ixOnRobustMask;
-
-                                        end
-                                    end
+                                    % Alternative method for pruning the
+                                    % unused voxels
+                                    % if isfield(pln.propDoseCalc, 'clearVoxelsForRobustness') && ~isequal(pln.propDoseCalc.clearVoxelsForRobustness, 'none')
+                                    %     if (shiftScen>1) || (rangeShiftScen>1)
+                                    % 
+                                    %         ixOnRobustMask = robustVoxelsOnGrid{ctScen}(ix(currIx));
+                                    % 
+                                    %         bixelDose = bixelDose.*ixOnRobustMask;
+                                    % 
+                                    %     end
+                                    % end
 
                                     % Save dose for every bixel in cell array
                                     doseTmpContainer{mod(counter-1,numOfBixelsContainer)+1,ctScen,shiftScen,rangeShiftScen} = sparse(VdoseGrid(ix(currIx)),1,bixelDose,dij.doseGrid.numOfVoxels,1);
@@ -570,8 +569,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
     % undo manipulation of isocenter
     for k = 1:length(stf)
-        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(shiftScen,:);
-        %stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
     end
 
 end % end shift scenario loop
