@@ -33,10 +33,15 @@ classdef matRad_DoseProjection < matRad_BackProjection
         
         function [dExp,dOmegaV] = computeSingleScenarioProb(~,dij,scen,w)
             if ~isempty(dij.physicalDoseExp{scen})
+
                 dExp = dij.physicalDoseExp{scen}*w;
                 
-                for i = 1:size(dij.physicalDoseOmega,2)
-                   dOmegaV{scen,i} = dij.physicalDoseOmega{scen,i} * w;
+                for i = 1:size(dij.physicalDoseOmega,1)
+                    if ~isempty(dij.physicalDoseOmega{i,scen})
+                        dOmegaV{i,1} = dij.physicalDoseOmega{i,scen} * w;
+                    else
+                        dOmegaV{i,1} = [];
+                    end
                 end 
             else
                 dExp = [];
@@ -57,7 +62,8 @@ classdef matRad_DoseProjection < matRad_BackProjection
         function wGrad = projectSingleScenarioGradientProb(~,dij,dExpGrad,dOmegaVgrad,scen,~)
             if ~isempty(dij.physicalDoseExp{scen})
                 wGrad = (dExpGrad{scen}' * dij.physicalDoseExp{scen})';
-                wGrad = wGrad + 2 * dOmegaVgrad;
+                wGrad = wGrad + 2 * dOmegaVgrad{scen};
+
             else
                 wGrad = [];
                 matRad_cfg = MatRad_Config.instance();

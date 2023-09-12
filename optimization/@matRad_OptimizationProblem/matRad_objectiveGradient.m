@@ -51,13 +51,17 @@ useNominalCtScen = optiProb.BP.nominalCtScenarios;
 % retrieve matching 4D scenarios
 fullScen      = cell(ndims(d),1);
 [fullScen{:}] = ind2sub(size(d),useScen);
+% fullScen      = cell(ndims(dExp),1);
+% [fullScen{:}] = ind2sub(size(dExp),useScen);
+
 contourScen   = fullScen{1};
 
 doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
 %For probabilistic optimization
-vOmega = 0;
+vOmega                   = cell(numel(useNominalCtScen),1); 
+vOmega(useNominalCtScen) = {zeros(dij.totalNumOfBixels,1)};
 
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
@@ -83,6 +87,7 @@ for  i = 1:size(cst,1)
                 % rescale dose parameters to biological optimization quantity if required
                 objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
                 
+
                 switch robustness
                     case 'none' % if conventional opt: just sum objectiveectives of nominal dose
                         for s = useNominalCtScen
@@ -107,17 +112,20 @@ for  i = 1:size(cst,1)
                     case 'PROB' % use the expectation value and the integral variance influence matrix
                         %First check the speficic cache for probabilistic
                         if ~exist('doseGradientExp','var')
-                            doseGradientExp{1} = zeros(dij.doseGrid.numOfVoxels,1);
+                            for s=useNominalCtScen
+                                [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
+                            end
                         end
+                        for s=useNominalCtScen
+                            d_i = dExp{s}(cst{i,4}{s});
                         
-                        d_i = dExp{1}(cst{i,4}{1});
+                            doseGradientExp{s}(cst{i,4}{s}) = doseGradientExp{s}(cst{i,4}{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                         
-                        doseGradientExp{1}(cst{i,4}{1}) = doseGradientExp{1}(cst{i,4}{1}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
-                        
-                        p = objective.penalty/numel(cst{i,4}{1});
-                        
-                        vOmega = vOmega + p * dOmega{i,1};
-                    
+                            %p = objective.penalty/numel(cst{i,4}{s});
+                            p = objective.penalty/numel(d_i);
+
+                            vOmega{s,1} = vOmega{s,1} + p * dOmega{i,s};
+                        end
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
                         if ~isscalar(contourIx)
@@ -304,13 +312,38 @@ optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();
 
 for s = 1:numel(useScen)
-   weightGradient = weightGradient + g{useScen(s)};
+  weightGradient = weightGradient + g{useScen(s)};
 end
 
-if vOmega ~= 0
+
+nonEmptyOmega = ~(cellfun(@isempty, vOmega));
+nonZerosOmega = arrayfun(@(scen) nnz(vOmega{scen}),useNominalCtScen);
+if any(nonEmptyOmega) && all(nonZerosOmega>0)
     optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
     gProb = optiProb.BP.GetGradientProb();
     
     %Only implemented for first scenario now
-    weightGradient = weightGradient + gProb{1};
+    for s=useNominalCtScen
+        weightGradient = weightGradient + gProb{s};
+    end
+end
+
+
+gradientChecker = 0;
+if gradientChecker == 1
+    f =  matRad_objectiveFunction(optiProb,w,dij,cst);
+    epsilon = 1e-7;
+
+    ix = unique(randi([dij.totalNumOfBixels],1,5));
+
+    for i=ix
+
+        wInit = w;
+        wInit(i) = wInit(i) + epsilon;
+        fDel= matRad_objectiveFunction(optiProb,wInit,dij,cst);
+        numGrad = (fDel - f)/epsilon;
+        diff = (numGrad/weightGradient(i) - 1)*100;
+        fprintf(['grad val #' num2str(i) '- rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
+        %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
+    end
 end

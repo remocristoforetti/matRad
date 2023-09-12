@@ -215,6 +215,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
     counter = 0;
 
     % compute SSDs only for first scenario
+
     stf = matRad_computeSSD(stf,ct);
 
     for i = 1:numel(stf) % loop over all beams
@@ -576,6 +577,13 @@ end % end shift scenario loop
 
 dij = matRad_cleanDijScenarios(dij,pln,cst);
 
+if pln.propDoseCalc.precalcProbabilisticQuantitites
+    try
+        [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+    catch
+        matRad_cfg.dispWarning('Could not calculate probabilistic quantities!');
+    end
+end
 % Close Waitbar
 if ishandle(figureWait)
     delete(figureWait);

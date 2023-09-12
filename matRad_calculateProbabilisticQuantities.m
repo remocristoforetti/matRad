@@ -33,6 +33,7 @@ function [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln,mode4D)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 matRad_cfg = MatRad_Config.instance();
 
 if nargin < 4
@@ -61,47 +62,62 @@ end
 
 scens = find(pln.multScen.scenMask);
 
+
 %Create structures
 for i = 1:numel(fNames)
     matRad_cfg.dispInfo('\tE[D] & Omega[D] for ''%s'':\n',fNames{1,i});
     if strcmpi(mode4D,'phase')
-        dij.([fNames{1,i} 'Exp']){1:pln.multScen.numOfCtScen} = spalloc(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels,1);
+        dij.([fNames{1,i} 'Exp']) = cell(pln.multScen.numOfCtScen,1);
+        [dij.([fNames{1,i} 'Exp'])(:)] = {spalloc(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels,1)};
         dij.([fNames{1,i} 'Omega']) = cell(size(cst,1),pln.multScen.numOfCtScen);
         
-        ixTmp = cell(ndims(pln.multScen.scenMask),1);
-        [ixTmp{:}] = ind2sub(size(pln.multScen.scenMask),scens);
-        ctIxMap = ixTmp{1};        
+        % ixTmp = cell(ndims(pln.multScen.scenMask),1);
+        % [ixTmp{:}] = ind2sub(size(pln.multScen.scenMask),scens);
+        % ctIxMap = ixTmp{1};
+        ctIxMap = pln.multScen.linearMask(:,1);
+
     else
         dij.([fNames{1,i} 'Exp']){1} = spalloc(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels,1);
         dij.([fNames{1,i} 'Omega']) = cell(size(cst,1),1);
         ctIxMap = ones(numel(scens),1);
     end
-    [dij.([fNames{1,i} 'Omega']){voiIx,:}] = deal(zeros(dij.totalNumOfBixels));
+    [dij.([fNames{1,i} 'Omega']){voiIx,:}] = deal(spalloc(dij.totalNumOfBixels,dij.totalNumOfBixels,1)); %deal(zeros(dij.totalNumOfBixels));
     
     %Now loop over the scenarios
     
     for s = 1:numel(scens)
         matRad_cfg.dispInfo('\t\tScenario %d/%d...',s,numel(scens));
         ctIx = ctIxMap(s);
-        scenIx = scens(s);
+        %scenIx = scens(s);
+        shiftScenIdx = pln.multScen.linearMask(s,2);
+        rangeShiftIdx = pln.multScen.linearMask(s,3);
         
         %Add up Expected value
-        dij.([fNames{1,i} 'Exp']){ctIx} = dij.([fNames{ctIx,i} 'Exp']){ctIx} + dij.([fNames{1,i}]){scenIx} .* pln.multScen.scenProb(s);
+        
+        dij.([fNames{1,i} 'Exp']){ctIx} = dij.([fNames{i} 'Exp']){ctIx} + dij.([fNames{i}]){ctIx,shiftScenIdx,rangeShiftIdx} .* pln.multScen.scenProb(s);
         
         %Add up Omega
-         for v = voiIx
-             dij.([fNames{1,i} 'Omega']){v,ctIx} = dij.([fNames{1,i} 'Omega']){v,ctIx} + ...
-                 (((dij.(fNames{1,i}){scenIx}(cst{v,4}{ctIx},:)' * pln.multScen.scenProb(s)) * ...
-                 (dij.(fNames{1,i}){scenIx}(cst{v,4}{ctIx},:)) * pln.multScen.scenProb(s)));
+         for v = 1:numel(voiIx)
+             % I think this should have only one product of scenProb
+             
+             
+             dij.([fNames{i} 'Omega']){voiIx(v),ctIx} = dij.([fNames{i} 'Omega']){voiIx(v),ctIx} + ...
+                  ((dij.(fNames{1,i}){ctIx,shiftScenIdx,rangeShiftIdx}(cst{voiIx(v),4}{ctIx},:)' * ...
+                  (dij.(fNames{1,i}){ctIx,shiftScenIdx,rangeShiftIdx}(cst{voiIx(v),4}{ctIx},:)) * pln.multScen.scenProb(s)));
+
+               % dij.([fNames{i} 'Omega']){v,ctIx} = dij.([fNames{i} 'Omega']){v,ctIx} + ...
+               %   (((dij.(fNames{1,i}){scenIx}(cst{v,4}{ctIx},:)' * pln.multScen.scenProb(s)) * ...
+               %   (dij.(fNames{1,i}){scenIx}(cst{v,4}{ctIx},:)) * pln.multScen.scenProb(s)));
          end
+         memory
          matRad_cfg.dispInfo('Done!\n');
     end
     matRad_cfg.dispInfo('\tFinalizing Omega...');
     %Finalize Omega matrices
     unCtIx = unique(ctIx);    
     for ctIx = unCtIx
-        for v = voiIx
-            dij.([fNames{1,i} 'Omega']){v,ctIx} = dij.([fNames{1,i} 'Omega']){v,ctIx} - (dij.([fNames{1,i} 'Exp']){ctIx}(cst{v,4}{ctIx},:)' * dij.([fNames{1,i} 'Exp']){ctIx}(cst{v,4}{ctIx},:));
+        for v = numel(voiIx)
+            dij.([fNames{1,i} 'Omega']){voiIx(v),ctIx} = dij.([fNames{1,i} 'Omega']){voiIx(v),ctIx} - (dij.([fNames{1,i} 'Exp']){ctIx}(cst{voiIx(v),4}{ctIx},:)' * dij.([fNames{1,i} 'Exp']){ctIx}(cst{voiIx(v),4}{ctIx},:));
         end
     end  
     matRad_cfg.dispInfo('\tDone!\n');

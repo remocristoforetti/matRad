@@ -46,6 +46,9 @@ useNominalCtScen = optiProb.BP.nominalCtScenarios;
 % retrieve matching 4D scenarios
 fullScen = cell(ndims(d),1);
 [fullScen{:}] = ind2sub(size(d),useScen);
+% fullScen = cell(ndims(dExp),1);
+% [fullScen{:}] = ind2sub(size(dExp),useScen);
+
 contourScen = fullScen{1};
 
 % initialize f
@@ -94,17 +97,19 @@ for  i = 1:size(cst,1)
 
                     case 'PROB' % if prob opt: sum up expectation value of objectives
 
-                        d_i = dExp{1}(cst{i,4}{1});
-
-                        f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
-
-                        p = objective.penalty/numel(cst{i,4}{1});
+                        for s=useNominalCtScen
+                           d_i = dExp{s}(cst{i,4}{s});
+                        
+                           f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                        
+                           %p = objective.penalty/numel(cst{i,4}{s});
+                           p = objective.penalty/numel(d_i);
 
                         % only one variance term per VOI
-                        if j == 1
-                            f = f + p * w' * dOmega{i,1};
+                        %if j == 1
+                           f = f + p * w' * dOmega{i,s};
+                        %end
                         end
-
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
                         if ~isscalar(contourIx)

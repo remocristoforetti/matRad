@@ -92,10 +92,16 @@ classdef matRad_BackProjection < handle
         
         function [dExp,dOmegaV] = computeResultProb(obj,dij,w)
             if isfield(dij,'physicalDoseExp')
+                % dExp = cell(size(dij.physicalDoseExp));
+                % [dExp(obj.scenarios),dOmegaVTmp] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
+                % dOmegaV = cell(size(dij.physicalDoseOmega));
+                % dOmegaV(:,obj.scenarios) = dOmegaVTmp{:};
                 dExp = cell(size(dij.physicalDoseExp));
-                [dExp(obj.scenarios),dOmegaVTmp] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
-                dOmegaV = cell(size(dij.physicalDoseOmega));
-                dOmegaV(:,obj.scenarios) = dOmegaVTmp{:};
+                %dOmegaVTmp = cell(size(dij.physicalDoseOmega,2),1);
+                [dExp(obj.scenarios),dOmegaVTmp(obj.scenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
+                dOmegaV = cell(size(dij.physicalDoseOmega));                
+                
+                dOmegaV(:, obj.scenarios) = [dOmegaVTmp{:}];
             else
                 dExp = [];
                 dOmegaV = [];
@@ -117,6 +123,7 @@ classdef matRad_BackProjection < handle
     %These should be abstract methods, however Octave can't parse them. As soon 
     %as Octave is able to do this, they should be made abstract again 
     methods %(Abstract)
+
         function d = computeSingleScenario(obj,dij,scen,w)
             error('Function needs to be implemented');
         end

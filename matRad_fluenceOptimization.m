@@ -211,7 +211,12 @@ FLAG_ROB_OPT   = false;
 for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
         if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
-            FLAG_CALC_PROB = true;
+            if (isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega')
+                FLAG_CALC_PROB = true;
+            else
+                matRad_cfg.dispWarning('Probabilistic quantities required for optimization but not present in dij.');
+
+            end
         end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;
@@ -219,16 +224,16 @@ for i = 1:size(cst,1)
     end
 end
 
-if FLAG_CALC_PROB
+ if FLAG_CALC_PROB && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
-end
-
+ end
 
 % set optimization options
 if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
     ixForOpt = scen4D;
 else
     ixForOpt = linIxDIJ;
+
 end
 
 switch pln.bioParam.quantityOpt
