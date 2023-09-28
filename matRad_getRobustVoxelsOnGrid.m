@@ -87,12 +87,13 @@ function [includeMask] = matRad_getRobustVoxelsOnGrid(cst, doseGrid, selectionMo
     
                         obj = cst{i,6}{j};
         
-                        if ~isa(obj,'matRad_DoseOptimizationFunction')
+                        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective')
                             try
                                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
                             catch
                                 matRad_cfg.dispError('cst{%d,6}{%d} is not a valid Objective/constraint! Remove or Replace and try again!',i,j);
                             end
+
                         end
     
                         robustness = obj.robustness;
