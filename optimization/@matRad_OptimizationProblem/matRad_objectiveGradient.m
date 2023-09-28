@@ -41,7 +41,7 @@ optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 
 % also get probabilistic quantities (nearly no overhead if empty)
-[dExp,dOmega] = optiProb.BP.GetResultProb();
+%[dExp,dOmega, vTot] = optiProb.BP.GetResultProb();
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
@@ -90,7 +90,7 @@ for  i = 1:size(cst,1)
 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                        for s = useNominalCtScen
+                        for s = 1%useNominalCtScen
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             d_i = d{ixScen}(cst{i,4}{ixContour});
@@ -108,24 +108,45 @@ for  i = 1:size(cst,1)
                                 (objective.penalty*objective.computeDoseObjectiveGradient(d_i) * scenProb(s));
                             
                         end
-                        
+
                     case 'PROB' % use the expectation value and the integral variance influence matrix
                         %First check the speficic cache for probabilistic
+
                         if ~exist('doseGradientExp','var')
+                            optiProb.BP.compute(dij,w);
+                            [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
                             for s=useNominalCtScen
                                 [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
                             end
                         end
+
                         for s=useNominalCtScen
                             d_i = dExp{s}(cst{i,4}{s});
-                        
                             doseGradientExp{s}(cst{i,4}{s}) = doseGradientExp{s}(cst{i,4}{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                         
                             %p = objective.penalty/numel(cst{i,4}{s});
-                            p = objective.penalty/numel(d_i);
+                            %p = objective.penalty/numel(d_i);
 
-                            vOmega{s,1} = vOmega{s,1} + p * dOmega{i,s};
+                            %vOmega{s,1} = vOmega{s,1} + p * dOmega{i,s};
                         end
+
+                    % case 'PROB' % use the expectation value and the integral variance influence matrix
+                    %     %First check the speficic cache for probabilistic
+                    %     if ~exist('doseGradientExp','var')
+                    %         for s=useNominalCtScen
+                    %             [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
+                    %         end
+                    %     end
+                    %     for s=useNominalCtScen
+                    %         d_i = dExp{s}(cst{i,4}{s});
+                    % 
+                    %         doseGradientExp{s}(cst{i,4}{s}) = doseGradientExp{s}(cst{i,4}{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                    % 
+                    %         %p = objective.penalty/numel(cst{i,4}{s});
+                    %         p = objective.penalty/numel(d_i);
+                    % 
+                    %         vOmega{s,1} = vOmega{s,1} + p * dOmega{i,s};
+                    %     end
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
                         if ~isscalar(contourIx)
@@ -270,14 +291,38 @@ for  i = 1:size(cst,1)
                             if fGrad(ixScen ) ~= 0
                                 doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + fGrad(ixScen)*delta_OWC{ixScen}(cst{i,4}{ixContour});
                             end
+ 
                         end
-                        
+ 
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         
                 end  %robustness type                              
+            
+            elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+
+
+                robustness = objective.robustness;
+        
+                % rescale dose parameters to biological optimization quantity if required
+                objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+                
+                switch robustness
+                    case 'PROB'
+                        if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
+                            optiProb.BP.compute(dij,w);
+                            [doseGradientExp(:)] = {zeros(dij.totalNumOfBixels,1)};
+                            [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                        end
+                        
+                        for s= useNominalCtScen
+                            tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{i,s}, numel(cst{i,4}{s}));
+                            vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{i,s};
+                        end
+                end
             end  % objective check         
         end %objective loop       
+
     end %empty check    
 end %cst structure loop
 
@@ -332,7 +377,7 @@ end
 gradientChecker = 0;
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
-    epsilon = 1e-7;
+    epsilon = 1e-6;
 
     ix = unique(randi([dij.totalNumOfBixels],1,5));
 

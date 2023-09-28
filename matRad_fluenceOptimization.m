@@ -50,7 +50,7 @@ for i = 1:size(cst,1)
         %In case it is a default saved struct, convert to object
         %Also intrinsically checks that we have a valid optimization
         %objective or constraint function in the end
-        if ~isa(obj,'matRad_DoseOptimizationFunction')
+        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective')
             try
                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
             catch
@@ -58,10 +58,12 @@ for i = 1:size(cst,1)
             end
         end
 
-        obj = obj.setDoseParameters(obj.getDoseParameters()/pln.numOfFractions);
-
+        if isa(obj, 'matRad_DoseOptimizationFunction')
+            obj = obj.setDoseParameters(obj.getDoseParameters()/pln.numOfFractions);
+        end
         cst{i,6}{j} = obj;
     end
+
 end
 
 % resizing cst to dose cube resolution
@@ -91,6 +93,7 @@ for i = 1:size(cst,1)
         doseTarget = [doseTarget fDoses];
         ixTarget   = [ixTarget i*ones(1,length(fDoses))];
     end
+
 end
 [doseTarget,i] = max(doseTarget);
 ixTarget       = ixTarget(i);
@@ -111,6 +114,7 @@ if exist('wInit','var')
         dij.gamma             = zeros(dij.doseGrid.numOfVoxels,dij.numOfScenarios);
         dij.gamma(dij.ixDose) = dij.ax(dij.ixDose)./(2*dij.bx(dij.ixDose));
     end
+
 
 elseif strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'protons')
     % check if a constant RBE is defined - if not use 1.1
@@ -220,6 +224,7 @@ for i = 1:size(cst,1)
         end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;
+ 
         end
     end
 end
@@ -258,6 +263,7 @@ backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
+
 optiProb = matRad_OptimizationProblem(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
@@ -288,6 +294,7 @@ if pln.propOpt.boundMU
 else
     matRad_cfg.dispInfo('Using standard MU bounds of [0,Inf]!\n')
 end
+
 
 if ~isfield(pln.propOpt,'optimizer')
     pln.propOpt.optimizer = 'IPOPT';

@@ -79,7 +79,7 @@ for  i = 1:size(cst,1)
                 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
-                        for ixScen = useNominalCtScen
+                        for ixScen = 1%useNominalCtScen
                             d_i = d{ixScen}(cst{i,4}{useScen(ixScen)});
                             f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
                         end
@@ -96,20 +96,35 @@ for  i = 1:size(cst,1)
                         end
 
                     case 'PROB' % if prob opt: sum up expectation value of objectives
+                        if ~exist('dExp','var')
+                            optiProb.BP.compute(dij,w);
+                            [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                        end
 
                         for s=useNominalCtScen
-                           d_i = dExp{s}(cst{i,4}{s});
+                            d_i = dExp{s}(cst{i,4}{s});
                         
-                           f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
-                        
-                           %p = objective.penalty/numel(cst{i,4}{s});
-                           p = objective.penalty/numel(d_i);
+                            f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                            %fprintf('struct number %d, current totF = %d, exp term = %d ', i, f, objective.penalty*objective.computeDoseObjectiveFunction(d_i));
+                            %p = objective.penalty/numel(cst{i,4}{s});
+                            %p = objective.penalty/numel(d_i);
 
-                        % only one variance term per VOI
-                        %if j == 1
-                           f = f + p * w' * dOmega{i,s};
-                        %end
+                            %vOmega{s,1} = vOmega{s,1} + p * dOmega{i,s};
                         end
+
+                        % for s=useNominalCtScen
+                        %    d_i = dExp{s}(cst{i,4}{s});
+                        % 
+                        %    f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                        % 
+                        %    %p = objective.penalty/numel(cst{i,4}{s});
+                        %    p = objective.penalty/numel(d_i);
+                        % 
+                        % % only one variance term per VOI
+                        % %if j == 1
+                        %    f = f + p * w' * dOmega{i,s};
+                        % %end
+                        % end
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
                         if ~isscalar(contourIx)
@@ -202,6 +217,26 @@ for  i = 1:size(cst,1)
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
 
                 end  %robustness type                              
+            elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+
+                objective = optiProb.BP.setBiologicalDosePrescriptions(objective, cst{i,5}.alphaX, cst{i,5}.betaX);
+                robustness = objective.robustness;
+
+                switch robustness
+                    case 'PROB'
+
+                        if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
+                            optiProb.BP.compute(dij,w);
+                            [dExp,~,vTot] = optiProb.BP.GetResultProb();
+                        end
+                        
+                        for s= useNominalCtScen
+                            f = f + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(cst{i,4}{s}));
+                        end
+                        %fprintf(' Var =  %d\n', objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(cst{i,4}{s})));
+                end
+            
+            
             end  % objective check         
         end %objective loop       
     end %empty check    
