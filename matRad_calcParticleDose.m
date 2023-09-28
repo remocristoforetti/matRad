@@ -363,6 +363,7 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                     % vectorize computations more efficiently than when
                     % making this an outer loop
                     for ctScen = 1:pln.multScen.numOfCtScen
+
                         if any(any(pln.multScen.scenMask(ctScen,:,:))) %We don't need it if no scenario for this ct scenario is relevant
                             % precomputations for fine-sampling
                             if strcmp(pln.propDoseCalc.fineSampling.calcMode, 'fineSampling')   
@@ -579,7 +580,7 @@ dij = matRad_cleanDijScenarios(dij,pln,cst);
 
 if pln.propDoseCalc.precalcProbabilisticQuantitites
     try
-        [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+        [dij] = matRad_calculateProbabilisticQuantitiesGPU(dij,cst,pln);
     catch
         matRad_cfg.dispWarning('Could not calculate probabilistic quantities!');
     end
