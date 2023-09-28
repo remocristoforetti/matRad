@@ -114,13 +114,17 @@ classdef matRad_WorstCaseScenarios < matRad_ScenarioModel
             maskIx = sub2ind(size(this.scenMask),linearMask(:,1),linearMask(:,2),linearMask(:,3));
             this.scenMask(maskIx) = true;
 
+            
+            
             %Get Scenario probability
             Sigma = diag([this.shiftSD,this.rangeAbsSD,this.rangeRelSD./100].^2);
             d = size(Sigma,1);
             [cs,p] = chol(Sigma);
             scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
+            %scenProb = scenProb./sum(scenProb);
+            %scenProb = scenProb/this.numOfCtScen;
             this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
-            this.scenWeight = this.scenProb./sum(this.scenProb);          
+            this.scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);          
         end
     end
 

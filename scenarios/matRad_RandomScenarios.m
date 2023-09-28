@@ -118,8 +118,9 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             
             %Scenario Probability from pdf
             this.scenForProb = scenarios;
-            this.scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
-
+            scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
+            this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
+            this.scenWeight = repmat(ones(this.nSamples,1)./this.nSamples, this.numOfCtScen,1);
             %Scenario weight
             this.scenWeight = ones(this.nSamples,1)./this.nSamples; %equal weights since they have been randomly sampled (not entirely true if the Nominal scenario was forced) 
 
