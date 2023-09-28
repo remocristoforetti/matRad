@@ -386,7 +386,7 @@ classdef matRad_MCemittanceBaseData
             
             %correct for in-air scattering with polynomial or interpolation
             if obj.fitWithSpotSizeAirCorrection
-                sigma = arrayfun(@(d,sigma) obj.spotSizeAirCorrection(obj.machine.meta.radiationMode,obj.machine.data(i).energy,d,sigma),-z+obj.machine.meta.BAMStoIsoDist,sigma);                   
+                [sigma, sigma_corr_sq] = arrayfun(@(d,sigma) obj.spotSizeAirCorrection(obj.machine.meta.radiationMode,obj.machine.data(i).energy,d,sigma),-z+obj.machine.meta.BAMStoIsoDist,sigma);                   
             end
 
             %square and interpolate at isocenter
@@ -538,7 +538,7 @@ classdef matRad_MCemittanceBaseData
     end
 
     methods (Static)
-        function sigmaAirCorrected = spotSizeAirCorrection(radiationMode,E,d,sigma,method)
+        function [sigmaAirCorrected, sigmaAirCorrected_square] = spotSizeAirCorrection(radiationMode,E,d,sigma,method)
             %performs a rudimentary correction for additional scattering in
             %air not considered by the courant snyder equation
             matRad_cfg = MatRad_Config.instance();
@@ -611,7 +611,8 @@ classdef matRad_MCemittanceBaseData
                 sigmaAirCorrected = sigma;
                 matRad_cfg.dispWarning('Spot Size Air Correction failed, too large!',method);
             else
-                sigmaAirCorrected = sigma - sigmaAir; 
+                sigmaAirCorrected = sigma - sigmaAir;
+                sigmaAirCorrected_square = sqrt(sigma.^2 - sigmaAir.^2);
             end
 
         end
