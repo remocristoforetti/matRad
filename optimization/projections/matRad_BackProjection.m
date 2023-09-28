@@ -24,6 +24,7 @@ classdef matRad_BackProjection < handle
         wGradProb
         dExp
         dOmegaV
+        vTot
     end
     
     properties 
@@ -42,6 +43,7 @@ classdef matRad_BackProjection < handle
             obj.d = [];
             obj.dExp = [];
             obj.dOmegaV = [];
+            obj.vTot = [];
             obj.wGrad = [];            
             obj.wGradProb = [];
         end       
@@ -49,7 +51,7 @@ classdef matRad_BackProjection < handle
         function obj = compute(obj,dij,w)
             if ~isequal(obj.wCache,w)
                 obj.d = obj.computeResult(dij,w);
-                [obj.dExp,obj.dOmegaV] = obj.computeResultProb(dij,w);
+                [obj.dExp,obj.dOmegaV, obj.vTot] = obj.computeResultProb(dij,w);
                 obj.wCache = w;                
             end
         end
@@ -72,9 +74,10 @@ classdef matRad_BackProjection < handle
             d = obj.d;
         end
         
-        function [dExp,dOmegaV] = GetResultProb(obj)
+        function [dExp,dOmegaV, vTot] = GetResultProb(obj)
             dExp = obj.dExp;
             dOmegaV = obj.dOmegaV;
+            vTot = obj.vTot;
         end
 
         function wGrad = GetGradient(obj)
@@ -90,7 +93,7 @@ classdef matRad_BackProjection < handle
             d(obj.scenarios) = arrayfun(@(scen) computeSingleScenario(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
         end
         
-        function [dExp,dOmegaV] = computeResultProb(obj,dij,w)
+        function [dExp,dOmegaV, vTot] = computeResultProb(obj,dij,w)
             if isfield(dij,'physicalDoseExp')
                 % dExp = cell(size(dij.physicalDoseExp));
                 % [dExp(obj.scenarios),dOmegaVTmp] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
@@ -98,13 +101,23 @@ classdef matRad_BackProjection < handle
                 % dOmegaV(:,obj.scenarios) = dOmegaVTmp{:};
                 dExp = cell(size(dij.physicalDoseExp));
                 %dOmegaVTmp = cell(size(dij.physicalDoseOmega,2),1);
-                [dExp(obj.scenarios),dOmegaVTmp(obj.scenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
+                %[dExp(obj.nominalCtScenarios),dOmegaVTmp(obj.nominalCtScenarios), vTotTmp(obj.nominalCtScenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
+                [dExp(obj.nominalCtScenarios),dOmegaVTmp(obj.nominalCtScenarios), vTotTmp(obj.nominalCtScenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.nominalCtScenarios,'UniformOutput',false);
                 dOmegaV = cell(size(dij.physicalDoseOmega));                
                 
-                dOmegaV(:, obj.scenarios) = [dOmegaVTmp{:}];
+                %dOmegaV(:, obj.scenarios) = [dOmegaVTmp{:}];
+                dOmegaV(:, obj.nominalCtScenarios) = [dOmegaVTmp{:}];
+
+
+                vTot = cell(size(dij.physicalDoseOmega));                
+                
+                %vTot(:, obj.scenarios) = [vTotTmp{:}];
+                vTot(:, obj.nominalCtScenarios) = [vTotTmp{:}];
+                
             else
                 dExp = [];
                 dOmegaV = [];
+                vTot = [];
             end
         end
         
