@@ -33,6 +33,7 @@ matRad_cfg = MatRad_Config.instance();
 
 % get current dose / effect / RBExDose vector
 optiProb.BP.compute(dij,w);
+
 d = optiProb.BP.GetResult();
 
 % get probabilistic quantities (nearly no overhead if empty)
@@ -43,6 +44,12 @@ useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
 useNominalCtScen = optiProb.BP.nominalCtScenarios;
 
+
+if ~isempty(dExp)
+    nonEmptyExp = find(~cellfun(@isempty, dExp))';
+else
+    nonEmptyExp =  [];
+end
 % retrieve matching 4D scenarios
 fullScen = cell(ndims(d),1);
 [fullScen{:}] = ind2sub(size(d),useScen);
@@ -55,8 +62,12 @@ contourScen = fullScen{1};
 f = 0;
 
 % required for COWC opt
-f_COWC = zeros(numel(useScen),1);
+if ~isempty(useScen)
+    f_COWC = zeros(numel(useScen),1);
 
+else
+    f_COWC = 0;
+end
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
@@ -79,8 +90,8 @@ for  i = 1:size(cst,1)
                 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
-                        for ixScen = 1%useNominalCtScen
-                            d_i = d{ixScen}(cst{i,4}{useScen(ixScen)});
+                        for ixScen = useNominalCtScen
+                            d_i = d{ixScen}(cst{i,4}{ixScen}); %{useScen(ixScen)});
                             f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
                         end
 
@@ -101,8 +112,16 @@ for  i = 1:size(cst,1)
                             [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
                         end
 
-                        for s=useNominalCtScen
-                            d_i = dExp{s}(cst{i,4}{s});
+                        if ~isequal(nonEmptyExp,useNominalCtScen)
+                            totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                            
+                            newIdx{1} = unique(totIdx);
+                        else
+                            newIdx = cst{i,4}(useNominalCtScen);
+                        end
+                        
+                        for s=nonEmptyExp
+                            d_i = dExp{s}(newIdx{s});
                         
                             f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
                             %fprintf('struct number %d, current totF = %d, exp term = %d ', i, f, objective.penalty*objective.computeDoseObjectiveFunction(d_i));
@@ -219,6 +238,7 @@ for  i = 1:size(cst,1)
                 end  %robustness type                              
             elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
 
+
                 objective = optiProb.BP.setBiologicalDosePrescriptions(objective, cst{i,5}.alphaX, cst{i,5}.betaX);
                 robustness = objective.robustness;
 
@@ -230,8 +250,16 @@ for  i = 1:size(cst,1)
                             [dExp,~,vTot] = optiProb.BP.GetResultProb();
                         end
                         
-                        for s= useNominalCtScen
-                            f = f + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(cst{i,4}{s}));
+                        if ~isequal(nonEmptyExp,useNominalCtScen)
+                            totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                            
+                            newIdx{1} = unique(totIdx);
+                        else
+                            newIdx = cst{i,4}(useNominalCtScen);
+                        end
+
+                        for s=nonEmptyExp%useNominalCtScen
+                            f = f + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(newIdx{s}));
                         end
                         %fprintf(' Var =  %d\n', objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(cst{i,4}{s})));
                 end

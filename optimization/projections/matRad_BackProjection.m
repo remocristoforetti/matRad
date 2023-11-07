@@ -22,7 +22,7 @@ classdef matRad_BackProjection < handle
         d
         wGrad
         wGradProb
-        dExp
+        dExp = {};
         dOmegaV
         vTot
     end
@@ -32,6 +32,7 @@ classdef matRad_BackProjection < handle
         scenarios    = 1        %Scenario indices to evaluate (used for 4D & robust/stochastic optimization)
         scenarioProb = 1        %Probability associated with scenario (for stochastic optimization)
         nominalCtScenarios = 1; %nominal ct scenario (no shift, no range error) indices to evaluate (used for 4D & robust/stochastic optimization, when at least one cst structure does not have robustness)
+        useStructsForOmega;
     end
 
     
@@ -93,26 +94,31 @@ classdef matRad_BackProjection < handle
             d(obj.scenarios) = arrayfun(@(scen) computeSingleScenario(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
         end
         
+
         function [dExp,dOmegaV, vTot] = computeResultProb(obj,dij,w)
             if isfield(dij,'physicalDoseExp')
                 % dExp = cell(size(dij.physicalDoseExp));
                 % [dExp(obj.scenarios),dOmegaVTmp] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
                 % dOmegaV = cell(size(dij.physicalDoseOmega));
                 % dOmegaV(:,obj.scenarios) = dOmegaVTmp{:};
+                scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
                 dExp = cell(size(dij.physicalDoseExp));
                 %dOmegaVTmp = cell(size(dij.physicalDoseOmega,2),1);
-                %[dExp(obj.nominalCtScenarios),dOmegaVTmp(obj.nominalCtScenarios), vTotTmp(obj.nominalCtScenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
-                [dExp(obj.nominalCtScenarios),dOmegaVTmp(obj.nominalCtScenarios), vTotTmp(obj.nominalCtScenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.nominalCtScenarios,'UniformOutput',false);
+
+                %[dExp(obj.nominalCtScenarios),dOmegaVTmp(obj.nominalCtScenarios), vTotTmp(obj.nominalCtScenarios)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.nominalCtScenarios,'UniformOutput',false);
+                 [dExp(scensToInclude),dOmegaVTmp(scensToInclude), vTotTmp(scensToInclude)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),scensToInclude,'UniformOutput',false);
+
+                
                 dOmegaV = cell(size(dij.physicalDoseOmega));                
                 
                 %dOmegaV(:, obj.scenarios) = [dOmegaVTmp{:}];
-                dOmegaV(:, obj.nominalCtScenarios) = [dOmegaVTmp{:}];
+                dOmegaV(:, scensToInclude) = [dOmegaVTmp{:}];
 
 
                 vTot = cell(size(dij.physicalDoseOmega));                
                 
                 %vTot(:, obj.scenarios) = [vTotTmp{:}];
-                vTot(:, obj.nominalCtScenarios) = [vTotTmp{:}];
+                vTot(:, scensToInclude) = [vTotTmp{:}];
                 
             else
                 dExp = [];
@@ -127,8 +133,12 @@ classdef matRad_BackProjection < handle
         end
         
         function wGrad = projectGradientProb(obj,dij,dExpGrad,dOmegaVgrad,w)
-            wGrad = cell(size(dij.physicalDose));
-            wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),obj.scenarios,'UniformOutput',false);
+            % wGrad = cell(size(dij.physicalDose));
+            % wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),obj.scenarios,'UniformOutput',false);
+
+            scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
+            wGrad = cell(size(dij.physicalDoseExp));
+            wGrad(scensToInclude) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),scensToInclude,'UniformOutput',false);
         end
     end
    

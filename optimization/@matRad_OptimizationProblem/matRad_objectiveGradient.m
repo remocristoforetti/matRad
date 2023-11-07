@@ -60,8 +60,18 @@ doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
 %For probabilistic optimization
-vOmega                   = cell(numel(useNominalCtScen),1); 
-vOmega(useNominalCtScen) = {zeros(dij.totalNumOfBixels,1)};
+[dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+
+
+
+if ~isempty(dExp)
+    nonEmptyExp = find(~cellfun(@isempty, dExp))';
+else
+    nonEmptyExp = [];
+end
+
+vOmega                   = cell(numel(nonEmptyExp),1); 
+vOmega(nonEmptyExp) = {zeros(dij.totalNumOfBixels,1)};
 
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
@@ -90,9 +100,9 @@ for  i = 1:size(cst,1)
 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                        for s = 1%useNominalCtScen
-                            ixScen = useScen(s);
-                            ixContour = contourScen(s);
+                        for s = useNominalCtScen
+                            ixScen = s;    %useScen(s);
+                            ixContour = s; %contourScen(s);
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             %add to dose gradient
                             doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
@@ -114,15 +124,30 @@ for  i = 1:size(cst,1)
 
                         if ~exist('doseGradientExp','var')
                             optiProb.BP.compute(dij,w);
+
                             [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
-                            for s=useNominalCtScen
+                            
+                            nonEmptyExp = find(~cellfun(@isempty, dExp))';
+
+                            for s=nonEmptyExp
                                 [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
                             end
                         end
 
-                        for s=useNominalCtScen
-                            d_i = dExp{s}(cst{i,4}{s});
-                            doseGradientExp{s}(cst{i,4}{s}) = doseGradientExp{s}(cst{i,4}{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+
+                        nonEmptyExp = find(~cellfun(@isempty, dExp))';
+
+                        if ~isequal(nonEmptyExp,useNominalCtScen)
+                            totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                            
+                            newIdx{1} = unique(totIdx);
+                        else
+                            newIdx = cst{i,4}(useNominalCtScen);
+                        end
+
+                        for s=nonEmptyExp
+                            d_i = dExp{s}(newIdx{s});
+                            doseGradientExp{s}(newIdx{s}) = doseGradientExp{s}(newIdx{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                         
                             %p = objective.penalty/numel(cst{i,4}{s});
                             %p = objective.penalty/numel(d_i);
@@ -315,8 +340,17 @@ for  i = 1:size(cst,1)
                             [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
                         end
                         
-                        for s= useNominalCtScen
-                            tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{i,s}, numel(cst{i,4}{s}));
+                        nonEmptyExp = find(~cellfun(@isempty, dExp))';
+
+                        if ~isequal(nonEmptyExp,useNominalCtScen)
+                            totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                            
+                            newIdx{1} = unique(totIdx);
+                        else
+                            newIdx = cst{i,4}(useNominalCtScen);
+                        end
+                        for s=nonEmptyExp
+                            tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{i,s}, numel(newIdx{s}));
                             vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{i,s};
                         end
                 end
@@ -362,13 +396,13 @@ end
 
 
 nonEmptyOmega = ~(cellfun(@isempty, vOmega));
-nonZerosOmega = arrayfun(@(scen) nnz(vOmega{scen}),useNominalCtScen);
+nonZerosOmega = arrayfun(@(scen) nnz(vOmega{scen}),nonEmptyOmega);
 if any(nonEmptyOmega) && all(nonZerosOmega>0)
     optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
     gProb = optiProb.BP.GetGradientProb();
     
     %Only implemented for first scenario now
-    for s=useNominalCtScen
+    for s=nonEmptyExp
         weightGradient = weightGradient + gProb{s};
     end
 end

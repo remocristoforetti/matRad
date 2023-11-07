@@ -181,7 +181,11 @@ elseif pln.bioParam.bioOpt
 
     matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
 else
-    doseTmp = dij.physicalDose{1}*wOnes;
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/mean(doseTmp(V));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -203,14 +207,22 @@ if isequal(scen4D,'all')
     scen4D = 1:size(dij.physicalDose,1);
 end
 
-linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
-
-%Only select the indexes of the nominal ct Scenarios
-linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+if ~isempty(scen4D)
+    linMap = ismember(pln.multScen.linearMask(:,1),scen4D);
+    linIxDIJ = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen],  pln.multScen.linearMask(find(linMap),1), pln.multScen.linearMask(find(linMap),2), pln.multScen.linearMask(find(linMap),3))';%find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
+    %Only select the indexes of the nominal ct Scenarios
+    linIxDIJ_nominalCT = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], scen4D', ones(numel(scen4D),1), ones(numel(scen4D),1))';%find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+else
+    linMap = [];
+    linIxDIJ = [];
+    linIxDIJ_nominalCT = [];
+end
 
 FLAG_CALC_PROB = false;
+
 FLAG_ROB_OPT   = false;
 
+FLAG_PROB_OPT = false;
 
 for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
@@ -226,13 +238,24 @@ for i = 1:size(cst,1)
             FLAG_ROB_OPT = true;
  
         end
+
+        if strcmp(cst{i,6}{j}.robustness, 'PROB') && isfield(dij, 'physicalDoseExp')
+            FLAG_PROB_OPT = true;
+        end
     end
 end
 
- if FLAG_CALC_PROB && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
+if FLAG_CALC_PROB && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
- end
+end
 
+
+
+%This has to be fixed
+if isempty(linIxDIJ) && FLAG_PROB_OPT
+    scen4D = [];
+    linIxDIJ_nominalCT = [1:numel(dij.physicalDoseExp)];
+end
 % set optimization options
 if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
     ixForOpt = scen4D;
@@ -240,6 +263,17 @@ else
     ixForOpt = linIxDIJ;
 
 end
+
+
+voiIx = [];
+for i = 1:size(cst,1)
+    for j=1:size(cst{i,6},2)
+        if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance')
+            voiIx = [voiIx i];
+        end
+    end
+end
+voiIx = unique(voiIx);
 
 switch pln.bioParam.quantityOpt
     case 'effect'
@@ -258,11 +292,13 @@ switch pln.bioParam.quantityOpt
         backProjection = matRad_DoseProjection;
 end
 
+
 %Give scenarios used for optimization
 backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenProb;
+backProjection.scenarioProb = pln.multScen.scenProb;%(ixForOpt);%./sum(pln.multScen.scenProb);%pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
+backProjection.useStructsForOmega = voiIx;
 
 optiProb = matRad_OptimizationProblem(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
@@ -319,20 +355,22 @@ optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
 wOpt = optimizer.wResult;
 info = optimizer.resultInfo;
 
+
 resultGUI = matRad_calcCubes(wOpt,dij);
 resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
 
+resultGUI.info.timePerIteration = resultGUI.info.cpu/resultGUI.info.iter;
 %Robust quantities
-if FLAG_ROB_OPT || numel(ixForOpt) > 1
-    Cnt = 1;
-    for i = find(~cellfun(@isempty,dij.physicalDose))'
-        tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
-        resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
-        Cnt = Cnt + 1;
-    end
-end
+% if FLAG_ROB_OPT || numel(ixForOpt) > 1
+%     Cnt = 1;
+%     for i = find(~cellfun(@isempty,dij.physicalDose))'
+%         tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
+%         resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
+%         Cnt = Cnt + 1;
+%     end
+% end
 
 % unblock mex files
 clear mex
