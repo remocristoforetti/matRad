@@ -1,4 +1,4 @@
-function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid)
+function dvh = matRad_calcDVH(cst,doseCube,ctScen,dvhType,doseGrid)
 % matRad dvh calculation
 % 
 % call
@@ -39,6 +39,11 @@ if ~exist('dvhType','var') || isempty(dvhType)
     dvhType = 'cum';
 end
 
+if ~exist('ctScen', 'var') || isempty(ctScen)
+    ctScen = 1;
+end
+
+
 if ~exist('doseGrid', 'var') || isempty(doseGrid)
     maxDose = max(doseCube(:));
     minDose = min(doseCube(:));
@@ -56,16 +61,16 @@ numOfVois = size(cst,1);
 dvh = struct;
 for i = 1:numOfVois
     dvh(i).doseGrid     = doseGrid;
-    dvh(i).volumePoints = getDVHPoints(cst, i, doseCube, doseGrid, dvhType);
+    dvh(i).volumePoints = getDVHPoints(cst, i, doseCube,ctScen, doseGrid, dvhType);
     dvh(i).name         = cst{i,2};
 end
 
 end %eof 
 
-function dvh = getDVHPoints(cst, sIx, doseCube, dvhPoints, dvhType)
+function dvh = getDVHPoints(cst, sIx, doseCube,ctScen, dvhPoints, dvhType)
 n = numel(dvhPoints);
 dvh         = NaN * ones(1,n);
-indices     = cst{sIx,4}{1};
+indices     = cst{sIx,4}{ctScen};
 numOfVoxels = numel(indices);
 
 doseInVoi   = doseCube(indices);
