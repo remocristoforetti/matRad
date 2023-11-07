@@ -205,7 +205,9 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
     % manipulate isocenter
     for k = 1:length(stf)
-        stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(ixShiftScen,:);
+        %stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(shiftScen,:);
+
     end
 
     if pln.multScen.totNumShiftScen > 1
@@ -380,7 +382,8 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
                             end
                         end
                         for rangeShiftScen = 1:pln.multScen.totNumRangeScen
-                            rangeScenIx = find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
+                            %rangeScenIx = find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
+                            rangeScenIx = rangeShiftScen;
                             if pln.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
 
                                 % manipulate radDepthCube for range scenarios
@@ -570,8 +573,10 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
 
     % undo manipulation of isocenter
+
     for k = 1:length(stf)
-        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
+        %stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(shiftScen,:);
     end
 
 end % end shift scenario loop
