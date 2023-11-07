@@ -72,12 +72,21 @@ switch mode4D
         for ctIx = 1:pln.multScen.numOfCtScen
             scenIx = pln.multScen.linearMask(:,1) == ctIx;
             
+
             ctAccumIx{ctIx} = pln.multScen.linearMask(scenIx,:);
+
+            % get weights associated to thes scenarios;
+            scenWeights{ctIx} = pln.multScen.scenWeight(scenIx);
+            
+            %normalize weights for current ctScenario
+            scenWeights{ctIx} = scenWeights{ctIx}./sum(scenWeights{ctIx});
+
+            %cumScenInCt = cumScenInCt + sum(scenIx);
         end
             
     case 'all'
-        ctAccumIx{1} = pln.multScen.linearMask(:,2:3);
-            
+        ctAccumIx{1} = pln.multScen.linearMask(:,1:3);
+        scenWeights{1} = pln.multScen.scenWeight./sum(pln.multScen.scenWeight);
 end
 
 %Variance-Test with vector of ones
@@ -107,35 +116,26 @@ for i = 1:numel(fNames)
     %Now loop over the scenarios
 
     s = 0;
-    for ctIx = 1:numel(ctAccumIx)
-        matRad_cfg.dispInfo('\t\t4D-Phase %d/%d...\n',ctIx,numel(ctAccumIx));
+
+    for phaseIdx = 1:numel(ctAccumIx)
+        matRad_cfg.dispInfo('\t\t4D-Phase %d/%d...\n',phaseIdx,numel(ctAccumIx));
         
         %Add up Expected value
-        scensInPhase = ctAccumIx{ctIx};
+        scensInPhase = ctAccumIx{phaseIdx};
         matRad_cfg.dispInfo('\t\tAccumulating Expected Dij ');
         
         nScen = size(scensInPhase,1);
 
         currLinearScen = sub2ind(size(dij.physicalDose), scensInPhase(:,1), scensInPhase(:,2), scensInPhase(:,3));
-        %gpuDijExp = gpuArray(dij.([fNames{1,i} 'Exp']){ctIx});
+
         for sIx = 1:nScen
             matRad_cfg.dispInfo('.');
-            %scenIx = scens(s+sIx);
+
             scenIx = currLinearScen(sIx);
-            %shiftScenIdx = scensInPhase(sIx,2);
-            %rangeShiftIdx = scensInPhase(sIx,3);
-            dij.([fNames{i} 'Exp']){ctIx} = dij.([fNames{i} 'Exp']){ctIx} + dij.([fNames{i}]){scenIx} .* pln.multScen.scenWeight(s+sIx);
-            %tmpDij = gpuArray(dij.([fNames{1,i}]){scenIx});
-            
-            %gpuDijExp = gpuDijExp + pln.multScen.scenProb(s+sIx) * dij.([fNames{1,i}]){scenIx};
-            %clear tmpDij;
+
+            dij.([fNames{i} 'Exp']){phaseIdx} = dij.([fNames{i} 'Exp']){phaseIdx} + dij.([fNames{i}]){scenIx} .* scenWeights{phaseIdx}(sIx);
         end
-        
-        
-        
-        
-        %dij.([fNames{1,i} 'Exp']){ctIx} = dij.([fNames{1,i} 'Exp']){ctIx} ./ nScen;
-        
+                
         matRad_cfg.dispInfo(' done!\n');
         
         %Add up Omega
@@ -150,49 +150,61 @@ for i = 1:numel(fNames)
             %remove zero rows, may give small advantage with dijs for large
             %structures
             tmpWones = ones(dij.totalNumOfBixels,1);
-            tmpd = dij.([fNames{1,i} 'Exp']){ctIx} * tmpWones;            
+            tmpd = dij.([fNames{1,i} 'Exp']){phaseIdx} * tmpWones;            
             ixNz = find(tmpd > 0);
-            newIx = intersect(ixNz,cst{v,4}{ctIx});
+            %newIx = intersect(ixNz,cst{v,4}{});
             
             if testVariance
-                testV = zeros(numel(newIx),size(scensInPhase,1));
+                testV = zeros(dij.doseGrid.numOfVoxels,size(scensInPhase,1));
             end
                         
             matRad_cfg.dispInfo('\t\t\tStructure %d/%d',vCnt,numel(voiIx));
             
-            omegaCurr = dij.([fNames{1,i} 'Omega']){v,ctIx};
+            omegaCurr = dij.([fNames{1,i} 'Omega']){v,phaseIdx};
             
-            %
-            %cumOmegaPart =0;
-            clear competeDijCurr;
-            for sIx = 1:size(scensInPhase,1)
-                matRad_cfg.dispInfo('.');
-                %scenIx = scens(s+sIx);
-                scenIx = currLinearScen(sIx);
+            ctIdxInPhase = unique(scensInPhase(:,1));
+            
 
-                dijCurr = gpuArray(dij.([fNames{1,i}]){scenIx}(newIx,:));
-                
-                %dijCurr = dij.([fNames{1,i}]){scenIx}(newIx,:);
-                competeDijCurr = dij.([fNames{1,i}]){scenIx};
-                if testVariance
-                    testV(:,sIx) = dij.([fNames{1,i}]){scenIx}(newIx,:)*tmpWones;
-                    scenWeights(sIx) = pln.multScen.scenWeight(s+sIx);
+            % Get all voxels in current structure on all ct sceanrios
+            newIdxInPhase = [];
+            for ctIx = ctIdxInPhase'
+                newIx = intersect(ixNz,cst{v,4}{ctIx});
+                newIdxInPhase = [newIdxInPhase; newIx];
+            end
+            newIdxInPhase = unique(newIdxInPhase);
+
+            for ctIx=ctIdxInPhase'
+
+                % newIx = intersect(ixNz,cst{v,4}{ctIx});
+                % newIdxInPhase = [newIdxInPhase; newIx];
+                scensOnCt = find(scensInPhase(:,1)==ctIx);
+                for sIx = 1:numel(scensInPhase(scensOnCt))
+                    matRad_cfg.dispInfo('.');
+                    
+                    scenIx = currLinearScen(scensOnCt(sIx));
+                    
+
+                    dijCurr = gpuArray(dij.([fNames{1,i}]){scenIx}(newIdxInPhase,:));
+    
+                    if testVariance
+                        testV(newIdxInPhase,scensOnCt(sIx)) = dij.([fNames{1,i}]){scenIx}(newIdxInPhase,:)*tmpWones;
+                        scenWeightsForVariance(scensOnCt(sIx)) = scenWeights{phaseIdx}(scensOnCt(sIx));%pln.multScen.scenWeight(s+sIx);
+                    end
+                    
+    
+                     omegaCurr = omegaCurr + gather(dijCurr'*dijCurr).* scenWeights{phaseIdx}(scensOnCt(sIx));
+    %                omegaCurr = omegaCurr + gather(dijCurr'*dijCurr).* pln.multScen.scenWeight(s+sIx);
+    %                omegaCurr = omegaCurr + (dijCurr'*dijCurr).* pln.multScen.scenWeight(s+sIx);
+                   
+                    wait(gpu);
+                    clear dijCurr omegaTmp;
                 end
-                %
-                %cumOmegaPart = cumOmegaPart + competeDijCurr.*competeDijCurr.*pln.multScen.scenWeight(s+sIx);
-                
-                
-                omegaCurr = omegaCurr + gather(dijCurr'*dijCurr).* pln.multScen.scenWeight(s+sIx);
-%                omegaCurr = omegaCurr + (dijCurr'*dijCurr).* pln.multScen.scenWeight(s+sIx);
-               
-                wait(gpu);
-                clear dijCurr omegaTmp;
-                %wait(gpu);
+            
             end
             matRad_cfg.dispInfo(' finalizing...');
             
+            dijCurr = dij.([fNames{1,i} 'Exp']){phaseIdx}(newIdxInPhase,:);
 
-            dijCurr = dij.([fNames{1,i} 'Exp']){ctIx}(newIx,:);
             omegaCurr = omegaCurr - dijCurr' * dijCurr;
             
             %
@@ -218,7 +230,7 @@ for i = 1:numel(fNames)
 
             
             if testVariance
-            	testV = var(testV,scenWeights,2);
+            	testV = var(testV,scenWeightsForVariance,2);
                 testV = sum(testV);
                 
                 matRad_cfg.dispInfo(' Variance Test: %f (sample) v. %f (Omega)...',testV,tmpWones'*omegaCurr*tmpWones);
@@ -228,13 +240,13 @@ for i = 1:numel(fNames)
             sparsity = nnz(omegaCurr)/numel(omegaCurr);
             
             %if sparsity < 0.2 
-                dij.([fNames{1,i} 'Omega']){v,ctIx} = sparse(gather(omegaCurr));                        
+                dij.([fNames{1,i} 'Omega']){v,phaseIdx} = sparse(gather(omegaCurr));                        
             %else
             %    dij.([fNames{1,i} 'Omega']){v,ctIx} = full(gather(omegaCurr));
             %end
             
             
-            clear omegaCurr;        
+            clear omegaCurr;
             
             
             matRad_cfg.dispInfo(' done!\n');
@@ -243,8 +255,9 @@ for i = 1:numel(fNames)
         s = s + size(scensInPhase,1);
     end
 
-    toc;    
+    totalTime = toc;    
     
+    dij.info.OmegaCalculationTime = totalTime;
     %{
     for s = 1:numel(scens)
         matRad_cfg.dispInfo('\t\tScenario %d/%d...',s,numel(scens));
