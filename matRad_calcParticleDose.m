@@ -583,6 +583,7 @@ end % end shift scenario loop
 
 dij = matRad_cleanDijScenarios(dij,pln,cst);
 
+% this is not necessary here, it´s in calcDoseInit
 if ~isfield(pln.propDoseCalc, 'probabilisticQuantitiesMode')
     probQuantitiesMode = 'phase';
 else
