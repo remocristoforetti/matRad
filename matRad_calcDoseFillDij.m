@@ -6,7 +6,7 @@ if mod(counter,numOfBixelsContainer) == 0 || counter == dij.totalNumOfBixels
     if calcDoseDirect && (~isfield(stf(1).ray(1),'weight') || numel(stf(i).ray(j).weight) < k)
         matRad_cfg.dispError(['No weight available for beam ' num2str(i) ', ray ' num2str(j) ', bixel ' num2str(k)]);
     end
-        
+    
     for ctScen = 1:pln.multScen.numOfCtScen
         for rangeShiftScen = 1:pln.multScen.totNumRangeScen
             if pln.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
@@ -32,6 +32,27 @@ if mod(counter,numOfBixelsContainer) == 0 || counter == dij.totalNumOfBixels
                     % fill entire dose influence matrix
                     dij.physicalDose{ctScen,shiftScen,rangeShiftScen}(:,dijIx) = [doseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];
                     
+
+                    if pln.propDoseCalc.accumulateQuantities
+
+                        switch probQuantitiesMode
+                            case 'phase'
+                                scenIdx = find(ismember(pln.multScen.linearMask,[ctScen,shiftScen,rangeShiftScen], 'rows'));
+                                if ~isempty(scenIdx)
+                                   dij.physicalDoseExp{ctScen}(:,dijIx) = dij.physicalDoseExp{ctScen}(:,dijIx) + pln.multScen.scenWeight(scenIdx) * [doseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];
+                                else
+                                    matRad_cfg.dispWarning('Cannot accumulate quantities');
+                                end
+                            case 'all'
+                                scenIdx = find(ismember(pln.multScen.linearMask,[ctScen,shiftScen,rangeShiftScen], 'rows'));
+                                if ~isempty(scenIdx)
+                                   dij.physicalDoseExp{1}(:,dijIx) = dij.physicalDoseExp{1}(:,dijIx) + (pln.multScen.scenWeight(scenIdx)./sum(pln.multScen.scenWeight)) * [doseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];
+                                else
+                                    matRad_cfg.dispWarning('Cannot accumulate quantities');
+                                end       
+                        end
+
+                    end
                     if isfield(dij,'mLETDose')
                         % fill entire LETxDose influence matrix
                         dij.mLETDose{ctScen,shiftScen,rangeShiftScen}(:,dijIx) = [letDoseTmpContainer{containerIx,ctScen,shiftScen,rangeShiftScen}];

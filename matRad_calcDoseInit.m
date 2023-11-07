@@ -112,6 +112,35 @@ if ~isfield(pln.propDoseCalc, 'probabilisticQuantitiesMode')
 else
     probQuantitiesMode = pln.propDoseCalc.probabilisticQuantitiesMode;
 end
+
+if ~isfield(pln.propDoseCalc, 'useGPUtoAccumulateQuantitites')
+    pln.propDoseCalc.useGPUtoAccumulateQuantitites = false;
+end
+
+if ~isfield(pln.propDoseCalc, 'accumulateQuantities')
+    pln.propDoseCalc.accumulateQuantities = false;
+end
+
+if pln.propDoseCalc.accumulateQuantities
+
+    switch probQuantitiesMode
+        case 'phase'
+            for ctIdx =1:ct.numOfCtScen
+                dij.physicalDoseExp{ctIdx,1} = spalloc(dij.doseGrid.numOfVoxels,numOfColumnsDij,1);
+                for structIdx=1:size(cst,1)
+                    dij.physicalDoseOmega{structIdx,ctIdx} = spalloc(numOfColumnsDij,numOfColumnsDij,1);
+                end
+
+            end
+        case 'all'
+            dij.physicalDoseExp{1} = spalloc(dij.doseGrid.numOfVoxels, numOfColumnsDij,1);
+            for structIdx=1:size(cst,1)
+                dij.physicalDoseOmega{structIdx,1} = spalloc(numOfColumnsDij,numOfColumnsDij,1);
+            end
+    end
+end
+
+
 % Allocate memory for dose_temp cell array
 doseTmpContainer = cell(numOfBixelsContainer,pln.multScen.numOfCtScen,pln.multScen.totNumShiftScen,pln.multScen.totNumRangeScen);
 
