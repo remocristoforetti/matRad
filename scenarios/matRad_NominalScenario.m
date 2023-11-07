@@ -77,8 +77,9 @@ classdef matRad_NominalScenario < matRad_ScenarioModel
             Sigma = diag([this.shiftSD,this.rangeAbsSD,this.rangeRelSD./100].^2);
             d = size(Sigma,1);
             [cs,p] = chol(Sigma);
-            this.scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((this.scenForProb/cs).^2, 2)) / prod(diag(cs));
-            this.scenWeight = this.scenProb./sum(this.scenProb); 
+            scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((this.scenForProb/cs).^2, 2)) / prod(diag(cs));
+            this.scenProb = repmat(scenProb,this.numOfCtScen,1);
+            this.scenWeight = repmat(1./this.numOfCtScen, this.numOfCtScen,1); 
             
             %Return variable
             scenarios = [0 0 0 0 0];

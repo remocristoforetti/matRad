@@ -1,4 +1,4 @@
-classdef matRad_RandomScenarios < matRad_ScenarioModel
+classdef matRad_RandomScenarios_shiftOnly < matRad_ScenarioModel
 %  matRad_RandomScenarios
 %  Implements randomly sampled scenarios
 %
@@ -38,7 +38,7 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
     end
     
     methods
-        function this = matRad_RandomScenarios(ct)           
+        function this = matRad_RandomScenarios_shiftOnly(ct)           
             if nargin == 0 
                 superclassArgs = {};
             else
@@ -98,7 +98,7 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             matRad_cfg = MatRad_Config.instance();
             
             %Multivariate Normal Sampling
-            Sigma = diag([this.shiftSD,this.rangeAbsSD,this.rangeRelSD./100].^2);
+            Sigma = diag([this.shiftSD].^2);
             d = size(Sigma,1);
             [cs,p] = chol(Sigma);
             
@@ -120,36 +120,52 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             %Scenario Probability from pdf
             this.scenForProb = scenarios;
             scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
-            this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
-            this.scenWeight = repmat(ones(this.nSamples,1)./this.nSamples, this.numOfCtScen,1);
+            
+            this.totNumShiftScen = this.nSamples;
+            this.totNumRangeScen = 1;
+
+            this.totNumScen = this.nSamples; %check because of CT scenarios
+            %Mask for scenario selection
+            this.scenMask = true(this.numOfCtScen,this.totNumShiftScen);
+
+            linearMask(:,1) = ones(this.nSamples,1);
+            linearMask(:,2) = [1:this.numOfShiftScen];
+            linearMask(:,3) = ones(this.nSamples,1);
+            maskIx = [];
+            for ctIdx=1:this.numOfCtScen
+                maskIx = [maskIx; sub2ind(size(this.scenMask),ctIdx*ones(this.totNumScen,1),linearMask(:,2))];
+            end
+            this.scenMask(maskIx) = true;
+
+            [maskIx, sortOrder] = sort(maskIx);
+            [ctScen, shiftScen,rangeScen] = ind2sub(size(this.scenMask), maskIx);
+            this.linearMask = [ctScen,shiftScen,rangeScen];
+            VscenProb = repmat(scenProb, this.numOfCtScen, 1);
+            this.scenProb = VscenProb(sortOrder);
+            scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);
+
+            this.scenWeight = scenWeight(sortOrder);
+
+            %this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
+            %this.scenWeight = repmat(ones(this.nSamples,1)./this.nSamples, this.numOfCtScen,1);
             %Scenario weight
             %this.scenWeight = ones(this.nSamples,1)./this.nSamples; %equal weights since they have been randomly sampled (not entirely true if the Nominal scenario was forced) 
 
             %set variables
-            this.totNumShiftScen = this.nSamples;
-            this.totNumRangeScen = this.nSamples;
-            this.totNumScen = this.nSamples; %check because of CT scenarios
-            %this.totNumCtScen = 
-            %this.numOfShiftScen = [nSamples,nSamples,nSamples];
-            %this.numOfRangeShiftScen = nSamples;
+           
+           
             
             %Individual shifts
-            this.relRangeShift = scenarios(:,5);
-            this.absRangeShift = scenarios(:,4);
+            this.relRangeShift = zeros(size(scenarios,1),1);
+            this.absRangeShift = zeros(size(scenarios,1),1);
             this.isoShift = scenarios(:,1:3);
 
             this.maxAbsRangeShift = max(this.absRangeShift);
             this.maxRelRangeShift = max(this.relRangeShift);
 
-            %Mask for scenario selection
-            this.scenMask = false(this.numOfCtScen,this.totNumShiftScen,this.totNumRangeScen);
 
-            for sCt = 1:this.numOfCtScen
-                this.scenMask(sCt,:,:) = diag(true(this.nSamples,1));
-            end
-            
-            [x{1}, x{2}, x{3}] = ind2sub(size(this.scenMask),find(this.scenMask));
-            this.linearMask    = cell2mat(x);
+            %[x{1}, x{2}, x{3}] = ind2sub(size(this.scenMask),find(this.scenMask));
+            %this.linearMask    = cell2mat(x);
             totNumScen    = sum(this.scenMask(:));
 
             if totNumScen ~= this.totNumScen

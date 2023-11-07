@@ -107,12 +107,20 @@ classdef matRad_WorstCaseScenarios < matRad_ScenarioModel
             this.scenMask = false(this.numOfCtScen,this.totNumShiftScen,this.totNumRangeScen);
             
             this.scenForProb = scenarios;
-            linearMaskCtScen = repmat([1:this.numOfCtScen],this.totNumScen,1);
-            linearMask = [linearMaskCtScen(:), repmat(linearMask(:,2:3), this.numOfCtScen,1)];
-            this.linearMask = linearMask;
+            %linearMaskCtScen = repmat([1:this.numOfCtScen],this.totNumScen,1);
+            %linearMask = [linearMaskCtScen(:), repmat(linearMask(:,2:3), this.numOfCtScen,1)];
+            
+            %this.linearMask = linearMask;
 
-            maskIx = sub2ind(size(this.scenMask),linearMask(:,1),linearMask(:,2),linearMask(:,3));
+            maskIx = [];
+            for ctIdx=1:this.numOfCtScen
+                maskIx = [maskIx; sub2ind(size(this.scenMask),ctIdx*ones(this.totNumScen,1),linearMask(:,2),linearMask(:,3))];
+            end
             this.scenMask(maskIx) = true;
+
+            [maskIx, sortOrder] = sort(maskIx);
+            [ctScen, shiftScen,rangeScen] = ind2sub(size(this.scenMask), maskIx);
+            this.linearMask = [ctScen,shiftScen,rangeScen];
 
             
             
@@ -123,8 +131,11 @@ classdef matRad_WorstCaseScenarios < matRad_ScenarioModel
             scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
             %scenProb = scenProb./sum(scenProb);
             %scenProb = scenProb/this.numOfCtScen;
-            this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
-            this.scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);          
+            VscenProb = repmat(scenProb, this.numOfCtScen, 1);
+            this.scenProb = VscenProb(sortOrder);
+            scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);
+
+            this.scenWeight = scenWeight(sortOrder);
         end
     end
 
