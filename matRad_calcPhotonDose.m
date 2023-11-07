@@ -160,7 +160,8 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
     
     % manipulate isocenter
     for k = 1:numel(stf)
-        stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(ixShiftScen,:);
+        %stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter + pln.multScen.isoShift(shiftScen,:);
     end
     
     counter = 0;
@@ -287,8 +288,8 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
             for ctScen = 1:pln.multScen.numOfCtScen
                 for rangeShiftScen = 1:pln.multScen.totNumRangeScen
 
-                    rangeScenIx = find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
-
+                    %rangeScenIx = find(pln.multScen.linearMask(:,3) == rangeShiftScen,1);
+                    rangeScenIx = rangeShiftScen;
                     if pln.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
                         % Ray tracing for beam i and bixel j
                         [ix,rad_distancesSq,isoLatDistsX,isoLatDistsZ] = matRad_calcGeoDists(rot_coordsVdoseGrid, ...
@@ -345,7 +346,8 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
     
     % undo manipulation of isocenter
     for k = 1:length(stf)
-        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
+        %stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(ixShiftScen,:);
+        stf(k).isoCenter = stf(k).isoCenter - pln.multScen.isoShift(shiftScen,:);
     end
     
 end
