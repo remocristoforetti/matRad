@@ -107,6 +107,11 @@ for ctScen = 1:pln.multScen.numOfCtScen
    end
 end
 
+if ~isfield(pln.propDoseCalc, 'probabilisticQuantitiesMode')
+    probQuantitiesMode = 'phase';
+else
+    probQuantitiesMode = pln.propDoseCalc.probabilisticQuantitiesMode;
+end
 % Allocate memory for dose_temp cell array
 doseTmpContainer = cell(numOfBixelsContainer,pln.multScen.numOfCtScen,pln.multScen.totNumShiftScen,pln.multScen.totNumRangeScen);
 
