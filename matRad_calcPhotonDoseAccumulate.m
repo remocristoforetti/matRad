@@ -352,15 +352,24 @@ for shiftScen = 1:pln.multScen.totNumShiftScen
 
     % Accumulate Omega
     if pln.propDoseCalc.accumulateQuantities
-        accumulateOmegaForShiftScenario;
+        dij = matRad_accumulateOmegaForShiftScenario(dij,pln,cst, shiftScen);
+        
+        %accumulateOmegaForShiftScenario;
     
     end
     
 end
 
+voiIx = [];
+for i = 1:size(cst,1)
+    if ~isempty(cst{i,6})
+        voiIx = [voiIx i];
+    end
+end
+
 if pln.propDoseCalc.accumulateQuantities
     matRad_cfg.dispInfo('Finilizing Omega accumulation');
-    switch probQuantitiesMode
+    switch pln.propDoseCalc.probabilisticQuantitiesMode
         case 'phase'
             for ctIdx=1:pln.multScen.numOfCtScen
                 tmpWones = ones(dij.totalNumOfBixels,1);

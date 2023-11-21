@@ -182,6 +182,7 @@ classdef MatRad_Config < handle
             obj.propDoseCalc.defaultCalcLET = true; %calculate LETs for particles
 
             obj.propDoseCalc.defaultAirOffsetCorrection = true;
+            obj.propDoseCalc.defaultProbQuantitiesMode = 'phase';
 
             obj.propOpt.defaultMaxIter = 500;
             obj.propOpt.defaultRunDAO = 0;
@@ -270,6 +271,9 @@ classdef MatRad_Config < handle
         
         %%for edu mode
         function setDefaultPropertiesForEduMode(obj)
+
+            obj.setDefaultProperties();
+            
             obj.logLevel = 1;
             
             obj.propStf.defaultLongitudinalSpotSpacing = 3;

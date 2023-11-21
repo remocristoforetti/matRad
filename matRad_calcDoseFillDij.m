@@ -35,7 +35,7 @@ if mod(counter,numOfBixelsContainer) == 0 || counter == dij.totalNumOfBixels
 
                     if pln.propDoseCalc.accumulateQuantities
 
-                        switch probQuantitiesMode
+                        switch pln.propDoseCalc.probabilisticQuantitiesMode
                             case 'phase'
                                 scenIdx = find(ismember(pln.multScen.linearMask,[ctScen,shiftScen,rangeShiftScen], 'rows'));
                                 if ~isempty(scenIdx)

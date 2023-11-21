@@ -108,9 +108,9 @@ for ctScen = 1:pln.multScen.numOfCtScen
 end
 
 if ~isfield(pln.propDoseCalc, 'probabilisticQuantitiesMode')
-    probQuantitiesMode = 'phase';
-else
-    probQuantitiesMode = pln.propDoseCalc.probabilisticQuantitiesMode;
+    pln.propDoseCalc.probabilisticQuantitiesMode = matRad_cfg.propDoseCalc.defaultProbQuantitiesMode;
+% else
+%     probQuantitiesMode = pln.propDoseCalc.probabilisticQuantitiesMode;
 end
 
 if ~isfield(pln.propDoseCalc, 'useGPUtoAccumulateQuantitites')
@@ -121,9 +121,13 @@ if ~isfield(pln.propDoseCalc, 'accumulateQuantities')
     pln.propDoseCalc.accumulateQuantities = false;
 end
 
+if ~isfield(pln.propDoseCalc, 'precalcProbabilisticQuantities')
+    pln.propDoseCalc.precalcProbabilisticQuantities = false;
+end
+
 if pln.propDoseCalc.accumulateQuantities
 
-    switch probQuantitiesMode
+    switch pln.propDoseCalc.probabilisticQuantitiesMode
         case 'phase'
             for ctIdx =1:ct.numOfCtScen
                 dij.physicalDoseExp{ctIdx,1} = spalloc(dij.doseGrid.numOfVoxels,numOfColumnsDij,1);

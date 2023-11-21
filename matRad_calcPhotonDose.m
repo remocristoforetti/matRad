@@ -356,6 +356,14 @@ end
 % scenario
 dij = matRad_cleanDijScenarios(dij,pln,cst);
 
+if pln.propDoseCalc.precalcProbabilisticQuantities
+    try
+        [dij] = matRad_calculateProbabilisticQuantitiesGPU(dij,cst,pln,pln.propDoseCalc.probabilisticQuantitiesMode);
+    catch
+        matRad_cfg.dispWarning('Could not calculate probabilistic quantities!');
+    end
+end
+
 %Close Waitbar
 if ishandle(figureWait)
     delete(figureWait);
