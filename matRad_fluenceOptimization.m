@@ -193,87 +193,174 @@ end
 
 
 %% calculate probabilistic quantities for probabilistic optimization if at least
-% one robust objective is defined
 
-%Check how to use 4D data
+%Get all non-empty scenario indexes from physicalDose
+allScen = find(~cellfun(@isempty, dij.physicalDose));
+
+%If no 4D optimization, scen4D is set to 1
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'scen4D')
     scen4D = pln.propOpt.scen4D;
 else
-    scen4D = 1; %Use only first 4D scenario for optimization
+    scen4D = 1;
 end
 
-%If "all" provided, use all scenarios
 if isequal(scen4D,'all')
-    scen4D = 1:size(dij.physicalDose,1);
+    scen4D = [1:pln.multScen.numOfCtScen];
 end
 
-if ~isempty(scen4D)
-    linMap = ismember(pln.multScen.linearMask(:,1),scen4D);
-    linIxDIJ = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen],  pln.multScen.linearMask(find(linMap),1), pln.multScen.linearMask(find(linMap),2), pln.multScen.linearMask(find(linMap),3))';%find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
-    %Only select the indexes of the nominal ct Scenarios
-    linIxDIJ_nominalCT = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], scen4D', ones(numel(scen4D),1), ones(numel(scen4D),1))';%find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
-else
-    linMap = [];
-    linIxDIJ = [];
-    linIxDIJ_nominalCT = [];
-end
+%Set here useScen to all thze nominal ct scenarios selected, if there is
+%robustness or no need for scenario calculation, useScen will be changed
+%accordingly
+nominalCTScen = scen4D;
+useScen = nominalCTScen;
 
-FLAG_CALC_PROB = false;
-
-FLAG_ROB_OPT   = false;
-
-FLAG_PROB_OPT = false;
+%Check for robust optimization and probabilistic optimization requirements
+PROB_FLAG = false;
+ROB_FLAG = false;
+ALL_PROB_FLAG = true;
 
 for i = 1:size(cst,1)
+
     for j = 1:numel(cst{i,6})
-        if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
-            if (isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega')
-                FLAG_CALC_PROB = true;
-            else
-                matRad_cfg.dispWarning('Probabilistic quantities required for optimization but not present in dij.');
-
-            end
-        end
-        if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
-            FLAG_ROB_OPT = true;
- 
+        if strcmp(cst{i,6}{j}.robustness,'PROB')
+            PROB_FLAG = true;
         end
 
-        if strcmp(cst{i,6}{j}.robustness, 'PROB') && isfield(dij, 'physicalDoseExp')
-            FLAG_PROB_OPT = true;
+        if ~(strcmp(cst{i,6}{j}.robustness,'none') || strcmp(cst{i,6}{j}.robustness,'PROB'))
+            ROB_FLAG = true;
+        end
+
+        if ~strcmp(cst{i,6}{j}.robustness, 'PROB')
+            ALL_PROB_FLAG = false;
         end
     end
 end
+voiForOmegaIx = [];
+%Set the structures to be included for prob calculation
+if PROB_FLAG
+    for i = 1:size(cst,1)
+        for j=1:size(cst{i,6},2)
+            if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance')
+                voiForOmegaIx = [voiForOmegaIx i];
+            end
+        end
+    end
+    voiForOmegaIx = unique(voiForOmegaIx);
+end
 
-if FLAG_CALC_PROB && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
+%set scenarios to be included
+if ROB_FLAG
+    if ~isempty(allScen)
+        %Get linear map of the scenario indexes
+        [linMap(:,1), linMap(:,2), linMap(:,3)] = ind2sub([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], allScen);
+
+        %Select those that are not excluded by scen4D
+        ixSelected4D = ismember(linMap(:,1),scen4D);
+
+        %Select the linear indexes on dij correspoinding to those scenarios
+        useScen = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], linMap(ixSelected4D,1),linMap(ixSelected4D,2),linMap(ixSelected4D,3) );
+
+    else
+        matRad_cfg.dispError('Trying to set robustness different from PROB but no scenarios have been stored');
+    end
+end
+
+% If there are no scenarios and all structures have PROB robustness and no
+% other kind of robustness, disable scenario calculation in optimization
+% problem. This avoids the call to projectSingleScenario in BP
+if (isempty(allScen) && PROB_FLAG && ~ROB_FLAG) || ALL_PROB_FLAG
+    useScen = [];
+end
+
+% If dij scenarios are provided, the dose distribution will be computed for
+% all the nominal CT scenarios by default.
+
+
+if PROB_FLAG && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
 end
 
-
-
-%This has to be fixed
-if isempty(linIxDIJ) && FLAG_PROB_OPT
-    scen4D = [];
-    linIxDIJ_nominalCT = [1:numel(dij.physicalDoseExp)];
-end
-% set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
-    ixForOpt = scen4D;
-else
-    ixForOpt = linIxDIJ;
-
-end
-
-
-voiIx = [];
-for i = 1:size(cst,1)
-    for j=1:size(cst{i,6},2)
-        if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance')
-            voiIx = [voiIx i];
-        end
-    end
-end
-voiIx = unique(voiIx);
+% one robust objective is defined
+% Old robust opt
+% % % %Check how to use 4D data
+% % % if isfield(pln,'propOpt') && isfield(pln.propOpt,'scen4D')
+% % %     scen4D = pln.propOpt.scen4D;
+% % % else
+% % %     scen4D = 1; %Use only first 4D scenario for optimization
+% % % end
+% % % 
+% % % %If "all" provided, use all scenarios
+% % % if isequal(scen4D,'all')
+% % %     scen4D = 1:size(dij.physicalDose,1);
+% % % end
+% % % 
+% % % if ~isempty(scen4D)
+% % %     linMap = ismember(pln.multScen.linearMask(:,1),scen4D);
+% % %     linIxDIJ = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen],  pln.multScen.linearMask(find(linMap),1), pln.multScen.linearMask(find(linMap),2), pln.multScen.linearMask(find(linMap),3))';%find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
+% % %     %Only select the indexes of the nominal ct Scenarios
+% % %     linIxDIJ_nominalCT = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], scen4D', ones(numel(scen4D),1), ones(numel(scen4D),1))';%find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+% % % else
+% % %     linMap = [];
+% % %     linIxDIJ = [];
+% % %     linIxDIJ_nominalCT = [];
+% % % end
+% % % 
+% % % FLAG_CALC_PROB = false;
+% % % 
+% % % FLAG_ROB_OPT   = false;
+% % % 
+% % % FLAG_PROB_OPT = false;
+% % % 
+% % % for i = 1:size(cst,1)
+% % %     for j = 1:numel(cst{i,6})
+% % %         if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
+% % %             if (isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega')
+% % %                 FLAG_CALC_PROB = true;
+% % %             else
+% % %                 matRad_cfg.dispWarning('Probabilistic quantities required for optimization but not present in dij.');
+% % % 
+% % %             end
+% % %         end
+% % %         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
+% % %             FLAG_ROB_OPT = true;
+% % % 
+% % %         end
+% % % 
+% % %         if strcmp(cst{i,6}{j}.robustness, 'PROB') && isfield(dij, 'physicalDoseExp')
+% % %             FLAG_PROB_OPT = true;
+% % %         end
+% % %     end
+% % % end
+% % % 
+% % % if FLAG_CALC_PROB && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
+% % %     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+% % % end
+% % % 
+% % % 
+% % % 
+% % % %This has to be fixed
+% % % if isempty(linIxDIJ) && FLAG_PROB_OPT
+% % %     scen4D = [];
+% % %     linIxDIJ_nominalCT = [1:numel(dij.physicalDoseExp)];
+% % % end
+% % % % set optimization options
+% % % if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
+% % %     ixForOpt = scen4D;
+% % % else
+% % %     ixForOpt = linIxDIJ;
+% % % 
+% % % end
+% % % 
+% % % 
+% % % voiIx = [];
+% % % for i = 1:size(cst,1)
+% % %     for j=1:size(cst{i,6},2)
+% % %         if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance')
+% % %             voiIx = [voiIx i];
+% % %         end
+% % %     end
+% % % end
+% % % voiIx = unique(voiIx);
 
 switch pln.bioParam.quantityOpt
     case 'effect'
@@ -292,13 +379,19 @@ switch pln.bioParam.quantityOpt
         backProjection = matRad_DoseProjection;
 end
 
+backProjection.scenarios    = useScen;
+backProjection.scenarioProb = pln.multScen.scenProb(useScen);
 
+backProjection.nominalCtScenarios = nominalCTScen;
+backProjection.useStructsForOmega = voiForOmegaIx;
+
+%Older code
 %Give scenarios used for optimization
-backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenProb;%(ixForOpt);%./sum(pln.multScen.scenProb);%pln.multScen.scenProb;
-backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-
-backProjection.useStructsForOmega = voiIx;
+% backProjection.scenarios    = ixForOpt;
+% backProjection.scenarioProb = pln.multScen.scenProb;%(ixForOpt);%./sum(pln.multScen.scenProb);%pln.multScen.scenProb;
+% backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
+% 
+% backProjection.useStructsForOmega = voiForOmegaIx;
 
 optiProb = matRad_OptimizationProblem(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
@@ -363,14 +456,17 @@ resultGUI.info = info;
 
 resultGUI.info.timePerIteration = resultGUI.info.cpu/resultGUI.info.iter;
 %Robust quantities
-% if FLAG_ROB_OPT || numel(ixForOpt) > 1
-%     Cnt = 1;
-%     for i = find(~cellfun(@isempty,dij.physicalDose))'
-%         tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
-%         resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
-%         Cnt = Cnt + 1;
-%     end
-% end
+%if FLAG_ROB_OPT || numel(ixForOpt) > 1
+if ROB_FLAG
+    Cnt = 1;
+    for i = find(~cellfun(@isempty,dij.physicalDose))'
+        tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
+        resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
+        Cnt = Cnt + 1;
+    end
+end
+
+
 
 % unblock mex files
 clear mex

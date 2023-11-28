@@ -53,7 +53,11 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(resultGUI.w,1),1);
 if ~isempty(dij.physicalDose{1})
     doseFields = {'physicalDose','doseToWater'};
     doseQuantities = {'','_std','_batchStd'};
+    if isfield(dij, 'physicalDoseExp') && scenNum==1
+        doseFields = [doseFields, {'physicalDoseExp'}];
+    end
 else
+
     doseFields = {'physicalDoseExp'};
     doseQuantities = {'','_std','_batchStd'};
 end

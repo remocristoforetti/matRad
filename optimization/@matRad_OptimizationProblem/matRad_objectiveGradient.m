@@ -394,7 +394,9 @@ for s = 1:numel(useScen)
   weightGradient = weightGradient + g{useScen(s)};
 end
 
-
+%%% !!!!!!!!!!!!!! %%%
+%IF omega objective only is defined gradient gets also the expectation
+%value gradient part ?? expDoseGradient should be zero in that case%%%%%%%%
 nonEmptyOmega = ~(cellfun(@isempty, vOmega));
 nonZerosOmega = arrayfun(@(scen) nnz(vOmega{scen}),nonEmptyOmega);
 if any(nonEmptyOmega) && all(nonZerosOmega>0)
