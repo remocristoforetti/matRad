@@ -45,12 +45,33 @@ dataFilename = cell2mat(tmp{1});
 idx = find(~cellfun(@isempty,strfind(s{1}, 'ElementType')),1,'first');
 tmp = textscan(s{1}{idx},'ElementType = MET_%s');
 type = lower(cell2mat(tmp{1}));
-
 fclose(headerFileHandle);
 
 %% read data
-dataFileHandle = fopen([folder filesep dataFilename],'r');
-cube = reshape(fread(dataFileHandle,inf,type),dimensions);
+if ~strcmp(dataFilename, 'LOCAL')
+
+    dataFileHandle = fopen([folder filesep dataFilename],'r');
+    rawData = fread(dataFileHandle,inf,type);
+    fclose(dataFileHandle);
+else
+    % data are in same file, for the time being re-read the header, find a
+    % better solution later
+    dataFileHandle = fopen([folder filesep filename],'r');
+
+    headerString = '';
+    while ~isequal(headerString,'ElementDataFile')
+        tmpHeaderString = fgetl(dataFileHandle);
+        stopCharIdx = find(tmpHeaderString == '=');
+        headerString = tmpHeaderString(1:stopCharIdx-2);
+    end
+
+    rawData = fread(dataFileHandle, 'float32');
+    fclose(dataFileHandle);
+
+end
+
+cube = reshape(rawData,dimensions);
 cube = permute(cube,[2 1 3]);
 cube = flip(cube,2);
-fclose(dataFileHandle);
+
+%fclose(dataFileHandle);

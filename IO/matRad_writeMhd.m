@@ -1,4 +1,4 @@
-function matRad_writeMhd(cube,resolution,filename)
+function matRad_writeMhd(cube,resolution,filename,ElementType)
 
 
 % References
@@ -18,6 +18,16 @@ function matRad_writeMhd(cube,resolution,filename)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% write header file
+
+if ~exist('ElementType', 'var')
+    ElementType = 'MET_DOUBLE';
+end
+
+
+% if ~exist('localFile', 'var')
+%     localFile = false;
+% end
+
 fileHandle = fopen(filename,'w');
 
 fprintf(fileHandle,'ObjectType = Image\n');
@@ -31,17 +41,32 @@ fprintf(fileHandle,'CenterOfRotation = 0 0 0\n');
 fprintf(fileHandle,'AnatomicalOrientation = RAI\n');
 fprintf(fileHandle,'ElementSpacing = %f %f %f\n',resolution);
 fprintf(fileHandle,'DimSize = %d %d %d\n',size(cube,2),size(cube,1),size(cube,3));
-fprintf(fileHandle,'ElementType = MET_DOUBLE\n');
-filenameRaw = [filename(1:end-4) '.raw'];
-fprintf(fileHandle,'ElementDataFile = %s\n',filenameRaw);
+fprintf(fileHandle,'ElementType = %s\n', ElementType);
+
+%if ~localFile
+    filenameRaw = [filename(1:end-4) '.raw'];
+    fprintf(fileHandle,'ElementDataFile = %s\n',filenameRaw);
+%else
+%    cube = flip(cube,2);
+%    cube = permute(cube,[2 1 3]);
+
+%end
 
 fclose(fileHandle);
 
 %% write data file
-dataFileHandle = fopen(filenameRaw,'w');
+%if localFile
+    dataFileHandle = fopen(filenameRaw,'w');
 
-cube = flip(cube,2);
-cube = permute(cube,[2 1 3]);
+    cube = flip(cube,2);
+    cube = permute(cube,[2 1 3]);
 
-fwrite(dataFileHandle,cube(:),'double');
-fclose(dataFileHandle);
+    if strcmp(ElementType,'MET_SHORT')
+        fwrite(dataFileHandle,cube(:),'short');
+    
+    else
+        fwrite(dataFileHandle,cube(:),'double');
+    end
+    fclose(dataFileHandle);
+
+%end
