@@ -110,7 +110,7 @@ folderInfo = what(fullFolder);
 classFolders = folderInfo.classes;
 classFolders = cellfun(@(f) erase(f,'@'),classFolders,'UniformOutput',false);
 
-potentialClasses = [potentialClasses, classFolders];
+potentialClasses = [potentialClasses, classFolders'];
 
 metaClassList = {};
 
