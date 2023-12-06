@@ -37,7 +37,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         calcLET;
         runSimulationFileName = 'fred.inp'
         noozleToAxis;
-        exportCalculation = true;
+        exportCalculation = false;
+        hLutLimits = [-1000,1375];
+        HUclamping = false;
+        conversionFactor = 1e6;
         %regionsFolder = '/inp/regions'
     end      
     
@@ -142,17 +145,25 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %Now we can run initDoseCalc as usual
             dij = this.initDoseCalc(ct,cst,stf);
 
+             for s = 1:dij.numOfScenarios
+                 HUcube{s} =  matRad_interp3(dij.ctGrid.x,  dij.ctGrid.y',  dij.ctGrid.z,ct.cubeHU{s}, ...
+                                             dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear');
+                %HUcube{s} =  ct.cubeHU{s};
+             end
+
             %check for presence of HUcorrection file
             if ~exist([FredFolder filesep 'HUmaterialConversionTables'],'dir')
                 this.useInternalHUConversion = true;
+                if any(HUcube{1}(:)>this.hLutLimits(2)) || any(HUcube{1}(:)<this.hLutLimits(1))
+                    matRad_cfg.dispWarning('HU outside of boundaries');
+                    this.HUclamping = true;
+                end
+
             end
 
             %For the time being, use FRED with the dose grid resolution, will deal
             %with this later
-            for s = 1:dij.numOfScenarios
-                HUcube{s} =  matRad_interp3(dij.ctGrid.x,  dij.ctGrid.y',  dij.ctGrid.z,ct.cubeHU{s}, ...
-                                            dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear');
-            end
+           
 
             %Write the directory tree necessary for teh simulation
             this.writeTreeDirectory();
@@ -162,17 +173,34 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             currTmpFolder = pwd;
             cd([FredFolder, filesep, 'MCrun', filesep, 'inp', filesep, 'regions\']);
             matRad_writeMhd(HUcube{1},[this.doseGrid.resolution.x, this.doseGrid.resolution.y, this.doseGrid.resolution.z], this.phantomPatientName, 'MET_SHORT');
+            %matRad_writeMhd(HUcube{1},[ct.resolution.x, ct.resolution.y, ct.resolution.z], this.phantomPatientName, 'MET_SHORT');
             cd(currTmpFolder);
 
-            getPointAtBAMS = @(target,source,distance,BAMStoIso) (target  + source*(BAMStoIso - distance))/distance;
+            getPointAtBAMS = @(target,source,distance,BAMStoIso) (target -source)*(-BAMStoIso)/distance + source;%(target  + source*(BAMStoIso - distance))/distance;
+            
+            
             % Loop over the stf to rearrange data
             counter = 0;
 
             for i = 1:length(stf)
 
-                stfFred(i).gantryAngle = stf(i).gantryAngle;
+                stfFred(i).gantryAngle     = stf(i).gantryAngle;
                 stfFred(i).couchAngle      = stf(i).couchAngle;
-                stfFred(i).isoCenter       = stf(i).isoCenter;
+
+                 % AddIsoCenterOffset = [dij.doseGrid.resolution.x/2 dij.doseGrid.resolution.y/2 dij.doseGrid.resolution.z/2] ...
+                 %            - [dij.ctGrid.resolution.x   dij.ctGrid.resolution.y   dij.ctGrid.resolution.z];
+                %get isocenter on doseGridCoordinates
+                % stfFred(i).isoCenter       = [stf(i).isoCenter + [dij.doseGrid.x(1), dij.doseGrid.y(1), dij.doseGrid.z(1)]]...
+                %                             -[dij.doseGrid.resolution.x, dij.doseGrid.resolution.y, dij.doseGrid.resolution.z]/2;
+                stfFred(i).isoCenter       = -[0.5*ct.resolution.x*(ct.cubeDim(2)+1)-stf(i).isoCenter(1),...
+                                              0.5*ct.resolution.y*(ct.cubeDim(1)+1)-stf(i).isoCenter(2),...
+                                              0.5*ct.resolution.z*(ct.cubeDim(3)+1)-stf(i).isoCenter(3)];
+                
+                % rotMatrix = matRad_getRotationMatrix(-stfFred(i).gantryAngle, stfFred(i).couchAngle);
+                % 
+                % stfFred(i).isoCenter = stfFred(i).isoCenter * rotMatrix;
+                %stfFred(i).isoCenter = stf(i).isoCenter + AddIsoCenterOffset;
+
                 stfFred(i).energies        = unique([stf(i).ray.energy]);
                 stfFred(i).BAMStoIsoDist   = this.machine.meta.BAMStoIsoDist;
 
@@ -214,10 +242,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                             stfFred(i).energyLayer(k).bixelNum = [stfFred(i).energyLayer(k).bixelNum ...
                                 find(stf(i).ray(j).energy == stfFred(i).energies(k))];
 
-                            targetX = -stf(i).ray(j).targetPoint_bev(1);
+                            targetX = stf(i).ray(j).targetPoint_bev(1);%-stf(i).ray(j).targetPoint_bev(1);
                             targetY = stf(i).ray(j).targetPoint_bev(3);
 
-                            sourceX = -stf(i).ray(j).rayPos_bev(1);
+                            sourceX = stf(i).ray(j).rayPos_bev(1);%-stf(i).ray(j).rayPos_bev(1);
                             sourceY = stf(i).ray(j).rayPos_bev(3);
 
                             distance = stf(i).ray(j).targetPoint_bev(2) - stf(i).ray(j).rayPos_bev(2);
@@ -270,36 +298,51 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                    stfFred(i).energyLayer(j).rayPosX      = stfFred(i).energyLayer(j).rayPosX/10;
                    stfFred(i).energyLayer(j).rayPosY      = stfFred(i).energyLayer(j).rayPosY/10;
                    stfFred(i).energyLayer(j).targetPoints = stfFred(i).energyLayer(j).targetPoints/10;
+                   %Divergence not divided by 10, it's pure number
+                   %stfFred(i).energyLayer(j).rayDivX      =  stfFred(i).energyLayer(j).rayDivX/10;
+                   %stfFred(i).energyLayer(j).rayDivY      =  stfFred(i).energyLayer(j).rayDivY/10;
+
                 end
             end
 
              % remember order
 
-             counterFred = 0;
-             FredOrder = NaN * ones(dij.totalNumOfBixels,1);
-             for i = 1:length(stf)
-                 for j = 1:numel(stfFred(i).energies)
-                     for k = 1:numel(stfFred(i).energyLayer(j).numOfPrimaries)
-                         counterFred = counterFred + 1;
-                         ix = find(i                                     == dij.beamNum & ...
-                                   stfFred(i).energyLayer(j).rayNum(k)   == dij.rayNum & ...
-                                   stfFred(i).energyLayer(j).bixelNum(k) == dij.bixelNum);
-
-                         FredOrder(ix) = counterFred;
-                     end
-                 end
-             end
+             % counterFred = 0;
+             % FredOrder = NaN * ones(dij.totalNumOfBixels,1);
+             % for i = 1:length(stf)
+             %     for j = 1:numel(stfFred(i).energies)
+             %         for k = 1:numel(stfFred(i).energyLayer(j).numOfPrimaries)
+             %             counterFred = counterFred + 1;
+             %             ix = find(i                                     == dij.beamNum & ...
+             %                       stfFred(i).energyLayer(j).rayNum(k)   == dij.rayNum & ...
+             %                       stfFred(i).energyLayer(j).bixelNum(k) == dij.bixelNum);
+             % 
+             %             FredOrder(ix) = counterFred;
+             %         end
+             %     end
+             % end
              
-            if any(isnan(FredOrder))
-                matRad_cfg.dispError('Invalid ordering of Beamlets for MCsquare computation!');
-            end
+            % if any(isnan(FredOrder))
+            %     matRad_cfg.dispError('Invalid ordering of Beamlets for MCsquare computation!');
+            % end
              
             % %% MC computation and dij filling
 
             this.writeFredInputAllFiles(stfFred);
 
             if ~this.exportCalculation
-                matRad_cfg.dispError('Auto calculation not yet implemented');
+                %should add checks for installation of fred and so on
+                matRad_cfg.dispInfo('calling FRED');
+
+                %Need to make this better
+                currFolder = pwd;
+                cd([pwd, filesep, 'MCrun']);
+                [status,cmdout] = system('fred -f fred.inp','-echo');
+                cd(currFolder);
+                
+                if status==0
+                    matRad_cfg.dispInfo('done\n');
+                end
             else
                 matRad_cfg.dispInfo('All files have been generated');
                 dij.physicalDose = [];
@@ -316,7 +359,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
             
             %%% just for testing
-            this.numHistoriesDirect = 10000;
+            this.numHistoriesDirect = 1000;
             %Issue a warning when we have more than 1 scenario
             if dij.numOfScenarios ~= 1
                 matRad_cfg.dispWarning('FRED is only implemented for single scenario use at the moment. Will only use the first Scenario for Monte Carlo calculation!');
@@ -339,6 +382,8 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 this.calcLET = false;
                 matRad_cfg.dispWarning('LET calculation not yet supported');
             end
+
+
 
         end
 
@@ -430,7 +475,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             %write region/region.inp file
             regionFilename = [pwd, filesep, 'MCrun', filesep, 'inp', filesep, 'regions', filesep, 'regions.inp'];
-            this.writeRegionsFile(regionFilename);
+            this.writeRegionsFile(regionFilename, stf);
             
             %write funcs, this is here untill we figure out how to solve
             %this mess
@@ -450,7 +495,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             this.writeplanDeliveryFile(planFile, stf);
         end
 
-        function writeRegionsFile(this,fName)
+        function writeRegionsFile(this,fName, stf)
             matRad_cfg = MatRad_Config.instance();
 
             fID = fopen(fName, 'w');
@@ -459,11 +504,14 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 fprintf(fID,'region<\n');
                 fprintf(fID,'\tID=Phantom\n');
                 fprintf(fID,'\tCTscan=inp/regions/%s\n', this.phantomPatientName);
+                %fprintf(fID,'\tO=[%2.3f,%2.3f,%2.3f]\n', stf.isoCenter(1), stf.isoCenter(2), stf.isoCenter(3));
+                fprintf(fID,'\tO=[%2.3f,%2.3f,%2.3f]\n', 0,0,0);
                 fprintf(fID,'\tpivot=[0.5,0.5,0.5]\n');
 
                 %This is gantry angle = 0
-                fprintf(fID, '\tl=[%1.1f,%1.1f,%1.1f]\n', 0,-1,0);
-                fprintf(fID, '\tu=[%1.1f,%1.1f,%1.1f]\n', 1,0,0);
+                %fprintf(fID, '\tl=[%1.1f,%1.1f,%1.1f]\n', cos(stf.gantryAngle),sin(stf.gantryAngle),0);
+                fprintf(fID, '\tl=[%1.1f,%1.1f,%1.1f]\n', 1,0,0);
+                fprintf(fID, '\tu=[%1.1f,%1.1f,%1.1f]\n', 0,-1,0);
 
                 if numel(this.scorers)>1
                     fprintf(fID,'\tscore=[');
@@ -477,7 +525,11 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                 fprintf(fID,'region>\n');
                 if this.useInternalHUConversion
-                    fprintf(fID, '\tlUseInternalHU2Mat=t');
+                    fprintf(fID, '\tlUseInternalHU2Mat=t\n');
+                    if this.HUclamping
+
+                        fprintf(fID, '\tlAllowHUClamping=t');
+                    end
                 end
             catch
                 matRad_cfg.dispError('Failed to write regions file');
@@ -526,16 +578,51 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     fieldLimY = max(abs([stf(i).energyLayer.rayPosY])) + 10*max([stf(i).FWHMs]);
 
                     fprintf(fID, 'field: %i; ', currFieldID);
-                    fprintf(fID, 'O = [%2.3f,%2.3f,%2.3f]; ',-stf(i).BAMStoIsoDist,0,0);
+                    fprintf(fID, 'O = [%2.3f,%2.3f,%2.3f]; ',0,stf(i).BAMStoIsoDist,0);
                     fprintf(fID, 'L = [%2.3f,%2.3f,%2.3f]; ',fieldLimX,fieldLimY,0.1);
 
                     fprintf(fID, 'pivot = [%0.1f,%0.1f,%0.1f]; ',0.5,0.5,0.5);
 
-                    %Always in z direction, turn the spot and the patient
-                    fprintf(fID, 'f = [%i,%i,%i]; ',1,0,0);
-                    fprintf(fID, 'u = [%i,%i,%i]\n',0,1,0);
+                    %Turn the patient to have gantry and couch rotation
+                    %f is propagation direction, in this case fixed to be
+                    %in -y direction
+                    fprintf(fID, 'f = [%i,%i,%i]; ',0,-1,0);
+                    fprintf(fID, 'u = [%i,%i,%i]\n',0,0,-1);
+
                 end
-                 fprintf(fID, 'nprim = %i', this.numHistoriesDirect);
+
+                fprintf(fID,'\n\n');
+
+                %write ISO for each filed
+                fprintf(fID, 'def: PatientISO={');
+                for i=1:numel(stf)-1
+                    fprintf(fID, '"ISOField_%i": [%3.2f,%3.2f,%3.2f], ',i-1,stf(i).isoCenter(1), stf(i).isoCenter(2),stf(i).isoCenter(3));
+                end
+                fprintf(fID, '"ISOField_%i": [%3.2f,%3.2f,%3.2f]}\n',numel(stf)-1, stf(end).isoCenter(1), stf(end).isoCenter(2),stf(end).isoCenter(3));
+
+
+                %write GA for each field
+
+                fprintf(fID,'\n');
+
+                fprintf(fID, 'def: PatientGA=[');
+                for i=1:numel(stf)-1
+                    fprintf(fID, '%3.2f,',stf(i).gantryAngle);
+                end
+                fprintf(fID, '%3.2f]\n',stf(end).gantryAngle);
+
+
+                 %write CA for each field
+
+                fprintf(fID,'\n');
+
+                fprintf(fID, 'def: PatientCA=[');
+                for i=1:numel(stf)-1
+                    fprintf(fID, '%3.2f,',stf(i).couchAngle);
+                end
+                fprintf(fID, '%3.2f]\n',stf(end).couchAngle);
+
+                fprintf(fID, 'nprim = %i', this.numHistoriesDirect);
 
             catch
                 matRad_cfg.dispError('Failed to write field file');
@@ -576,6 +663,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                         %divergenceY
                         this.printArray(fID,', "divY": [',stf(i).energyLayer(j).rayDivY, '%2.3f');
 
+
                         %w
                         this.printArray(fID,', "w": [',stf(i).energyLayer(j).numOfPrimaries, '%2.3f');
 
@@ -584,11 +672,25 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     end
                 end
                 
-                fprintf(fID, 'def: layers = [');
-                for j=1:layerCounter-2
-                    fprintf(fID,'L%i,',j);
+                layerCounter = 0;
+                fprintf(fID, 'def: layers = {');
+                
+                for i=1:numel(stf)-1
+                    fprintf(fID, '"Field_%i": [',i-1);
+                     
+                    for j=1:size(stf(i).energies,2)-1
+                        fprintf(fID,'L%i,',layerCounter+j);
+                    end
+                    fprintf(fID,'L%i], ',layerCounter + size(stf(i).energies,2));
+                    layerCounter = layerCounter + size(stf(i).energies,2);
                 end
-                    fprintf(fID,'L%i]\n',layerCounter-1);
+
+                fprintf(fID, '"Field_%i": [',numel(stf)-1);
+                for j=1:size(stf(i).energies,2)-1
+                   fprintf(fID,'L%i,',layerCounter+j);
+                end
+                fprintf(fID,'L%i]}\n',layerCounter + size(stf(i).energies,2));
+              
             catch
                 matRad_cfg.dispError('Failed to write layers file');
             end
@@ -613,18 +715,30 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                     %loop over fields
                     fprintf(fID, 'for(fieldIdx in range(nFields))<\n');
-                        %activate current filed
+                        
+                    
+                    %activate current filed
                         fprintf(fID, '\tactivate: field_$fieldIdx\n');
+                        fprintf(fID, '\tdef: GA = valueArr(PatientGA,fieldIdx)\n');
+                        fprintf(fID, '\tdef: CA = valueArr(PatientCA,fieldIdx)\n');
+                        fprintf(fID, '\tdef: ISO = getDictionaryKeyValue(PatientISO,"ISOField_"+str(fieldIdx))\n');
+                        %fprintf(fID, '\ttransform: Phantom rotate z ${GA} self\n');
+                        %fprintf(fID, '\ttransform: Phantom move_to ${valueArr(ISO,0)} ${valueArr(ISO,1)} ${valueArr(ISO,2)} Room\n\n');
     
+                        fprintf(fID, '\ttransform: Phantom move_to ${valueArr(ISO,0)} ${valueArr(ISO,1)} ${valueArr(ISO,2)} Room\n');
+                        fprintf(fID, '\ttransform: Phantom rotate y ${-1*CA} Room\n');
+                        fprintf(fID, '\ttransform: Phantom rotate z ${-1*GA} Room\n\n');
+                        
                         %define pbmaster
                         fprintf(fID, '\tpbmaster: $fieldIdx; Xsec = gauss; columns = [P.x, P.y, N, FWHM, T, v.x, v.y, v.z]\n\n');
-                        fprintf(fID, '\tfor(layer in layers)<\n\n');
+                        fprintf(fID, '\tdef: layersInField = getDictionaryKeyValue(layers,"Field_"+str(fieldIdx))\n\n');
+                        fprintf(fID, '\tfor(layer in layersInField)<\n\n');
                         fprintf(fID, '\t\tdef: currEnergy = getDictionaryKeyValue(layer,"Energy")\n');
                         fprintf(fID, '\t\tdef: currFWHM   = getDictionaryKeyValue(layer,"FWHM")\n\n');
                         fprintf(fID, '\t\tfor(pbIdx in range(layer["nSpots"]))<\n');
                             fprintf(fID, '\t\t\tdef: x = valueArr(getDictionaryKeyValue(layer,"x"),pbIdx)\n');
                             fprintf(fID, '\t\t\tdef: y = valueArr(getDictionaryKeyValue(layer,"y"),pbIdx)\n');
-                            fprintf(fID, '\t\t\tdef: w = valueArr(getDictionaryKeyValue(layer,"w"),pbIdx)\n');
+                            fprintf(fID, '\t\t\tdef: w = %e*valueArr(getDictionaryKeyValue(layer,"w"),pbIdx)\n', this.conversionFactor);
                             fprintf(fID, '\t\t\tdef: vx = valueArr(getDictionaryKeyValue(layer,"divX"),pbIdx)\n');
                             fprintf(fID, '\t\t\tdef: vy = valueArr(getDictionaryKeyValue(layer,"divY"),pbIdx)\n\n');
     
@@ -635,7 +749,11 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     fprintf(fID, '\tfor>\n');
                     fprintf(fID, '\tdeliver: field_$fieldIdx\n');
                     fprintf(fID, '\tdeactivate: field_$fieldIdx\n');
-
+                    %fprintf(fID, '\ttransform: Phantom rotate z ${-1*GA} self\n');
+                    fprintf(fID, '\ttransform: Phantom rotate z ${GA} Room\n');
+                    fprintf(fID, '\ttransform: Phantom rotate y ${CA} Room\n');
+                    fprintf(fID, '\ttransform: Phantom move_to 0 0 0 Room\n\n');
+    
                     fprintf(fID, 'for>\n\n');
                 
             catch
@@ -732,7 +850,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             %For the time being, just use the generic machine, will need to
             %have a specific one later on
-            available = strcmp(pln.machine,'Generic');
+            available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare'}));
             msg = 'Machine check is currently not reliable';
         end
 
