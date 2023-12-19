@@ -293,27 +293,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                    stfFred(i).energyLayer(j).nBixels      = numel(stfFred(i).energyLayer(j).rayPosX);
                 end
             end
-
-             % remember order
-
-             % counterFred = 0;
-             % FredOrder = NaN * ones(dij.totalNumOfBixels,1);
-             % for i = 1:length(stf)
-             %     for j = 1:numel(stfFred(i).energies)
-             %         for k = 1:numel(stfFred(i).energyLayer(j).numOfPrimaries)
-             %             counterFred = counterFred + 1;
-             %             ix = find(i                                     == dij.beamNum & ...
-             %                       stfFred(i).energyLayer(j).rayNum(k)   == dij.rayNum & ...
-             %                       stfFred(i).energyLayer(j).bixelNum(k) == dij.bixelNum);
-             % 
-             %             FredOrder(ix) = counterFred;
-             %         end
-             %     end
-             % end
-             
-            % if any(isnan(FredOrder))
-            %     matRad_cfg.dispError('Invalid ordering of Beamlets for MCsquare computation!');
-            % end
              
             % %% MC computation and dij filling
 
@@ -343,6 +322,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
 
         function dij = initDoseCalc(this,ct,cst,stf)
+
             matRad_cfg = MatRad_Config.instance();            
             
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
@@ -405,7 +385,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             fID = fopen(fName, 'w');
 
             try
-                fprintf(fID, 'include: inp/funcs.inp\n');
+                %fprintf(fID, 'include: inp/funcs.inp\n');
                 fprintf(fID, 'include: inp/regions/regions.inp\n');
                 fprintf(fID, 'include: inp/plan/planDelivery.inp\n');
             catch
@@ -463,8 +443,8 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             
             %write funcs, this is here untill we figure out how to solve
             %this mess
-            funcsFile = fullfile(fred_cfg.inputFolder, fred_cfg.funcsFilename);
-            this.writeFuncsFile(funcsFile);
+            % funcsFile = fullfile(fred_cfg.inputFolder, fred_cfg.funcsFilename);
+            % this.writeFuncsFile(funcsFile);
 
             %write plan file
             planFile = fullfile(fred_cfg.planFolder, fred_cfg.planFilename);
@@ -536,21 +516,21 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             fclose(fID);
         end
 
-        function writeFuncsFile(~, fName)
-            matRad_cfg = MatRad_Config.instance();
-
-            fID = fopen(fName, 'w');
-            
-            try
-                fprintf(fID, 'func: valueArr(arr,idx) = arr[idx]\n');
-                fprintf(fID, 'func: getDictionaryKeyValue(dic,key) = dic[key]\n');
-            catch
-                matRad_cfg.dispError('Failed to write funcs file');
-
-            end
-            fclose(fID);
-
-        end
+        % function writeFuncsFile(~, fName)
+        %     matRad_cfg = MatRad_Config.instance();
+        % 
+        %     fID = fopen(fName, 'w');
+        % 
+        %     try
+        %         fprintf(fID, 'func: valueArr(arr,idx) = arr[idx]\n');
+        %         fprintf(fID, 'func: getDictionaryKeyValue(dic,key) = dic[key]\n');
+        %     catch
+        %         matRad_cfg.dispError('Failed to write funcs file');
+        % 
+        %     end
+        %     fclose(fID);
+        % 
+        % end
 
         function writePlanFile(this,fName, stf)
             matRad_cfg = MatRad_Config.instance();
@@ -649,63 +629,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                     fprintf(fID, '}\n');
                     end
-                end
-                
-                % layerCounter = 1;
-                % for i=1:numel(stf)
-                %     for j=1:size(stf(i).energies,2)
-                % 
-                %         fprintf(fID, 'def: L%i = {', layerCounter);
-                %         fprintf(fID, '"Energy": %3.2f, ', stf(i).energies(j));
-                %         fprintf(fID, '"FWHM": %3.2f, ',   stf(i).FWHMs(j));
-                % 
-                %         %This is the energy spread:
-                %         fprintf(fID, '"Ts": %f, ',   1);
-                % 
-
-                %         fprintf(fID, '"nSpots": %i, ', stf(i).nBixels(j));
-                % 
-                %         % PositionX
-                %         this.printArray(fID,'"x": [',stf(i).energyLayer(j).rayPosX, '%2.3f');
-                % 
-                %         % Position Y
-                %         this.printArray(fID,', "y": [',stf(i).energyLayer(j).rayPosY, '%2.3f');
-                % 
-                %         %divergenceX
-                %         this.printArray(fID,', "divX": [',stf(i).energyLayer(j).rayDivX, '%2.3f');
-                % 
-                %         %divergenceY
-                %         this.printArray(fID,', "divY": [',stf(i).energyLayer(j).rayDivY, '%2.3f');
-                % 
-                % 
-                %         %w
-                %         this.printArray(fID,', "w": [',stf(i).energyLayer(j).numOfPrimaries, '%2.3f');
-                % 
-                %         fprintf(fID, '}\n');
-                %         layerCounter = layerCounter+1;
-                %     end
-                % end
-                % 
-                % layerCounter = 0;
-                % fprintf(fID, 'def: layers = {');
-                % 
-                
-                % for i=1:numel(stf)-1
-                %     fprintf(fID, '"Field_%i": [',i-1);
-                % 
-                %     for j=1:size(stf(i).energies,2)-1
-                %         fprintf(fID,'L%i,',layerCounter+j);
-                %     end
-                %     fprintf(fID,'L%i], ',layerCounter + size(stf(i).energies,2));
-                %     layerCounter = layerCounter + size(stf(i).energies,2);
-
-                % end
-                % 
-                % fprintf(fID, '"Field_%i": [',numel(stf)-1);
-                % for j=1:size(stf(i).energies,2)-1
-                %    fprintf(fID,'L%i,',layerCounter+j);
-                % end
-                % fprintf(fID,'L%i]}\n',layerCounter + size(stf(i).energies,2));
+                 end
               
             catch
                 matRad_cfg.dispError('Failed to write layers file');
@@ -739,6 +663,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             end
 
             fclose(fID);
+
         end
 
         function writeplanDeliveryFile(this, fName, stf)
@@ -778,8 +703,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                             fprintf(fID, '\tdef: GA = valueArr(PatientGA,fieldIdx)\n');
                             fprintf(fID, '\tdef: CA = valueArr(PatientCA,fieldIdx)\n');
                             fprintf(fID, '\tdef: ISO = getDictionaryKeyValue(PatientISO,"ISOField_"+str(fieldIdx))\n');
-                            %fprintf(fID, '\ttransform: Phantom rotate z ${GA} self\n');
-                            %fprintf(fID, '\ttransform: Phantom move_to ${valueArr(ISO,0)} ${valueArr(ISO,1)} ${valueArr(ISO,2)} Room\n\n');
         
                             fprintf(fID, '\ttransform: Phantom move_to ${valueArr(ISO,0)} ${valueArr(ISO,1)} ${valueArr(ISO,2)} Room\n');
                             fprintf(fID, '\ttransform: Phantom rotate y ${-1*CA} Room\n');
