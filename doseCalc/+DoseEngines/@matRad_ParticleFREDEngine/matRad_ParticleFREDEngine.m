@@ -222,14 +222,14 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         writeplanDeliveryFile(this, fName, stf)
        
-        function printArray(~,fID,arrayName, array, arrayElementType)
-
-            fprintf(fID, arrayName);
-            for k=1:numel(array)-1
-                fprintf(fID, [arrayElementType, ','], array(k));
-            end
-            fprintf(fID, [arrayElementType, ']'], array(end));
-        end
+        % function printArray(~,fID,arrayName, array, arrayElementType)
+        % 
+        %     fprintf(fID, arrayName);
+        %     for k=1:numel(array)-1
+        %         fprintf(fID, [arrayElementType, ','], array(k));
+        %     end
+        %     fprintf(fID, [arrayElementType, ']'], array(end));
+        % end
 
     end
 
