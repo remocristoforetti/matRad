@@ -37,7 +37,8 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         calcLET;
      
         HUclamping = false;
-        
+        HUtable;
+        defaultHUtable = 'matRad_water.inp';
     end
 
     properties
@@ -119,7 +120,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
             
             %%% just for testing
-            this.numHistoriesDirect = 10000;
+            this.numHistoriesDirect = 1000000;
 
             %Issue a warning when we have more than 1 scenario
             if dij.numOfScenarios ~= 1
@@ -133,6 +134,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 dij.RBE = this.constantRBE;
             end
             
+
             if ~this.calcDoseDirect
                 this.calcDoseDirect = true;
                 matRad_cfg.dispWarning('Dij calculation still not supported. Setting to directDoseCalc')
@@ -144,6 +146,13 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 matRad_cfg.dispWarning('LET calculation not yet supported');
             end
 
+            if isempty(this.useInternalHUConversion)
+%                this.useInternalHUConversion = false;
+                %For the time being and for testing just use the internal
+                %one
+                this.useInternalHUConversion = true;
+            end
+
         end
 
        function writeTreeDirectory(this)
@@ -151,22 +160,22 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             fred_cfg = MatRad_FREDConfig.instance();
 
             if ~exist(fred_cfg.MCrunFolder, 'dir')
-                mkdir(runFolder);
+                mkdir(fred_cfg.MCrunFolder);
             end
 
             %write input folder
             if ~exist(fred_cfg.inputFolder, 'dir')
-                mkdir(inputFolder);
+                mkdir(fred_cfg.inputFolder);
             end
 
             %Build MCrun/inp/regions and
             %      MCrun/inp/plan
             if ~exist(fred_cfg.regionsFolder, 'dir')
-                mkdir(regionsFolder);
+                mkdir(fred_cfg.regionsFolder);
             end
 
             if ~exist(fred_cfg.planFolder, 'dir')
-                mkdir(planFolder);
+                mkdir(fred_cfg.planFolder);
             end
         end
 
@@ -207,21 +216,56 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
         
         %% Write files functions
-        
-        writeFredInputAllFiles(this,stf)
-        
+                
         writeRegionsFile(this,fName, stf)
 
+        %writePlanFile(this,fName, stf)
+
+        %writeFieldsFile(this,fName,stf)
+
+%        writeLayersFile(this, fName, stf)
+         
+ %       writeBeamletsFile(this, fName, stf)
+
+        writePlanDeliveryFile(this, fName, stf)
+  
         writePlanFile(this,fName, stf)
 
-        writeFieldsFile(this,fName,stf)
-
-        writeLayersFile(this, fName, stf)
-         
-        writeBeamletsFile(this, fName, stf)
-
-        writeplanDeliveryFile(this, fName, stf)
-       
+        function writeFredInputAllFiles(this,stf)
+    
+            fred_cfg = MatRad_FREDConfig.instance();
+            
+            %write fred.inp file
+            runFilename = fullfile(fred_cfg.MCrunFolder, fred_cfg.runInputFilename);
+            this.writeRunFile(runFilename);
+        
+            %write region/region.inp file
+            regionFilename = fullfile(fred_cfg.regionsFolder, fred_cfg.regionsFilename);
+            this.writeRegionsFile(regionFilename, stf);
+        
+            %write plan file
+            planFile = fullfile(fred_cfg.planFolder, fred_cfg.planFilename);
+            this.writePlanFile(planFile,stf);
+        
+            % %write fields file
+            % fieldsFile = fullfile(fred_cfg.planFolder,fred_cfg.fieldsFilename);
+            % this.writeFieldsFile(fieldsFile, stf);
+            % 
+            % %write layers file
+            % layersFile = fullfile(fred_cfg.planFolder, fred_cfg.layersFilename);
+            % this.writeLayersFile(layersFile, stf);
+            % 
+            % %write beamlets file
+            % beamletFile = fullfile(fred_cfg.planFolder, fred_cfg.beamletsFilename);
+            % this.writeBeamletsFile(beamletFile,stf);
+        
+        
+            %write planDelivery file
+            planDeliveryFile = fullfile(fred_cfg.planFolder,fred_cfg.planDeliveryFilename);
+            this.writePlanDeliveryFile(planDeliveryFile, stf);
+        end
+        
+        
         % function printArray(~,fID,arrayName, array, arrayElementType)
         % 
         %     fprintf(fID, arrayName);

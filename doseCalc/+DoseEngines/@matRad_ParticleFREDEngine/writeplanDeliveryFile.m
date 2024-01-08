@@ -1,4 +1,4 @@
-function writeplanDeliveryFile(this, fName, stf)
+function writePlanDeliveryFile(this, fName, stf)
     matRad_cfg = MatRad_Config.instance();
     fred_cfg = MatRad_FREDConfig.instance();
 
