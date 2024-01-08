@@ -47,18 +47,17 @@ function dij = calcDose(this,ct,cst,stf)
      for s = 1:dij.numOfScenarios
          HUcube{s} =  matRad_interp3(dij.ctGrid.x,  dij.ctGrid.y',  dij.ctGrid.z,ct.cubeHU{s}, ...
                                      dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear');
-        %HUcube{s} =  ct.cubeHU{s};
      end
 
-    %check for presence of HUcorrection file
-    if ~exist(fullfile(fred_cfg.FREDrootFolder, 'HUmaterialConversionTables'),'dir')
-        this.useInternalHUConversion = true;
+     if this.useInternalHUConversion
         if any(HUcube{1}(:)>fred_cfg.hLutLimits(2)) || any(HUcube{1}(:)<fred_cfg.hLutLimits(1))
             matRad_cfg.dispWarning('HU outside of boundaries');
             this.HUclamping = true;
         end
-
-    end
+        this.HUtable = 'internal';
+     else
+        this.HUtable = this.defaultHUtable;
+     end
    
 
     %Write the directory tree necessary for the simulation
@@ -209,5 +208,7 @@ function dij = calcDose(this,ct,cst,stf)
     
     this.finalizeDose(ct,cst,stf,dij);
     
+
     cd(currFolder);
+
 end
