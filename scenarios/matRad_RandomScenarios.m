@@ -120,15 +120,15 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             %Scenario Probability from pdf
             this.scenForProb = scenarios;
             scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
-            this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
-            this.scenWeight = repmat(ones(this.nSamples,1)./this.nSamples, this.numOfCtScen,1);
-            %Scenario weight
-            %this.scenWeight = ones(this.nSamples,1)./this.nSamples; %equal weights since they have been randomly sampled (not entirely true if the Nominal scenario was forced) 
+            % % this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
+            % % this.scenWeight = repmat(ones(this.nSamples,1)./this.nSamples, this.numOfCtScen,1);
+            % % %Scenario weight
+            % % %this.scenWeight = ones(this.nSamples,1)./this.nSamples; %equal weights since they have been randomly sampled (not entirely true if the Nominal scenario was forced) 
 
             %set variables
             this.totNumShiftScen = this.nSamples;
             this.totNumRangeScen = this.nSamples;
-            this.totNumScen = this.nSamples; %check because of CT scenarios
+            %this.totNumScen = this.nSamples; %check because of CT scenarios
             %this.totNumCtScen = 
             %this.numOfShiftScen = [nSamples,nSamples,nSamples];
             %this.numOfRangeShiftScen = nSamples;
@@ -141,20 +141,49 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             this.maxAbsRangeShift = max(this.absRangeShift);
             this.maxRelRangeShift = max(this.relRangeShift);
 
-            %Mask for scenario selection
-            this.scenMask = false(this.numOfCtScen,this.totNumShiftScen,this.totNumRangeScen);
-
-            for sCt = 1:this.numOfCtScen
-                this.scenMask(sCt,:,:) = diag(true(this.nSamples,1));
+            % % %Mask for scenario selection
+            % % this.scenMask = false(this.numOfCtScen,this.totNumShiftScen,this.totNumRangeScen);
+            % % 
+            % % for sCt = 1:this.numOfCtScen
+            % %     this.scenMask(sCt,:,:) = diag(true(this.nSamples,1));
+            % % end
+            % % 
+            % % [x{1}, x{2}, x{3}] = ind2sub(size(this.scenMask),find(this.scenMask));
+            % % this.linearMask    = cell2mat(x);
+            % % totNumScen    = sum(this.scenMask(:));
+            this.scenMask = zeros(this.numOfCtScen,this.totNumShiftScen, this.totNumRangeScen);
+            for ctIdx=1:this.numOfCtScen
+                this.scenMask(ctIdx,:,:) = diag(true(this.totNumShiftScen,1));
             end
+
+            %linearMask(:,1) = ones(this.numOfCtScen,1);
+            linearMask(:,1) = [1:this.numOfRangeShiftScen];
+            linearMask(:,2) = [1:this.numOfRangeShiftScen];
+            % 
+            maskIx = [];
+            for ctIdx=1:this.numOfCtScen
+                maskIx = [maskIx; sub2ind(size(this.scenMask),ctIdx*ones(this.numOfRangeShiftScen,1),linearMask(:,1),linearMask(:,2))];
+            end
+            % this.scenMask(maskIx) = true;
+
+            %maskIx = find(this.scenMask);
+            [maskIx, sortOrder] = sort(maskIx);
+            [ctScen, shiftScen,rangeScen] = ind2sub(size(this.scenMask), maskIx);
+            this.linearMask = [ctScen,shiftScen,rangeScen];
+            VscenProb = repmat(scenProb, this.numOfCtScen, 1);
             
-            [x{1}, x{2}, x{3}] = ind2sub(size(this.scenMask),find(this.scenMask));
-            this.linearMask    = cell2mat(x);
+            this.scenProb = VscenProb(sortOrder);
+
+            scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);
+
+            this.scenWeight = scenWeight(sortOrder);
+
             totNumScen    = sum(this.scenMask(:));
+            this.totNumScen = totNumScen;
 
             if totNumScen ~= this.totNumScen
                 matRad_cfg.dispWarning('Check Implementation of Total Scenario computation - given %d but found %d!',this.totNumScen,totNumScen);
-                this.totNumScen = totNumScen;
+                %this.totNumScen = totNumScen;
             end
         end
     end

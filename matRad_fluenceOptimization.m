@@ -122,7 +122,11 @@ elseif strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'proton
         dij.RBE = 1.1;
     end
 
-    doseTmp = dij.physicalDose{1}*wOnes;
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/(dij.RBE * mean(doseTmp(V)));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -258,7 +262,7 @@ if ROB_FLAG
         ixSelected4D = ismember(linMap(:,1),scen4D);
 
         %Select the linear indexes on dij correspoinding to those scenarios
-        useScen = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], linMap(ixSelected4D,1),linMap(ixSelected4D,2),linMap(ixSelected4D,3) );
+        useScen = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.totNumRangeScen], linMap(ixSelected4D,1),linMap(ixSelected4D,2),linMap(ixSelected4D,3));
 
     else
         matRad_cfg.dispError('Trying to set robustness different from PROB but no scenarios have been stored');
@@ -274,7 +278,6 @@ end
 
 % If dij scenarios are provided, the dose distribution will be computed for
 % all the nominal CT scenarios by default.
-
 
 if PROB_FLAG && ~((isfield(dij, 'physicalDoseExp') &&  isfield(dij, 'physicalDoseOmega')) || isfield(dij, 'mAlphaDoseExp') &&  isfield(dij, 'mAlphaDoseOmega'))
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
@@ -380,7 +383,13 @@ switch pln.bioParam.quantityOpt
 end
 
 backProjection.scenarios    = useScen;
-backProjection.scenarioProb = pln.multScen.scenProb(useScen);
+
+%Need to filter out the probabilities. Get a 3D mask with the
+%probabilities, then select onlz the ones in useScen
+maskScenProb = pln.multScen.scenMask;
+maskScenProb(find(maskScenProb)) = pln.multScen.scenProb;
+
+backProjection.scenarioProb = maskScenProb(useScen);
 
 backProjection.nominalCtScenarios = nominalCTScen;
 backProjection.useStructsForOmega = voiForOmegaIx;
@@ -449,6 +458,7 @@ wOpt = optimizer.wResult;
 info = optimizer.resultInfo;
 
 
+
 resultGUI = matRad_calcCubes(wOpt,dij);
 resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
@@ -458,6 +468,7 @@ resultGUI.info.timePerIteration = resultGUI.info.cpu/resultGUI.info.iter;
 %Robust quantities
 %if FLAG_ROB_OPT || numel(ixForOpt) > 1
 if ROB_FLAG
+
     Cnt = 1;
     for i = find(~cellfun(@isempty,dij.physicalDose))'
         tmpResultGUI = matRad_calcCubes(wOpt,dij,i);

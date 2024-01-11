@@ -350,6 +350,7 @@ for  i = 1:size(cst,1)
                             newIdx = cst{i,4}(useNominalCtScen);
                         end
                         for s=nonEmptyExp
+                            %vOmega here is sum over all structures
                             tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{i,s}, numel(newIdx{s}));
                             vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{i,s};
                         end
@@ -394,9 +395,6 @@ for s = 1:numel(useScen)
   weightGradient = weightGradient + g{useScen(s)};
 end
 
-%%% !!!!!!!!!!!!!! %%%
-%IF omega objective only is defined gradient gets also the expectation
-%value gradient part ?? expDoseGradient should be zero in that case%%%%%%%%
 nonEmptyOmega = ~(cellfun(@isempty, vOmega));
 nonZerosOmega = arrayfun(@(scen) nnz(vOmega{scen}),nonEmptyOmega);
 if any(nonEmptyOmega) && all(nonZerosOmega>0)

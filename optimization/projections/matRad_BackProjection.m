@@ -138,6 +138,11 @@ classdef matRad_BackProjection < handle
 
             scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
             wGrad = cell(size(dij.physicalDoseExp));
+            % There is no need here to separate Exp and Omega part, in any
+            % case if a structure has only one or the other, the non used
+            % dExpGrad or dOmegaVgrad will be zero/non included, thus the
+            % contribution will be zero.
+            % For cleaner implementation could be separated
             wGrad(scensToInclude) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),scensToInclude,'UniformOutput',false);
         end
     end
