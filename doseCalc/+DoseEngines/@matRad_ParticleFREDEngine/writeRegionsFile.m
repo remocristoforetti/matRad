@@ -33,7 +33,15 @@ function writeRegionsFile(this,fName, stf)
         
         if this.useInternalHUConversion
             fprintf(fID, 'lUseInternalHU2Mat=t\n');
-            if this.HUclamping
+        
+        else
+            fprintf(fID, 'include: inp/regions/hLut.inp\n');
+            writeHlut(this.HUtable);
+        end
+        
+        if this.HUclamping
+            fprintf(fID, 'lAllowHUClamping=t\n');
+        end
 
                 fprintf(fID, 'lAllowHUClamping=t');
             end
@@ -43,4 +51,13 @@ function writeRegionsFile(this,fName, stf)
     end
 
     fclose(fID);
+end
+
+function writeHlut(hLutFile)
+    fileName = fullfile('MCrun/inp/regions/', 'hLut.inp');
+    template = fileread(hLutFile);
+
+    newLut = fopen(fileName, 'w');
+    fprintf(newLut, template);
+    fclose(newLut);
 end

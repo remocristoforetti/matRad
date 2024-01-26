@@ -43,8 +43,12 @@ for(currField in plan.get('Fields'))<
 	for(layer in currField.get('Layers'))<
 
 		#Recover parameters of the current energy layer
-		def: currEnergy = layer.get('Energy')
-		def: currFWHM   = layer.get('FWHM')
+		def: currEnergy  = layer.get('Energy')
+		def: currEspread = layer.get('Espread'); 
+		#def: currFWHM   = layer.get('FWHM')
+		def: currEmittanceX = layer.get('emittanceX');
+		def: currTwissAlphaX = layer.get('twissAlphaX') 
+		def: currTwissBetaX  = layer.get('twissBetaX');
 
 		for(beamlet in layer.get('beamlets'))<
 			
@@ -52,9 +56,17 @@ for(currField in plan.get('Fields'))<
 				ID      = ${beamlet.get('beamletID')}
 				fieldID = $fieldIdx
 				particle = proton
+				#Edistrib = gauss
 				T	= $currEnergy
-				Xsec 	= gauss
-				FWHM 	= $currFWHM
+				EFWHM	= $currEspread
+				
+				Xsec 	= emittance #gauss
+				#FWHM 	= $currFWHM
+				emittanceX  = $currEmittanceX
+				twissAlphaX = $currTwissAlphaX
+				twissBetaX  = $currTwissBetaX
+				emittanceRefPlaneDistance = ${plan.get('SAD')}
+				
 				P 	= ${beamlet.get('P')}
 				v 	= ${beamlet.get('v')}
 				N 	= ${1000000*beamlet.get('w')}

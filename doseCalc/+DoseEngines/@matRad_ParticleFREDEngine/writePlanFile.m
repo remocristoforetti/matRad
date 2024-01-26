@@ -5,9 +5,17 @@ function writePlanFile(this, fName, stf)
     
 
     try
-        fprintf(fID, 'nprim = %i\n', this.numHistoriesDirect);
+        if this.calcDoseDirect
+            simulatedPrimariesPerBixel = 1000;% max([1, floor(this.numHistoriesPerBeamlet/stf.totalNumOfBixels)]);%this.numHistoriesPerBeamlet;%max([1, floor(this.numHistoriesDirect/stf.totalNumOfBixels)]);
+        else
+            simulatedPrimariesPerBixel = this.numHistoriesPerBeamlet;
+        end
+        
+        fprintf(fID, 'nprim = %i\n', simulatedPrimariesPerBixel);
+
 
         layerCounter = 0;
+        
         bixelCounter = 0;
         for i=1:numel(stf)
             for j=1:numel(stf(i).energies)
@@ -16,22 +24,29 @@ function writePlanFile(this, fName, stf)
                     currBixel.beamletID = num2str(bixelCounter+k-1);
                     currBixel.P         = arrayfun(@(idx) num2str(idx, '%2.3f'), [stf(i).energyLayer(j).rayPosX(k),stf(i).energyLayer(j).rayPosY(k),0], 'UniformOutput', false);
                     currBixel.v         = arrayfun(@(idx) num2str(idx, '%2.5f'), [stf(i).energyLayer(j).rayDivX(k),stf(i).energyLayer(j).rayDivY(k),1], 'UniformOutput', false);
-                    currBixel.w         = num2str(stf(i).energyLayer(j).numOfPrimaries(k), '%2.3f');
+                    currBixel.w         = num2str(stf(i).energyLayer(j).numOfPrimaries(k), '%2.7f');
 
                     printStructToDictionary(fID, currBixel, ['S', num2str(bixelCounter+k-1)],2);
                     
                 end
                     
                     currLayer.Energy   = num2str(stf(i).energies(j));
-                    currLayer.FWHM     = num2str(stf(i).FWHMs(j));
+                    currLayer.Espread  = num2str(stf(i).energySpread(j));
+                    %currLayer.FWHM     = num2str(stf(i).FWHMs(j));
+                    currLayer.emittanceX  = num2str(stf(i).emittanceX(j));
+                    currLayer.twissAlphaX = num2str(stf(i).twissAlphaX(j));
+                    currLayer.twissBetaX  = num2str(stf(i).twissBetaX(j));
+                    
                     currLayer.beamlets = arrayfun(@(idx) ['S', num2str(idx)], bixelCounter:stf(i).energyLayer(j).nBixels+bixelCounter-1, 'UniformOutput', false);
 
                     
                     printStructToDictionary(fID, currLayer, ['L', num2str(layerCounter+j-1)],1);
                     fprintf(fID, '\n');
                     bixelCounter = bixelCounter + stf(i).energyLayer(j).nBixels;
+            
             end
         
+            
             fieldLimX = max(abs([stf(i).energyLayer.rayPosX])) + 10*max([stf(i).FWHMs]);
             fieldLimY = max(abs([stf(i).energyLayer.rayPosY])) + 10*max([stf(i).FWHMs]);
 
@@ -78,7 +93,7 @@ function printStructToDictionary(fID, S, sName, indentTabs)
 
     sFields = fieldnames(S);
 
-    for sFieldIdx = 1:numel(sFields)
+    for sFieldIdx =1:numel(sFields)
 
         currField = sFields{sFieldIdx};
 

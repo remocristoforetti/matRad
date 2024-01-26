@@ -39,10 +39,34 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         HUclamping = false;
         HUtable;
         defaultHUtable = 'matRad_water.inp';
+        defaultHUtable = 'matRad_water.txt';
     end
 
     properties
         exportCalculation = false;
+    properties (SetAccess = private)
+        patientFilename      = 'CTpatient.mhd';
+        runInputFilename     = 'fred.inp';
+        
+        regionsFilename      = 'regions.inp';
+        funcsFilename        = 'funcs.inp';
+        planFilename         = 'plan.inp';
+        fieldsFilename       = 'fields.inp';
+        layersFilename       = 'layers.inp';
+        beamletsFilename     = 'beamlets.inp';
+        planDeliveryFilename = 'planDelivery.inp';
+
+        hLutLimits = [-1000,1375];
+        conversionFactor = 1e6;
+        planDeliveryTemplate = 'planDelivery.txt';
+
+        FREDrootFolder;
+
+        MCrunFolder;
+        inputFolder;
+        regionsFolder;
+        planFolder;
+
     end
     
     methods
@@ -120,7 +144,9 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
             
             %%% just for testing
-            this.numHistoriesDirect = 1000000;
+            %this.numHistoriesDirect = 1000000;
+            %this.numHistoriesPerBeamlet = 100000;
+
 
             %Issue a warning when we have more than 1 scenario
             if dij.numOfScenarios ~= 1
@@ -147,35 +173,35 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             end
 
             if isempty(this.useInternalHUConversion)
-%                this.useInternalHUConversion = false;
+                this.useInternalHUConversion = false;
                 %For the time being and for testing just use the internal
                 %one
-                this.useInternalHUConversion = true;
+                %this.useInternalHUConversion = true;
             end
 
         end
 
        function writeTreeDirectory(this)
 
-            fred_cfg = MatRad_FREDConfig.instance();
+            %fred_cfg = MatRad_FREDConfig.instance();
 
-            if ~exist(fred_cfg.MCrunFolder, 'dir')
-                mkdir(fred_cfg.MCrunFolder);
+            if ~exist(this.MCrunFolder, 'dir')
+                mkdir(this.MCrunFolder);
             end
 
             %write input folder
-            if ~exist(fred_cfg.inputFolder, 'dir')
-                mkdir(fred_cfg.inputFolder);
+            if ~exist(this.inputFolder, 'dir')
+                mkdir(this.inputFolder);
             end
 
             %Build MCrun/inp/regions and
             %      MCrun/inp/plan
-            if ~exist(fred_cfg.regionsFolder, 'dir')
-                mkdir(fred_cfg.regionsFolder);
+            if ~exist(this.regionsFolder, 'dir')
+                mkdir(this.regionsFolder);
             end
 
-            if ~exist(fred_cfg.planFolder, 'dir')
-                mkdir(fred_cfg.planFolder);
+            if ~exist(this.planFolder, 'dir')
+                mkdir(this.planFolder);
             end
         end
 
@@ -219,49 +245,29 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 
         writeRegionsFile(this,fName, stf)
 
-        %writePlanFile(this,fName, stf)
-
-        %writeFieldsFile(this,fName,stf)
-
-%        writeLayersFile(this, fName, stf)
-         
- %       writeBeamletsFile(this, fName, stf)
-
         writePlanDeliveryFile(this, fName, stf)
   
         writePlanFile(this,fName, stf)
 
         function writeFredInputAllFiles(this,stf)
     
-            fred_cfg = MatRad_FREDConfig.instance();
+            %fred_cfg = MatRad_FREDConfig.instance();
             
             %write fred.inp file
-            runFilename = fullfile(fred_cfg.MCrunFolder, fred_cfg.runInputFilename);
+            runFilename = fullfile(this.MCrunFolder, this.runInputFilename);
             this.writeRunFile(runFilename);
         
             %write region/region.inp file
-            regionFilename = fullfile(fred_cfg.regionsFolder, fred_cfg.regionsFilename);
+            regionFilename = fullfile(this.regionsFolder, this.regionsFilename);
             this.writeRegionsFile(regionFilename, stf);
         
             %write plan file
-            planFile = fullfile(fred_cfg.planFolder, fred_cfg.planFilename);
+            planFile = fullfile(this.planFolder, this.planFilename);
             this.writePlanFile(planFile,stf);
-        
-            % %write fields file
-            % fieldsFile = fullfile(fred_cfg.planFolder,fred_cfg.fieldsFilename);
-            % this.writeFieldsFile(fieldsFile, stf);
-            % 
-            % %write layers file
-            % layersFile = fullfile(fred_cfg.planFolder, fred_cfg.layersFilename);
-            % this.writeLayersFile(layersFile, stf);
-            % 
-            % %write beamlets file
-            % beamletFile = fullfile(fred_cfg.planFolder, fred_cfg.beamletsFilename);
-            % this.writeBeamletsFile(beamletFile,stf);
-        
-        
+
             %write planDelivery file
-            planDeliveryFile = fullfile(fred_cfg.planFolder,fred_cfg.planDeliveryFilename);
+
+            planDeliveryFile = fullfile(this.planFolder,this.planDeliveryFilename);
             this.writePlanDeliveryFile(planDeliveryFile, stf);
         end
         
@@ -320,7 +326,54 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             end
             cube = matRad_readMhd(fileName);
         end
-              
+
+        
+        function dijMatrix = readSparseDijBin(fName)
+            f = fopen(fName,'r','l');
+
+            %Header
+            dims = fread(f,3,"int32");
+            res = fread(f,3,"float32");
+            offset = fread(f,3,"float32");
+            numberOfBixels = fread(f,1,"int32");
+        
+            values = [];
+            voxelIndices = [];
+            colIndices = [];
+            
+            fprintf("Reading %d number of beamlets in %d voxels (%dx%dx%d)\n",numberOfBixels,prod(dims),dims(1),dims(2),dims(3));
+        
+            for i = 1:numberOfBixels
+                %Read Beamlet
+                bixNum = fread(f,1,"int32");
+                beamNum = fread(f,1,"int32");
+                numVox  = fread(f,1,"int32");
+                
+                colIndices(end+1:end+numVox) = bixNum + 1;
+                currVoxelIndices = fread(f,numVox,"uint32") + 1;
+                values(end+1:end+numVox)  = fread(f,numVox,"float32");
+            
+                [indX, indY, indZ] = ind2sub(dims, currVoxelIndices);
+
+                voxelIndices(end+1:end+numVox) = sub2ind(dims, indY, indX, indZ);
+                fprintf("\tRead beamlet %d, Field %d, %d voxels...\n",bixNum,beamNum,numVox);
+            end
+            
+            fclose(f);
+            
+            dijMatrix = sparse(voxelIndices,colIndices,values,prod(dims),numberOfBixels);
+        end              
+    end
+
+
+     methods (Access = private)
+
+        function updatePaths(obj)
+            obj.MCrunFolder     = fullfile(obj.FREDrootFolder, 'MCrun');
+            obj.inputFolder     = fullfile(obj.MCrunFolder, 'inp');
+            obj.regionsFolder   = fullfile(obj.inputFolder, 'regions');
+            obj.planFolder      = fullfile(obj.inputFolder, 'plan');
+        end
     end
 end
 

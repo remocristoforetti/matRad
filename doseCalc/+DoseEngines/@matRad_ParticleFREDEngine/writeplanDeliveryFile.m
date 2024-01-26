@@ -9,6 +9,10 @@ function writePlanDeliveryFile(this, fName, stf)
 
         fID = fopen(fName, 'w');
         fprintf(fID, templateFile);
+
+        if ~this.calcDoseDirect
+            fprintf(fID,'\nlwriteDij_bin = t');
+        end
         fclose(fID);
 
     catch
@@ -66,6 +70,8 @@ function writePlanDeliveryFile(this, fName, stf)
                 fprintf(fID, '\ttransform: Phantom move_to 0 0 0 Room\n\n');
 
                 fprintf(fID, 'for>\n\n');
+
+                %fprintf(fID,);
             
         catch
             matRad_cfg.dispError('Failed to write planDelivery file');
