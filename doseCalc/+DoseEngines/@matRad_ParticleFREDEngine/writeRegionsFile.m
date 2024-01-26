@@ -3,6 +3,7 @@ function writeRegionsFile(this,fName, stf)
     fred_cfg = MatRad_FREDConfig.instance();
     fID = fopen(fName, 'w');
     
+
     try
         fprintf(fID,'region<\n');
         fprintf(fID,'\tID=Phantom\n');
@@ -43,9 +44,19 @@ function writeRegionsFile(this,fName, stf)
             fprintf(fID, 'lAllowHUClamping=t\n');
         end
 
-                fprintf(fID, 'lAllowHUClamping=t');
+        if this.calcBioDose
+            switch this.RBEmodel
+
+                case 'MCN_RBExD'
+                    modelName = 'lRBE_McNamara';
+
+                otherwise
+                    matRad_cfg.dispError('Unrecognized bio model');
             end
+
+            fprintf(fID, '%s = t\n', modelName);  
         end
+
     catch
         matRad_cfg.dispError('Failed to write regions file');
     end

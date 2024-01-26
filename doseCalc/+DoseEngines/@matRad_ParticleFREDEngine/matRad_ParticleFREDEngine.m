@@ -30,20 +30,26 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         
         %nbThreads; %number of threads for MCsquare, 0 is all available
 
-        constantRBE = NaN;              % constant RBE value
         useInternalHUConversion;
         noozleToAxis;
         scorers = {'Dose'};
-        calcLET;
      
         HUclamping = false;
         HUtable;
-        defaultHUtable = 'matRad_water.inp';
         defaultHUtable = 'matRad_water.txt';
+
+        availableRBEmodels = {'MCN_RBExD'};
+        calcBioDose;
+
     end
 
     properties
         exportCalculation = false;
+        calcLET;
+        RBEmodel = 'none';
+        constantRBE = NaN;              % constant RBE value
+    end
+
     properties (SetAccess = private)
         patientFilename      = 'CTpatient.mhd';
         runInputFilename     = 'fred.inp';
@@ -106,16 +112,19 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %         this.constantRBE = 1.1;                    
             %     end
             % end
-            if nargin > 0 
+            if nargin > 0
                 if (isfield(pln,'propOpt')&& isfield(pln.propOpt,'bioOptimization')&& ...
-                    (isequal(pln.propOpt.bioOptimization,'LEMIV_effect') ||...
-                    isequal(pln.propOpt.bioOptimization,'LEMIV_RBExD')) && ...
-                    strcmp(pln.radiationMode,'carbon'))
-                this.calcBioDose = flase;
-                matRad_cfg.dispWarning('bio calculation not yet implemented in this version.');
-                elseif strcmp(pln.radiationMode,'protons') && isfield(pln,'propOpt') && isfield(pln.propOpt,'bioOptimization') && isequal(pln.propOpt.bioOptimization,'const_RBExD')
+                    (any(strcmp(pln.propOpt.bioOptimization, this.availableRBEmodels))))
+                    this.calcBioDose = true;
+                    this.RBEmodel = pln.propOpt.bioOptimization;
                     this.constantRBE = NaN;
-                     matRad_cfg.dispWarning('bio calculation not yet implemented in this version.');
+
+                    %matRad_cfg.dispWarning('bio calculation not yet implemented in this version.');
+                elseif strcmp(pln.radiationMode,'protons') && isfield(pln,'propOpt') && isfield(pln.propOpt,'bioOptimization') && isequal(pln.propOpt.bioOptimization,'const_RBExD')
+                    %This is basically useless, there is no need to call
+                    %RBE_constant in FRED
+                    this.RBEmodel = 'const_RBExD';
+                    this.constantRBE = 1.1;
                 end
             end
 
@@ -124,10 +133,8 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %can be changed at any time
             
             matRad_cfg = MatRad_Config.instance();
-            fred_cfg = MatRad_FREDConfig.instance();
+            %fred_cfg = MatRad_FREDConfig.instance();
             
-            fred_cfg.FREDrootFolder = fullfile(matRad_cfg.matRadRoot, 'FRED');
-        end                
             this.FREDrootFolder = fullfile(matRad_cfg.matRadRoot, 'FRED');
         end
 
@@ -136,11 +143,25 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             obj.updatePaths;
         end
-    end
-    
-    methods(Access = protected)
-        
 
+        function set.RBEmodel(this, value)
+
+            valid = ischar(value) && any(strcmp(value, this.availableRBEmodels));
+
+            if valid
+                this.RBEmodel = value;
+            else
+                matRad_cfg.dispWarning('RBE model not recognized. Setting constRBE');
+                this.RBEmodel = 'constRBE';
+            end
+
+
+
+        end
+
+    end
+
+    methods(Access = protected)
 
         dij = calcDose(this,ct,cst,stf)
 
@@ -164,20 +185,20 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % prefill ordering of MCsquare bixels
             dij.FREDCalcOrder = NaN*ones(dij.totalNumOfBixels,1);  
             
-            if ~isnan(this.constantRBE) 
+            if ~isnan(this.constantRBE) && strcmp(this.RBEmodel, 'const_RBExD') 
                 dij.RBE = this.constantRBE;
             end
             
-
-            if ~this.calcDoseDirect
-                this.calcDoseDirect = true;
-                matRad_cfg.dispWarning('Dij calculation still not supported. Setting to directDoseCalc')
-            end
             
-            if this.calcLET 
-                %this.scorers = [this.scorers, {'LETd'}];
-                this.calcLET = false;
-                matRad_cfg.dispWarning('LET calculation not yet supported');
+            if this.calcLET
+                if this.calcDoseDirect
+                    this.scorers = [this.scorers, {'LETd'}];
+                else
+                    this.calcLET = false;
+                    matRad_cfg.dispWarning('LETd Dij calculation not yet implemented');
+                end
+
+                %matRad_cfg.dispWarning('LET calculation not yet supported');
             end
 
             if isempty(this.useInternalHUConversion)
@@ -323,7 +344,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             %For the time being, just use the generic machine, will need to
             %have a specific one later on
-            available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare'}));
+            available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare', 'newGeneric_4Aug'}));
             msg = 'Machine check is currently not reliable';
         end
 

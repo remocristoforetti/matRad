@@ -104,6 +104,10 @@ if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
     end
 end
 
+if isfield(dij,'BioDose')
+    resultGUI.BioDose = reshape(full(dij.BioDose{1}*(resultGUI.w .* beamInfo(i).logIx)), dij.doseGrid.dimensions);
+end
+
 % group similar fields together
 resultGUI = orderfields(resultGUI);
 
