@@ -128,6 +128,14 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             
             fred_cfg.FREDrootFolder = fullfile(matRad_cfg.matRadRoot, 'FRED');
         end                
+            this.FREDrootFolder = fullfile(matRad_cfg.matRadRoot, 'FRED');
+        end
+
+        function set.FREDrootFolder(obj, pathValue)
+            obj.FREDrootFolder = pathValue;
+
+            obj.updatePaths;
+        end
     end
     
     methods(Access = protected)
