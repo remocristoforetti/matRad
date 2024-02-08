@@ -5,7 +5,11 @@ classdef (Abstract) matRad_OmegaObjective
     properties (Abstract, Access = public)
         penalty %Optimization penalty
         robustness %robustness setting
-    end    
+    end
+
+    properties
+        isActive = true;
+    end
     
     methods (Static)
         function rob = availableRobustness()

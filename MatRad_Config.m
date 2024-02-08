@@ -187,6 +187,7 @@ classdef MatRad_Config < handle
             obj.propOpt.defaultMaxIter = 500;
             obj.propOpt.defaultRunDAO = 0;
             obj.propOpt.defaultRunSequencing = 0;
+            obj.propOpt.defaultVisualizeSingleObjectives = false;
 
             obj.propMC.ompMC_defaultHistories = 1e6;
             obj.propMC.ompMC_defaultOutputVariance = false;

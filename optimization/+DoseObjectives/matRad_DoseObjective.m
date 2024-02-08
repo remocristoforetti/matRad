@@ -22,6 +22,10 @@ classdef (Abstract) matRad_DoseObjective < matRad_DoseOptimizationFunction
     properties (Abstract, Access = public)
         penalty                 %Optimization penalty
     end
+
+    properties
+        isActive = true;
+    end
        
     methods (Static)
         function rob = availableRobustness()
@@ -63,4 +67,3 @@ classdef (Abstract) matRad_DoseObjective < matRad_DoseOptimizationFunction
         
     end   
 end
-

@@ -387,7 +387,9 @@ backProjection.scenarios    = useScen;
 %Need to filter out the probabilities. Get a 3D mask with the
 %probabilities, then select onlz the ones in useScen
 maskScenProb = pln.multScen.scenMask;
-maskScenProb(find(maskScenProb)) = pln.multScen.scenProb;
+
+maskScenProb(find(maskScenProb)) = pln.multScen.scenWeight; %pln.multScen.scenProb;
+matRad_cfg.dispWarning('!!! Using scen weights and not probabilities !');
 
 backProjection.scenarioProb = maskScenProb(useScen);
 
@@ -402,7 +404,30 @@ backProjection.useStructsForOmega = voiForOmegaIx;
 % 
 % backProjection.useStructsForOmega = voiForOmegaIx;
 
-optiProb = matRad_OptimizationProblem(backProjection);
+
+
+if ~isfield(pln.propOpt, 'visualizeSingleObjectives')
+   pln.propOpt.visualizeSingleObjectives = matRad_cfg.propOpt.defaultVisualizeSingleObjectives;
+end
+
+% for i=1:size(cst)
+%     for j=1:numel(cst{i,6})
+%         objective = cst{i,6}{j};
+%         if isa(objective,'DoseObjectives.matRad_DoseObjective') || isa(objective,'OmegaObjectives.matRad_OmegaObjective')
+%             if isempty(objective.isActive)
+% 
+%             end
+%         end
+%     end
+% end
+
+optiProb = matRad_OptimizationProblemVisualization(backProjection);
+
+optiProb.instantiateVisualization(cst);
+
+optiProb.graphicOutput.active = pln.propOpt.visualizeSingleObjectives;
+
+
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
     optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
@@ -465,6 +490,16 @@ resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
 
 resultGUI.info.timePerIteration = resultGUI.info.cpu/resultGUI.info.iter;
+
+for i=1:numel(optiProb.graphicOutput.data.objectiveFunctions)
+    functionName = optiProb.graphicOutput.leg{i};
+    resultGUI.costFunctions(i).name = functionName;
+    resultGUI.costFunctions(i).values = optiProb.graphicOutput.data.objectiveFunctions(i).values;
+
+end
+resultGUI.costFunctions(i+1).name = 'total Function';
+resultGUI.costFunctions(i+1).values = optiProb.graphicOutput.data.totFValues;
+
 %Robust quantities
 %if FLAG_ROB_OPT || numel(ixForOpt) > 1
 if ROB_FLAG
