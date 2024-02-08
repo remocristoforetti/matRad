@@ -174,12 +174,13 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             
             this.scenProb = VscenProb(sortOrder);
 
-            scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);
-
-            this.scenWeight = scenWeight(sortOrder);
+            %scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);
+            %scenWeight = 
 
             totNumScen    = sum(this.scenMask(:));
             this.totNumScen = totNumScen;
+            this.scenWeight = ones(totNumScen,1)./totNumScen;
+
 
             if totNumScen ~= this.totNumScen
                 matRad_cfg.dispWarning('Check Implementation of Total Scenario computation - given %d but found %d!',this.totNumScen,totNumScen);

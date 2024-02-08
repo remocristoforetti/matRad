@@ -41,7 +41,7 @@ classdef matRad_ScenarioModel < handle
         wcFactor;
     end
    
-    properties (SetAccess = protected)
+    properties %(SetAccess = protected)
         numOfCtScen;           % total number of CT scenarios
 
 
