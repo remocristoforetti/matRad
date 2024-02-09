@@ -35,6 +35,10 @@ classdef (Abstract) matRad_DoseOptimizationFunction
             if nargin > 0 && ~isempty(dataStruct) && isstruct(dataStruct)
                 obj = assignCommonPropertiesFromStruct(obj,dataStruct);
             end
+
+            if ischar(obj.robustness)
+                obj.robustness = obj.robustness;
+            end
         end
         
         % Overload the struct function to return a struct with general
@@ -47,11 +51,30 @@ classdef (Abstract) matRad_DoseOptimizationFunction
         function obj = set.robustness(obj,robustness)
             matRad_cfg = MatRad_Config.instance();
             if ischar(robustness) && any(strcmp(robustness,obj.availableRobustness()))
-                obj.robustness = robustness;
+                obj.robustness = obj.assignRobustness(robustness);
             else
                 matRad_cfg.dispError('Invalid robustness setting!');
             end                        
-        end        
+        end
+
+        function robustnessC = assignRobustness(~,robustness)
+            matRad_cfg = MatRad_Config.instance;
+            switch robustness
+                case 'none'
+                    robustnessC = Robustness.matRad_RobustenssNone();
+                case 'STOCH'
+                    robustnessC = Robustness.matRad_RobustnessSTOCH();
+                case 'VWWC'
+                    robustnessC = Robustness.matRad_RobustnessVWWC();
+                case 'VWWC_INV'
+                    robustnessC = Robustness.matRad_RobustnessVWWC();
+                case 'OWC'
+                    robustnessC = Robustness.matRad_RobustnessOWC();
+                otherwise
+                    matRad_cfg.dispWarning('%s robustness not supported. Setting none', robustness);
+                    robustnessC = Robustness.matRad_RobustnessNone();
+            end
+        end
     end
     
     % Helper methods

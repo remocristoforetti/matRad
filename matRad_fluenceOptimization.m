@@ -263,7 +263,21 @@ backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
-optiProb = matRad_OptimizationProblem(backProjection);
+
+
+%here would need to refactor this and properly add scenarios to the
+%robustness class
+for i=1:size(cst,1)
+    for j=1:numel(cst{i,6})
+        cst{i,6}{j}.robustness.assignScenarios(pln.multScen);
+
+        if isa(cst{i,6}{j}.robustness, 'Robustness.matRad_RobustnessVWWC') || isa(cst{i,6}{j}.robustness, 'Robustness.matRad_RobustnessVWWC_INV')
+            cst{i,6}{j}.robustness.structureDefinition = cst{i,3};
+        end
+    end
+end
+
+optiProb = matRad_OptimizationProblemRob(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
     optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
