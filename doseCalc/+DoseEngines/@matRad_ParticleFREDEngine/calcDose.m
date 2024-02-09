@@ -108,7 +108,9 @@ function dij = calcDose(this,ct,cst,stf)
                         rem(ctDoseGridResolution_y(1), ctDoseGridResolution_y(2)),...
                         rem(ctDoseGridResolution_z(1),ctDoseGridResolution_z(2))];
 
-        stfFred(i).isoCenter = stfFred(i).isoCenter - isoOffset + noClueOffset;
+%        stfFred(i).isoCenter = stfFred(i).isoCenter - isoOffset + noClueOffset;
+%        stfFred(i).isoCenter = (stfFred(i).isoCenter - isoOffset + noClueOffset);
+        stfFred(i).isoCenter = (-stfFred(i).isoCenter + isoOffset - [ct.resolution.x, ct.resolution.y, ct.resolution.z]);
 
         nominalEnergies        = unique([stf(i).ray.energy]);
         [~,nominalEnergiesIdx] = intersect([this.machine.data.energy],nominalEnergies);
