@@ -63,7 +63,9 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         planDeliveryFilename = 'planDelivery.inp';
 
         hLutLimits = [-1000,1375];
+        
         conversionFactor = 1e6;
+        %conversionFactor = 1;
         planDeliveryTemplate = 'planDelivery.txt';
 
         FREDrootFolder;
@@ -126,6 +128,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     this.RBEmodel = 'const_RBExD';
                     this.constantRBE = 1.1;
                 end
+
+                if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'HUclamping')
+                    this.HUclamping = pln.propDoseCalc.HUclamping;
+                end
             end
 
             %Instantiate a MatRad_FREDConfig
@@ -173,9 +179,14 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
             
             %%% just for testing
-            %this.numHistoriesDirect = 1000000;
-            %this.numHistoriesPerBeamlet = 100000;
+            if isempty(this.numHistoriesDirect)
+                this.numHistoriesDirect = matRad_cfg.propDoseCalc.defaultNumHistoriesDirect;
+            end
 
+
+            if isempty(this.numHistoriesPerBeamlet)
+                this.numHistoriesPerBeamlet = matRad_cfg.propDoseCalc.defaultNumHistoriesPerBeamlet;
+            end
 
             %Issue a warning when we have more than 1 scenario
             if dij.numOfScenarios ~= 1

@@ -6,7 +6,7 @@ function writePlanFile(this, fName, stf)
 
     try
         if this.calcDoseDirect
-            simulatedPrimariesPerBixel = 1000;% max([1, floor(this.numHistoriesPerBeamlet/stf.totalNumOfBixels)]);%this.numHistoriesPerBeamlet;%max([1, floor(this.numHistoriesDirect/stf.totalNumOfBixels)]);
+            simulatedPrimariesPerBixel = max([1, floor(this.numHistoriesDirect/sum([stf.totalNumOfBixels]))]);%this.numHistoriesPerBeamlet;%max([1, floor(this.numHistoriesDirect/stf.totalNumOfBixels)]);
         else
             simulatedPrimariesPerBixel = this.numHistoriesPerBeamlet;
         end
