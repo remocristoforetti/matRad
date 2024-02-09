@@ -69,7 +69,7 @@ for(currField in plan.get('Fields'))<
 				
 				P 	= ${beamlet.get('P')}
 				v 	= ${beamlet.get('v')}
-				N 	= ${1000000*beamlet.get('w')}
+				N 	= ${beamlet.get('w')}
 			pb>
 		for>
 	for>

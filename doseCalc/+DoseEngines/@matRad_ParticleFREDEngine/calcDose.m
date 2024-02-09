@@ -76,6 +76,10 @@ function dij = calcDose(this,ct,cst,stf)
 
     emittanceBaseData = matRad_MCemittanceBaseData(this.machine,stf);
 
+    cumulativeWeights = 0;
+    for i=1:length(stf)
+        cumulativeWeights = cumulativeWeights + sum([stf(i).ray.weight]);
+    end
     for i = 1:length(stf)
 
         stfFred(i).gantryAngle     = stf(i).gantryAngle;
@@ -225,13 +229,17 @@ function dij = calcDose(this,ct,cst,stf)
         stfFred(i).emittanceX       = stfFred(i).emittanceX./10;
         stfFred(i).twissBetaX       = stfFred(i).twissBetaX./10;
 
-        stfFred.totalNumOfBixels = stf.totalNumOfBixels;
+        stfFred(i).totalNumOfBixels = stf(i).totalNumOfBixels;
         for j=1:size(stfFred(i).energies,2)
            stfFred(i).energyLayer(j).rayPosX      = stfFred(i).energyLayer(j).rayPosX/10;
            stfFred(i).energyLayer(j).rayPosY      = stfFred(i).energyLayer(j).rayPosY/10;
            stfFred(i).energyLayer(j).targetPoints = stfFred(i).energyLayer(j).targetPoints/10;
            stfFred(i).energyLayer(j).nBixels      = numel(stfFred(i).energyLayer(j).rayPosX);
-           stfFred(i).energyLayer(j).numOfPrimaries = stfFred(i).energyLayer(j).numOfPrimaries/stfFred.totalNumOfBixels;
+           %This is necessary because of the sum(w) at the end of
+           %calcDoseForward
+           if this.calcDoseDirect
+               stfFred(i).energyLayer(j).numOfPrimaries = this.conversionFactor*stfFred(i).energyLayer(j).numOfPrimaries/cumulativeWeights;
+           end
         end
     end
     
