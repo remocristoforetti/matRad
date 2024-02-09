@@ -52,7 +52,7 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                     (isequal(pln.propOpt.bioOptimization,'LEMIV_effect') ||...
                     isequal(pln.propOpt.bioOptimization,'LEMIV_RBExD')) && ...
                     strcmp(pln.radiationMode,'carbon'))
-                this.calcBioDose = true;
+                    this.calcBioDose = true;
                 elseif strcmp(pln.radiationMode,'protons') && isfield(pln,'propOpt') && isfield(pln.propOpt,'bioOptimization') && isequal(pln.propOpt.bioOptimization,'const_RBExD')
                     this.constantRBE = 1.1;                    
                 end
@@ -273,18 +273,18 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             currBixel.radDepthOffset = radDepthOffset;
         end
         
-        function dij = initDoseCalc(this,ct,cst,stf)
+        function [dij, ct] = initDoseCalc(this,ct,cst,stf)
             % modified inherited method of the superclass DoseEngine,
             % containing intialization which are specificly needed for
             % pencil beam calculation and not for other engines
 
-            dij = initDoseCalc@DoseEngines.matRad_PencilBeamEngineAbstract(this,ct,cst,stf);
+            [dij,ct] = initDoseCalc@DoseEngines.matRad_PencilBeamEngineAbstract(this,ct,cst,stf);
             
             if ~isnan(this.constantRBE)
                 dij.RBE = this.constantRBE;
             end
 
-            % Load biologicla base data if needed
+            % Load biological base data if needed
             if this.calcBioDose
                 dij = this.loadBiologicalBaseData(cst,dij);
                 % allocate alpha and beta dose container and sparse matrices in the dij struct,

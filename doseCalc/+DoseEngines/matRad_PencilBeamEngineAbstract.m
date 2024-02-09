@@ -82,7 +82,7 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
         function dij = calcDose(this,ct,cst,stf)
 
             % initialize
-            dij = this.initDoseCalc(ct,cst,stf);
+            [dij,ct] = this.initDoseCalc(ct,cst,stf);
 
             bixelCounter = 0;
 
@@ -122,7 +122,7 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             dij = this.finalizeDose(ct,cst,stf,dij);
         end
 
-        function dij = initDoseCalc(this,ct,cst,stf)
+        function [dij, ct] = initDoseCalc(this,ct,cst,stf)
             % modified inherited method of the superclass DoseEngine,
             % containing intialization which are specificly needed for
             % pencil beam calculation and not for other engines
@@ -133,6 +133,7 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             if this.useGivenEqDensityCube && ~isfield(ct,'cube')
                 matRad_cfg.dispWarning('HU Conversion requested to be omitted but no ct.cube exists! Will override and do the conversion anyway!');
                 this.useGivenEqDensityCube = false;
+
             end
 
             if this.useGivenEqDensityCube
