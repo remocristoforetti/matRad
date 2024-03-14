@@ -1,4 +1,4 @@
-function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDirectory, loadScenMode, nScensToLoad)
+function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDirectory, loadScenMode, nScensToLoad, verboseLevel)
 %    matRad_loadDijScenarios(ct,saveDirectloadory, loadScenMode, nScensToLoad)
 %
 %   loasScenMode = all, rnd, [1 2 3]   
@@ -22,7 +22,12 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
     %Get filenames in the directory
 
     dirFiles = dir(saveDirectory);
-        
+    
+
+    if ~exist('verboseLevel', 'var') || isempty(verboseLevel)
+        verboseLevel = 1;
+    end
+
     if ~exist('loadScenMode', 'var') || isempty(loadScenMode)
          loadScenMode = 'all';
     end
@@ -38,6 +43,10 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
                 end
                 nAllScens = sum(arrayfun(@(file) contains(file.name, 'scenario'), dirFiles(3:end)));%sum(arrayfun(@(file) strcmp(file.name(1:8), 'scenario'), dirFiles(3:end)));
                 scensToLoadMeta = [1:nAllScens];
+            case 'none'
+                nAllScens = sum(arrayfun(@(file) contains(file.name, 'scenario'), dirFiles(3:end)));%sum(arrayfun(@(file) strcmp(file.name(1:8), 'scenario'), dirFiles(3:end)));
+                scensToLoadMeta = [1:nAllScens];
+                loadScenarios = false;
         end
     else
         if isnumeric(loadScenMode)
@@ -47,14 +56,14 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
             end
             scensToLoadMeta = loadScenMode;
 
-            if exist('nScensToLoad', 'var') && ischar(nScensToLoad) && strcmp(nScensToLoad, 'none')
-                loadScenarios = false;
-            end
         end
     end
 
-
+    if exist('nScensToLoad', 'var') && ischar(nScensToLoad) && strcmp(nScensToLoad, 'none')
+        loadScenarios = false;
+    end
     scenarios = [];
+
     for scenIdx=scensToLoadMeta
 
         fileIndex = find(strcmp({dirFiles.name},['scenario_', num2str(scenIdx), '.mat']));
@@ -104,63 +113,88 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
 
     end
 
-    currMultiscen = matRad_multScen(ct, 'rndScen');
-    currMultiscen.nSamples = numel(errorsToLoad);
-    currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
-    currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
-    currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
-    currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
-    currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
+    if nAllScens >1
+        if totNumOfRangeShift>=1
+            currMultiscen = matRad_multScen(ct, 'rndScen');
+            currMultiscen.nSamples = numel(errorsToLoad);
+            currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
+            currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
+            currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
+            currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
+            currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
+        else            
+            currMultiscen = matRad_multScen(ct, 'rndScen_shiftOnly');          
+            currMultiscen.nSamples = numel(errorsToLoad);
+            currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
+        end
+    else
+            currMultiscen = matRad_multScen(ct, 'rndScen');
+            currMultiscen.nSamples = numel(errorsToLoad);
+            currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
+            currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
+            currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
+            currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
+            currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
+    end
 
     % Keep only the scenarios that have errors equal to the randomly sampled ones 
     loadScens = ismember(shiftScenAll, currMultiscen.isoShift,'rows') & ismember(relAbsScenAll, [currMultiscen.relRangeShift, currMultiscen.absRangeShift], 'rows');
     
     % for random scenarios only
-    numOfShiftScen = numel(errorsToLoad);
-    numOfRangeShift = numel(errorsToLoad);
+    numOfShiftScen = currMultiscen.totNumShiftScen;  %numel(errorsToLoad);
+    numOfRangeShift = currMultiscen.totNumRangeScen; %numel(errorsToLoad);
 
-    dij.physicalDose = cell(numOfCtScen, numOfShiftScen, numOfRangeShift);
-
+    %dij.physicalDose = cell(numOfCtScen, numOfShiftScen, numOfRangeShift);
+    dij.physicalDose = cell(currMultiscen.numOfCtScen, numOfShiftScen, numOfRangeShift);
     if isnumeric(loadScenMode) && currMultiscen.totNumScen ~= numel(loadScenMode)
         matRad_cfg.dispWarning('Loading scenarios: %d but inconsistent multipleScenario output provided', loadScenMode);
     end
     
         %nScens = currMultiscen.totNumScen;
-    for scenIdx=1:nAllScens
 
-        if loadScens(scenIdx)
-            currCTidx = scenarios(scenIdx).ctScenIdx;
-            currShiftScenIdx = find(ismember(currMultiscen.isoShift,scenarios(scenIdx).isoShift, 'rows'));
-            currAbsRelShiftdx = find(ismember([currMultiscen.relRangeShift, currMultiscen.absRangeShift], [scenarios(scenIdx).relRangeSHift,scenarios(scenIdx).absRangeShift], 'rows'));
-            
-            scenarios(scenIdx).scenarioIndexDij = sub2ind([numOfCtScen, numOfShiftScen, numOfRangeShift], currCTidx, currShiftScenIdx, currAbsRelShiftdx);
-       
-            %currMultiscen.scenMask(scenarios(scenIdx).scenarioIndexDij) = true;
-            linIndex = find(ismember(currMultiscen.linearMask, [currCTidx,currShiftScenIdx,currAbsRelShiftdx], 'rows'));
-            currMultiscen.scenProb(linIndex) = scenarios(scenIdx).scenProb;
-            dij.physicalDose{scenarios(scenIdx).scenarioIndexDij} = spalloc(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels, scenarios(scenIdx).nnzElements);
-        end
-
-    end
-
-    % Load the scenarios
-    stringLenght = 0;
-    scenCounter = 1;
-    if loadScenarios
+    if loadScenarios    
         for scenIdx=1:nAllScens
+    
             if loadScens(scenIdx)
-                fprintf(repmat('\b',1,stringLenght));
-                stringLenght = fprintf('Loading scenarios: %u/%u\n', scenCounter, sum(loadScens));
-        
-                fileIndex = find(strcmp({dirFiles.name},scenarios(scenIdx).name));
-        
-                currDijScen = load(fullfile(dirFiles(fileIndex).folder, dirFiles(fileIndex).name), 'dijScenario');
-                dij.physicalDose(scenarios(scenIdx).scenarioIndexDij) = currDijScen.dijScenario;
-                scenCounter = scenCounter+1;
+                currCTidx = scenarios(scenIdx).ctScenIdx;
+                currShiftScenIdx = find(ismember(currMultiscen.isoShift,scenarios(scenIdx).isoShift, 'rows'));
+                
+                if numOfRangeShift>1
+                    currAbsRelShiftdx = find(ismember([currMultiscen.relRangeShift, currMultiscen.absRangeShift], [scenarios(scenIdx).relRangeSHift,scenarios(scenIdx).absRangeShift], 'rows'));
+                else
+                    currAbsRelShiftdx = 1;
+    
+                end
+                
+                scenarios(scenIdx).scenarioIndexDij = sub2ind([currMultiscen.numOfCtScen, numOfShiftScen, numOfRangeShift], currCTidx, currShiftScenIdx, currAbsRelShiftdx);
+           
+                %currMultiscen.scenMask(scenarios(scenIdx).scenarioIndexDij) = true;
+                linIndex = find(ismember(currMultiscen.linearMask, [currCTidx,currShiftScenIdx,currAbsRelShiftdx], 'rows'));
+                currMultiscen.scenProb(linIndex) = scenarios(scenIdx).scenProb;
+                dij.physicalDose{scenarios(scenIdx).scenarioIndexDij} = spalloc(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels, scenarios(scenIdx).nnzElements);
             end
-     
+    
         end
-    end
 
+        % Load the scenarios
+        stringLenght = 0;
+        scenCounter = 1;
+        %if loadScenarios
+            for scenIdx=1:nAllScens
+                if loadScens(scenIdx)
+                    if verboseLevel
+                        fprintf(repmat('\b',1,stringLenght));
+                        stringLenght = fprintf('Loading scenarios: %u/%u\n', scenCounter, sum(loadScens));
+                    end
+                    fileIndex = find(strcmp({dirFiles.name},scenarios(scenIdx).name));
+            
+                    currDijScen = load(fullfile(dirFiles(fileIndex).folder, dirFiles(fileIndex).name), 'dijScenario');
+                    dij.physicalDose(scenarios(scenIdx).scenarioIndexDij) = currDijScen.dijScenario;
+                    scenCounter = scenCounter+1;
+                end
+         
+            end
+        %end
+    end
     loadedScenarios = {scenarios(loadScens).name};
 end

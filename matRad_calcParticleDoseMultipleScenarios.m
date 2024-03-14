@@ -30,7 +30,7 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
     scenIndexes = [];
     for shiftScenIdx=1:pln.multScen.totNumShiftScen
         for ctScenIdx=1:pln.multScen.numOfCtScen
-            for rangeShiftScenIdx=1:pln.multScen.numOfRangeShiftScen
+            for rangeShiftScenIdx=1:pln.multScen.totNumRangeScen
 
                 currScenIndex = sub2ind([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.numOfRangeShiftScen], ctScenIdx, shiftScenIdx,rangeShiftScenIdx);
                 %[currCTind, currShiftInd, currRangeInd] = ind2sub([pln.multScen.numOfCtScen, pln.multScen.totNumShiftScen, pln.multScen.numOfRangeShiftScen],scenCounter);
@@ -95,13 +95,12 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
     tEnd = toc(tStart);
 
     dij = dijTemplate;
-
-    save(fullfile(saveDirectory, 'dijTemplate'), 'dijTemplate');
     dij.doseCalcTime = tEnd;
+    
+    save(fullfile(saveDirectory, 'dijTemplate.mat'), 'dijTemplate');
 
-
+    save(fullfile(saveDirectory, 'stf.mat'), 'stf');
     if loadScenariosIntoDij
         dij = matRad_loadDijScenarios(dijTemplate, pln, saveDirectory);
     end
-
 end

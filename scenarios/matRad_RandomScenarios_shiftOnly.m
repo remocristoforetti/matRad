@@ -81,16 +81,17 @@ classdef matRad_RandomScenarios_shiftOnly < matRad_ScenarioModel
             value = this.nSamples;
         end
 
-        function set.numOfRangeShiftScen(this,numOfRangeShiftScen)
+        function set.numOfRangeShiftScen(this,~)
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispDeprecationWarning('The property numOfRangeShiftScen of the scenario class will soon be deprecated! Use nSamples instead');           
-            this.nSamples = numOfRangeShiftScen;
+            %this.nSamples = numOfRangeShiftScen;
         end
 
         function  value = get.numOfRangeShiftScen(this)
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispDeprecationWarning('The property numOfRangeShiftScen of the scenario class will soon be deprecated! Use nSamples instead');
-            value = this.nSamples;
+            %value = this.nSamples;
+            value = 1;
         end
         
         
@@ -122,6 +123,7 @@ classdef matRad_RandomScenarios_shiftOnly < matRad_ScenarioModel
             scenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios/cs).^2, 2)) / prod(diag(cs));
             
             this.totNumShiftScen = this.nSamples;
+            this.numOfRangeShiftScen = this.nSamples;
             this.totNumRangeScen = 1;
 
             this.totNumScen = this.nSamples; %check because of CT scenarios
@@ -142,9 +144,10 @@ classdef matRad_RandomScenarios_shiftOnly < matRad_ScenarioModel
             this.linearMask = [ctScen,shiftScen,rangeScen];
             VscenProb = repmat(scenProb, this.numOfCtScen, 1);
             this.scenProb = VscenProb(sortOrder);
-            scenWeight = repmat(scenProb./sum(scenProb), this.numOfCtScen,1);
 
-            this.scenWeight = scenWeight(sortOrder);
+            totNumScen    = sum(this.scenMask(:));
+            this.totNumScen = totNumScen;
+            this.scenWeight = ones(totNumScen,1)./totNumScen;
 
             %this.scenProb = repmat(scenProb, this.numOfCtScen, 1);
             %this.scenWeight = repmat(ones(this.nSamples,1)./this.nSamples, this.numOfCtScen,1);
@@ -163,10 +166,6 @@ classdef matRad_RandomScenarios_shiftOnly < matRad_ScenarioModel
             this.maxAbsRangeShift = max(this.absRangeShift);
             this.maxRelRangeShift = max(this.relRangeShift);
 
-
-            %[x{1}, x{2}, x{3}] = ind2sub(size(this.scenMask),find(this.scenMask));
-            %this.linearMask    = cell2mat(x);
-            totNumScen    = sum(this.scenMask(:));
 
             if totNumScen ~= this.totNumScen
                 matRad_cfg.dispWarning('Check Implementation of Total Scenario computation - given %d but found %d!',this.totNumScen,totNumScen);
