@@ -20,7 +20,7 @@ matRad_cfg = MatRad_Config.instance();
 if nargin < 2
     optionalPaths = {};
 else
-    if ~(iscellstr(optionalPaths) && all(optionalPaths))
+    if ~(iscellstr(optionalPaths) && all(isfolder(optionalPaths)))
         matRad_cfg.dispError('Invalid path array!');
     end
 end
@@ -98,12 +98,12 @@ for defaultEngine = matRad_cfg.propDoseCalc.defaultDoseEngines
     if ~isempty(findDefaultIx)
         shortNameList = [shortNameList(findDefaultIx), shortNameList(~findDefaultIx)];
         classNameList = [classNameList(findDefaultIx), classNameList(~findDefaultIx)];
+        nameList      = [nameList(findDefaultIx),      nameList(~findDefaultIx)];
     end
 end
 
 
 handleList = cellfun(@(namestr) str2func(namestr),classNameList,'UniformOutput',false);
-
 classList = cell2struct([shortNameList; nameList; classNameList; handleList],{'shortName','name','className','handle'});
 
 end

@@ -217,6 +217,7 @@ classdef MatRad_Config < handle
             obj.propMC.default_beamProfile_photons = 'uniform';
             obj.propMC.defaultExternalCalculation = false;
             obj.propMC.defaultCalcDij = false;
+            obj.propMC.defaultSourceModel = 'gaussian';
 
             obj.disableGUI = false;
             

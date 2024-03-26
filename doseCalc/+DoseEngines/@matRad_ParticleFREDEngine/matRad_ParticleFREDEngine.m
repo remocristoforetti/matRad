@@ -17,7 +17,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
-    properties (Constant)  
+    properties (Constant)
         
         possibleRadiationModes = {'protons'};
         name = 'FRED';
@@ -34,23 +34,29 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         noozleToAxis;
         scorers = {'Dose'};
      
-        HUclamping = false;
+       
         HUtable;
         defaultHUtable = 'matRad_water.txt';
 
-        availableRBEmodels = {'MCN_RBExD'};
+        availableRBEmodels = {'MCN'};
         calcBioDose;
+        vAlphaX;
+        vBetaX;
+        vABratio;
 
+        sourceModel;
+        AvailableSourceModels = {'gaussian', 'emittance', 'sigmaSqrModel'};
     end
 
     properties
         exportCalculation = false;
         calcLET;
-        RBEmodel = 'none';
+        %RBEmodel = 'none';
         constantRBE = NaN;              % constant RBE value
+        HUclamping = false;
     end
 
-    properties (SetAccess = private)
+    properties (SetAccess = private, Hidden)
         patientFilename      = 'CTpatient.mhd';
         runInputFilename     = 'fred.inp';
         
@@ -91,6 +97,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %   pln:                        matRad plan meta information struct
             %   cst:                        matRad cst struct
             
+            matRad_cfg = MatRad_Config.instance();
             if nargin < 1
                 pln = [];
             end
@@ -98,50 +105,26 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % call superclass constructor
             this = this@DoseEngines.matRad_MonteCarloEngineAbstract(pln);
 
-            % check if bio optimization is needed and set the
-            % coresponding boolean accordingly
-            % TODO:
-            % This should not be handled here as an optimization property
-            % We should rather make optimization dependent on what we have
-            % decided to calculate here.
-            % if nargin > 0 
-            %     if (isfield(pln,'propOpt')&& isfield(pln.propOpt,'bioOptimization')&& ...
-            %         (isequal(pln.propOpt.bioOptimization,'LEMIV_effect') ||...
-            %         isequal(pln.propOpt.bioOptimization,'LEMIV_RBExD')) && ...
-            %         strcmp(pln.radiationMode,'carbon'))
-            %     this.calcBioDose = true;
-            %     elseif strcmp(pln.radiationMode,'protons') && isfield(pln,'propOpt') && isfield(pln.propOpt,'bioOptimization') && isequal(pln.propOpt.bioOptimization,'const_RBExD')
-            %         this.constantRBE = 1.1;                    
-            %     end
-            % end
             if nargin > 0
-                if (isfield(pln,'propOpt')&& isfield(pln.propOpt,'bioOptimization')&& ...
-                    (any(strcmp(pln.propOpt.bioOptimization, this.availableRBEmodels))))
-                    this.calcBioDose = true;
-                    this.RBEmodel = pln.propOpt.bioOptimization;
-                    this.constantRBE = NaN;
-
-                    %matRad_cfg.dispWarning('bio calculation not yet implemented in this version.');
-                elseif strcmp(pln.radiationMode,'protons') && isfield(pln,'propOpt') && isfield(pln.propOpt,'bioOptimization') && isequal(pln.propOpt.bioOptimization,'const_RBExD')
-                    %This is basically useless, there is no need to call
-                    %RBE_constant in FRED
-                    this.RBEmodel = 'const_RBExD';
-                    this.constantRBE = 1.1;
-                end
-
                 if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'HUclamping')
                     this.HUclamping = pln.propDoseCalc.HUclamping;
                 end
+
+                if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'exportCalculation')
+                    this.exportCalculation = pln.propDoseCalc.exportCalculation; 
+                else
+                    this.exportCalculation = matRad_cfg.propMC.defaultExternalCalculation;
+                end
+
+                 if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'sourceModel')
+                    this.sourceModel = pln.propDoseCalc.sourceModel; 
+                else
+                    this.sourceModel = matRad_cfg.propMC.defaultSourceModel;
+                end
             end
 
-            %Instantiate a MatRad_FREDConfig
-            %This instance only contains properties and default values that
-            %can be changed at any time
-            
-            matRad_cfg = MatRad_Config.instance();
-            %fred_cfg = MatRad_FREDConfig.instance();
-            
             this.FREDrootFolder = fullfile(matRad_cfg.matRadRoot, 'FRED');
+
         end
 
         function set.FREDrootFolder(obj, pathValue)
@@ -150,20 +133,20 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             obj.updatePaths;
         end
 
-        function set.RBEmodel(this, value)
-
-            valid = ischar(value) && any(strcmp(value, this.availableRBEmodels));
-
-            if valid
-                this.RBEmodel = value;
-            else
-                matRad_cfg.dispWarning('RBE model not recognized. Setting constRBE');
-                this.RBEmodel = 'constRBE';
-            end
-
-
-
-        end
+        % function set.RBEmodel(this, value)
+        % 
+        %     valid = ischar(value) && any(strcmp(value, this.availableRBEmodels));
+        % 
+        %     if valid
+        %         this.RBEmodel = value;
+        %     else
+        %         matRad_cfg.dispWarning('RBE model not recognized. Setting constRBE');
+        %         this.RBEmodel = 'constRBE';
+        %     end
+        % 
+        % 
+        % 
+        % end
 
     end
 
@@ -178,6 +161,18 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
             
+            dij = this.allocateQuantityMatrixContainers(dij, {'physicalDose'});
+
+            
+            % This is a mess
+            if strcmp(this.machine.meta.machine, 'generic_MCsquare')
+%                this.machine.meta.fitWithSpotSizeAirCorrection = false;
+                this.machine.meta.fitWithSpotSizeAirCorrection = false;
+
+            else
+                this.machine.meta.fitWithSpotSizeAirCorrection = true;
+            end
+
             %%% just for testing
             if isempty(this.numHistoriesDirect)
                 this.numHistoriesDirect = matRad_cfg.propDoseCalc.defaultNumHistoriesDirect;
@@ -188,27 +183,56 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 this.numHistoriesPerBeamlet = matRad_cfg.propDoseCalc.defaultNumHistoriesPerBeamlet;
             end
 
+            
             %Issue a warning when we have more than 1 scenario
             if dij.numOfScenarios ~= 1
                 matRad_cfg.dispWarning('FRED is only implemented for single scenario use at the moment. Will only use the first Scenario for Monte Carlo calculation!');
             end
             
             % prefill ordering of MCsquare bixels
-            dij.FREDCalcOrder = NaN*ones(dij.totalNumOfBixels,1);  
+            %dij.FREDCalcOrder = NaN*ones(dij.totalNumOfBixels,1);  
             
-            if ~isnan(this.constantRBE) && strcmp(this.RBEmodel, 'const_RBExD') 
-                dij.RBE = this.constantRBE;
+            % Check for model consistency
+            if ~isempty(this.bioParam)
+                %try to load the machine
+                % if isa(this.bioParam, 'matRad_BiologicalModel')
+                %     this.bioParam.machine = this.machine;
+                % end
+
+%                this.calcBioDose = this.bioParam.calcBioDose;
+                this.calcBioDose = this.bioParam.bioOpt;
+
+                % if any(strcmp(this.bioParam.RequiredBaseData, {'LET'}))
+                %     this.calcLET = true;
+                % end
+            else
+                this.calcBioDose = 0;
+            end
+            
+            if this.calcBioDose
+
+                dij = this.loadBiologicalBaseData(cst,dij);
+                dij = this.allocateQuantityMatrixContainers(dij,{'mAlphaDose', 'mSqrtBetaDose'});
+            end
+
+            % if isa(this.bioParam, 'matRad_bioModel_constRBE')
+            %     dij.RBE = this.bioParam.RBE;
+            % end
+            if strcmp(this.bioParam.model, 'constRBE')
+                dij.RBE = this.bioParam.RBE;
             end
             
             
             if this.calcLET
                 if this.calcDoseDirect
                     this.scorers = [this.scorers, {'LETd'}];
+
+                    dij = this.allocateQuantityMatrixContainers(dij, {'mLETDose'});
                 else
                     this.calcLET = false;
+
                     matRad_cfg.dispWarning('LETd Dij calculation not yet implemented');
                 end
-
                 %matRad_cfg.dispWarning('LET calculation not yet supported');
             end
 
@@ -310,16 +334,58 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             planDeliveryFile = fullfile(this.planFolder,this.planDeliveryFilename);
             this.writePlanDeliveryFile(planDeliveryFile, stf);
         end
-        
-        
-        % function printArray(~,fID,arrayName, array, arrayElementType)
-        % 
-        %     fprintf(fID, arrayName);
-        %     for k=1:numel(array)-1
-        %         fprintf(fID, [arrayElementType, ','], array(k));
-        %     end
-        %     fprintf(fID, [arrayElementType, ']'], array(end));
-        % end
+
+        function dij = loadBiologicalBaseData(this,cst,dij)
+            matRad_cfg = MatRad_Config.instance();
+            
+            matRad_cfg.dispInfo('Initializing biological dose calculation...\n');
+            
+            dij.ax              = zeros(dij.doseGrid.numOfVoxels,1);
+            dij.bx              = zeros(dij.doseGrid.numOfVoxels,1);
+            
+            cstDownsampled = matRad_setOverlapPriorities(cst);
+            
+            % resizing cst to dose cube resolution
+            cstDownsampled = matRad_resizeCstToGrid(cstDownsampled,dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z,...
+                dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z);
+            % retrieve photon LQM parameter for the current dose grid voxels
+            [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(cstDownsampled,dij.doseGrid.numOfVoxels,1,this.VdoseGrid);
+            
+            this.vAlphaX = dij.ax;
+            this.vBetaX = dij.bx;
+        end
+
+
+        function dij = allocateQuantityMatrixContainers(this,dij,names)
+
+            if this.calcDoseDirect
+                numOfBixelsContainer = 1;
+            else
+                numOfBixelsContainer = dij.totalNumOfBixels;
+            end
+            
+            %Loop over all requested quantities
+            for n = 1:numel(names)
+                %Create Cell arrays for container and dij
+                szContainer = [numOfBixelsContainer size(this.multScen.scenMask)];
+                %tmpMatrixContainers.(names{n}) = cell(szContainer);
+                dij.(names{n}) = cell(size(this.multScen.scenMask));
+                
+                %Now preallocate a matrix in each active scenario using the
+                %scenmask
+                if this.calcDoseDirect
+                    dij.(names{n})(this.multScen.scenMask) = {zeros(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)};
+                else
+                    %We preallocate a sparse matrix with sparsity of
+                    %1e-3 to make the filling slightly faster
+                    %TODO: the preallocation could probably
+                    %have more accurate estimates
+                    dij.(names{n})(this.multScen.scenMask) = {spalloc(dij.doseGrid.numOfVoxels,this.numOfColumnsDij,round(prod(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)*1e-3))};
+                end
+            end
+
+        end
+
 
     end
 
@@ -369,6 +435,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         
         function dijMatrix = readSparseDijBin(fName)
+ 
             f = fopen(fName,'r','l');
 
             %Header
@@ -414,6 +481,21 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             obj.regionsFolder   = fullfile(obj.inputFolder, 'regions');
             obj.planFolder      = fullfile(obj.inputFolder, 'plan');
         end
-    end
+     end
+
+     methods
+
+         function set.sourceModel(this, value)
+            matRad_cfg = MatRad_Config.instance();
+
+            valid = ischar(value) && any(strcmp(value, this.AvailableSourceModels));
+
+            if valid
+                this.sourceModel = value;
+            end
+               
+        end
+
+     end
 end
 

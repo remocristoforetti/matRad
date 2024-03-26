@@ -51,7 +51,7 @@ switch pln.radiationMode
         matRad_cfg.dispError('Radiation mode ''%s'' not supported!',pln.radiationMode)
 end
 
-if nargin == 5
+if nargin == 6
     engine.numHistoriesDirect = nHistories;
 end
 

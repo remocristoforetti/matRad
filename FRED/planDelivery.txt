@@ -44,11 +44,14 @@ for(currField in plan.get('Fields'))<
 
 		#Recover parameters of the current energy layer
 		def: currEnergy  = layer.get('Energy')
-		def: currEspread = layer.get('Espread'); 
+		def: currEspread = layer.get('Espread')
 		#def: currFWHM   = layer.get('FWHM')
-		def: currEmittanceX = layer.get('emittanceX');
-		def: currTwissAlphaX = layer.get('twissAlphaX') 
-		def: currTwissBetaX  = layer.get('twissBetaX');
+		#def: currEmittanceX = layer.get('emittanceX')
+		#def: currTwissAlphaX = layer.get('twissAlphaX')
+		#def: currTwissBetaX  = layer.get('twissBetaX')
+        def: currSQ_a = layer.get('sSq_a')
+        def: currSQ_b = layer.get('sSq_b')
+        def: currSQ_c = layer.get('sSq_c')
 
 		for(beamlet in layer.get('beamlets'))<
 			
@@ -60,13 +63,15 @@ for(currField in plan.get('Fields'))<
 				T	= $currEnergy
 				EFWHM	= $currEspread
 				
-				Xsec 	= emittance #gauss
+				Xsec 	= sigmaSqrModel #emittance #gauss
 				#FWHM 	= $currFWHM
-				emittanceX  = $currEmittanceX
-				twissAlphaX = $currTwissAlphaX
-				twissBetaX  = $currTwissBetaX
-				emittanceRefPlaneDistance = ${plan.get('SAD')}
+				#emittanceX  = $currEmittanceX
+				#twissAlphaX = $currTwissAlphaX
+				#twissBetaX  = $currTwissBetaX
+				#emittanceRefPlaneDistance = ${plan.get('SAD')}
 				
+                sigmaSqrModel = [${plan.get('SAD')},$currSQ_a,$currSQ_b, $currSQ_c,$currSQ_a, $currSQ_b, $currSQ_c]
+
 				P 	= ${beamlet.get('P')}
 				v 	= ${beamlet.get('v')}
 				N 	= ${beamlet.get('w')}

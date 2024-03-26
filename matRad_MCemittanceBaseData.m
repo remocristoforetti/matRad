@@ -91,6 +91,14 @@ classdef matRad_MCemittanceBaseData
                 obj.matRad_cfg.dispError('No SAD found!');
             end
             
+            %check if need to fit air widening or not
+            if isfield(machine.meta, 'fitWithSpotSizeAirCorrection') && ~machine.meta.fitWithSpotSizeAirCorrection
+
+                obj.fitWithSpotSizeAirCorrection = false;
+            else
+                obj.fitWithSpotSizeAirCorrection = true;
+            end
+
             obj.monteCarloData = [];
             
             %select needed energies and according focus indices by using stf
@@ -124,7 +132,7 @@ classdef matRad_MCemittanceBaseData
                     if isfield(energySpectrum,'type') && strcmp(energySpectrum.type,'gaussian')
                         energyData.NominalEnergy    = ones(1,4) * machine.data(ixE).energy(:);
                         energyData.MeanEnergy       = machine.data(ixE).energySpectrum.mean(:);
-                        energyData.EnergySpread     = machine.data(ixE).energySpectrum.sigma(:);
+                        energyData.EnergySpread     = machine.data(ixE).energySpectrum.sigma(:)./energyData.MeanEnergy * 100;
                     else
                         energyData = obj.fitPhaseSpaceForEnergy(ixE);
                     end
@@ -185,7 +193,15 @@ classdef matRad_MCemittanceBaseData
 
                     %opticsData.FWHMatIso = 2.355 * sigmaNull;
                     opticsData.FWHMatIso = machine.data(ixE).initFocus.SisFWHMAtIso;
-                                
+
+                    % test
+                    if ~isfield(opticsData, 'twissBetaX')
+                        tmpOptics = obj.fitBeamOpticsForEnergy(ixE,1);
+                        opticsData.twissBetaX = tmpOptics.twissBetaX;
+                        opticsData.twissAlphaX = tmpOptics.twissAlphaX;
+                        opticsData.twissEpsilonX = tmpOptics.twissEpsilonX;
+
+                    end
                     tmp = energyData;
                     f = fieldnames(opticsData);
                     for a = 1:length(f)
@@ -438,11 +454,16 @@ classdef matRad_MCemittanceBaseData
                 %Find the sigma that corresponds to the maximum
                 sigma = sqrt(1 ./ (2*pi*maxL));
             end
+
+            sigmaInit = sigma(1);
+            %sigma = sigma - sigmaInit; %sqrt(sigma.^2 - sigmaInit.^2);
             
             %correct for in-air scattering with polynomial or interpolation
             if obj.fitWithSpotSizeAirCorrection
-                sigma = arrayfun(@(d,sigma) obj.spotSizeAirCorrection(obj.machine.meta.radiationMode,obj.machine.data(i).energy,d,sigma),-z+obj.machine.meta.BAMStoIsoDist,sigma);                   
+                sigma = arrayfun(@(d,sigma) obj.spotSizeAirCorrection(obj.machine.meta.radiationMode,obj.machine.data(i).energy,d,sigma, 'interp_linear',sigmaInit),-z+obj.machine.meta.BAMStoIsoDist,sigma);                   
             end
+
+            %sigma = sqrt(sigma.^2 + sigmaInit.^2);
 
             %square and interpolate at isocenter
             sigmaSq = sigma.^2;     
@@ -520,6 +541,70 @@ classdef matRad_MCemittanceBaseData
             mcDataOptics.Divergence2y  = 0;
             mcDataOptics.Correlation2y = 0;
             mcDataOptics.FWHMatIso = 2.355 * sigmaSqIso;
+
+            % get twiss Alpha and Beta and Sigma to match (https://www.fred-mc.org/Manual_3.50/Control/Source%20Emittance.html)
+            % twissBeta = (sigmaSqIso/sigmaT)*(1/sqrt(1-rho^2));
+            % mcDataOptics.twissBetaX      = twissBeta;
+            % mcDataOptics.twissAlphaX     = (rho*(sigmaT/sigmaSqIso))*twissBeta;
+            % mcDataOptics.twissEpsilonX    = (sigmaSqIso^2)/twissBeta;
+            % 
+            % mcDataOptics.twissBetaY      = twissBeta;
+            % mcDataOptics.twissAlphaY     = (rho*(sigmaT/sigmaSqIso))*twissBeta;
+            % mcDataOptics.twissEpsilonY    = (sigmaSqIso^2)/twissBeta;
+            
+            %mcDataOptics.twissEpsilonX = sqrt((sigmaSqIso*sigmaT)^2 - ((2*rho*sigmaSqIso*sigmaT)^2)/4);
+            %mcDataOptics.twissAlphaX   = -(2*rho*sigmaSqIso*sigmaT)/(2*mcDataOptics.twissEpsilonX);
+            %mcDataOptics.twissBetaX    = (sigmaSqIso^2)/mcDataOptics.twissEpsilonX;
+
+            %mcDataOptics.twissEpsilonY = mcDataOptics.twissEpsilonX;
+            %mcDataOptics.twissAlphaY = mcDataOptics.twissAlphaX;
+            %mcDataOptics.twissBetaY  = mcDataOptics.twissBetaX;
+            
+            % %test sigmaSqrModel for FRED
+            % sSQ_z = (obj.machine.data(i).initFocus.dist(focusIndex,:) - (obj.machine.meta.SAD - obj.machine.meta.BAMStoIsoDist));% - obj.machine.meta.SAD)/10;
+            % sSQ_meas = (obj.machine.data(i).initFocus.sigma(focusIndex,:));
+            % 
+            % 
+            % sigmaInit = sSQ_meas(1);
+            % %correct for in-air scattering with polynomial or interpolation
+            % 
+            % if obj.fitWithSpotSizeAirCorrection
+            %     sSQ_meas = arrayfun(@(d,sigma) obj.spotSizeAirCorrection(obj.machine.meta.radiationMode,obj.machine.data(i).energy,d,sigma,'fit', sigmaInit),sSQ_z,sSQ_meas);                   
+            % end
+            % 
+            % f = polyfit(sSQ_z'/10,(sSQ_meas'/10).^2,2);
+            % %f = polyfit(sSQ_z',sSQ_meas'.^2,2);
+            % 
+            % 
+            % % x = linspace(min(sSQ_z./10), max(sSQ_z./10), 500);
+            % % figure;
+            % % plot(sSQ_z./10, (sSQ_meas./10).^2, 'o');
+            % % hold on;
+            % % plot(x, f(1)*x.^2 + f(2)*x + f(3), '-');
+            % mcDataOptics.sSQ_a = f(3);
+            % mcDataOptics.sSQ_b = f(2);
+            % 
+            % mcDataOptics.sSQ_c = f(1);
+            
+            mcDataOptics.sSQ_a = (sigmaSqIso/10)^2;
+            %mcDataOptics.sSQ_b = -(2*rho*sigmaT*sigmaSqIso)/10;
+            mcDataOptics.sSQ_b = (2*rho*sigmaT*sigmaSqIso)/10;
+
+            mcDataOptics.sSQ_c = sigmaT^2;
+            
+            % figure;
+            % plot(-z/10, (sigma/10).^2, 'o-');
+            % hold on;
+            % plot(-z/10, mcDataOptics.sSQ_a + mcDataOptics.sSQ_b.*(-z/10) + mcDataOptics.sSQ_c.*((z/10).^2), 'o-');
+            
+
+            mcDataOptics.twissEpsilonX =  sqrt(mcDataOptics.sSQ_a*mcDataOptics.sSQ_c - (mcDataOptics.sSQ_b^2)/4);
+            mcDataOptics.twissAlphaX   = - mcDataOptics.sSQ_b/(2*mcDataOptics.twissEpsilonX);
+            mcDataOptics.twissBetaX    =  mcDataOptics.sSQ_a/mcDataOptics.twissEpsilonX;
+
+            mcDataOptics.twissEpsilonY = mcDataOptics.twissEpsilonX;
+            mcDataOptics.twissAlphaY = mcDataOptics.twissAlphaX;
+            mcDataOptics.twissBetaY  = mcDataOptics.twissBetaX;
         end
         
         
@@ -593,12 +678,16 @@ classdef matRad_MCemittanceBaseData
     end
 
     methods (Static)
-        function sigmaAirCorrected = spotSizeAirCorrection(radiationMode,E,d,sigma,method)
+        function sigmaAirCorrected = spotSizeAirCorrection(radiationMode,E,d,sigma,method, sigmaInit)
             %performs a rudimentary correction for additional scattering in
             %air not considered by the courant snyder equation
             matRad_cfg = MatRad_Config.instance();
             if nargin < 5
                 method = 'interp_linear';
+            end
+
+            if nargin < 6
+                sigmaInit = 0;
             end
 
             switch radiationMode
@@ -663,10 +752,14 @@ classdef matRad_MCemittanceBaseData
             end
     
             if sigmaAir >= sigma
-                sigmaAirCorrected = sigma;
-                matRad_cfg.dispWarning('Spot Size Air Correction failed, too large!',method);
+                 sigmaAirCorrected = sigma;
+                 matRad_cfg.dispWarning('Spot Size Air Correction failed, too large!',method);
             else
-                sigmaAirCorrected = sqrt(sigma.^2 - sigmaAir.^2); 
+                sigmaAirCorrected = sigma - sigmaAir;
+                %sigmaAirCorrected = sqrt(sigma.^2 - sigmaAir.^2);
+                %sigmaInit = sigma(1);
+                %sigmaCorr = sqrt((sigma-sigmaInit).^2 - sigmaAir.^2);
+                %sigmaAirCorrected = sqrt(sigmaInit.^2 + sigmaCorr.^2);
             end
 
         end

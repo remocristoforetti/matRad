@@ -419,8 +419,8 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             
             %TODO: maybe we can avoid this double storage? Doesn't matter
             %resource usage, as no copy will be made
-            this.vAlphaX = dij.ax;
-            this.vBetaX = dij.bx;
+            this.vAlphaX = dij.ax(this.VdoseGrid);
+            this.vBetaX = dij.bx(this.VdoseGrid);
             this.vTissueIndex = zeros(size(this.VdoseGrid,1),1);
 
             if strcmp(this.bioParam.model,'LEM') 

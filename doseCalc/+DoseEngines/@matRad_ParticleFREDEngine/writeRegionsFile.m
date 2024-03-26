@@ -44,18 +44,18 @@ function writeRegionsFile(this,fName, stf)
             fprintf(fID, 'lAllowHUClamping=t\n');
         end
 
-        if this.calcBioDose
-            switch this.RBEmodel
-
-                case 'MCN_RBExD'
-                    modelName = 'lRBE_McNamara';
-
-                otherwise
-                    matRad_cfg.dispError('Unrecognized bio model');
-            end
-
-            fprintf(fID, '%s = t\n', modelName);  
-        end
+        % if this.calcBioDose
+        %     switch this.RBEmodel
+        % 
+        %         case 'MCN_RBExD'
+        %             modelName = 'lRBE_McNamara';
+        % 
+        %         otherwise
+        %             matRad_cfg.dispError('Unrecognized bio model');
+        %     end
+        % 
+        %     fprintf(fID, '%s = t\n', modelName);  
+        % end
 
     catch
         matRad_cfg.dispError('Failed to write regions file');

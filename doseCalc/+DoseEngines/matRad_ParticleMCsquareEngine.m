@@ -29,7 +29,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
         forceBDL = [];      %Specify an existing BDL file to load
 
         %Other Dose Calculation Properties
-        calcLET = false;        
+        calcLET = false;     
     end
     
     properties (SetAccess = protected, GetAccess = public)
@@ -39,7 +39,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
         mcSquareBinary; %Executable for mcSquare simulation
         nbThreads; %number of threads for MCsquare, 0 is all available
 
-        constantRBE = NaN;              % constant RBE value 
+        constantRBE = NaN;              % constant RBE value
     end      
     
     methods
@@ -157,7 +157,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
 
                 % Calculate MCsquare base data
                 % Argument stf is optional, if given, calculation only for energies given in stf
-                MCsquareBDL = matRad_MCsquareBaseData(this.machine);
+                MCsquareBDL = matRad_MCsquareBaseData(this.machine,stf);
 
                 %matRad_createMCsquareBaseDataFile(bdFile,machine,1);
                 MCsquareBDL = MCsquareBDL.writeMCsquareData([this.MCsquareFolder filesep 'BDL' filesep bdFile]);
@@ -210,8 +210,8 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
 
             %Matrices for LET
             if this.calcLET
-                this.LET_MHD_Output		 = calcDoseDirect;
-                this.LET_Sparse_Output	 = ~calcDoseDirect;
+                this.config.LET_MHD_Output		 = this.calcDoseDirect;
+                this.config.LET_Sparse_Output	 = ~this.calcDoseDirect;
             end
 
             for scenarioIx = 1:this.multScen.totNumScen
@@ -331,7 +331,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
                         for j = 1:numel(stfMCsquare(i).energies)
                             for k = 1:numel(stfMCsquare(i).energyLayer(j).numOfPrimaries)
                                 counterMCsquare = counterMCsquare + 1;
-                                ix = find(i                                         == dij.beamNum & ...
+                                ix = find(i                                   == dij.beamNum & ...
                                     stfMCsquare(i).energyLayer(j).rayNum(k)   == dij.rayNum & ...
                                     stfMCsquare(i).energyLayer(j).bixelNum(k) == dij.bixelNum);
 
@@ -398,8 +398,8 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
                         if this.calcLET
                             cube = this.readMhd('LET.mhd');
                             dij.mLETDose{ctScen,shiftScen,rangeShiftScen} = absCalibrationFactorMC2 * totalWeights * ...
-                                sparse(VdoseGrid,ones(numel(VdoseGrid),1), ...
-                                cube(VdoseGrid), ...
+                                sparse(this.VdoseGrid,ones(numel(this.VdoseGrid),1), ...
+                                cube(this.VdoseGrid), ...
                                 dij.doseGrid.numOfVoxels,1);
                         end
 
@@ -891,7 +891,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
             end
 
             %MCsquare currently only works for the generic_MCSquare machine
-            available = strcmp(pln.machine,'generic_MCsquare');
+            available = any(strcmp(pln.machine,{'generic_MCsquare', 'newGeneric_4Aug'}));
             msg = 'Machine check is currently not reliable, machine only works reliably with generic_MCsquare';
         end
               

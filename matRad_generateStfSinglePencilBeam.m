@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-function stf = matRad_generateStfSinglePencilBeam(ct,cst,pln)
-=======
 function stf = matRad_generateStfSinglePencilBeam(ct,cst,pln,energy,x,y)
->>>>>>> dev_enignes_FRED
 % matRad steering information generation
 % 
 % call
@@ -49,9 +45,6 @@ try
 catch
    matRad_cfg.dispError('Could not find the following machine file: %s',fileName); 
 end
-<<<<<<< HEAD
-    
-=======
 
 if ~exist('x', 'var') || isempty(x)
     x = 0;
@@ -61,7 +54,6 @@ if ~exist('y', 'var') || isempty(y)
     y = 0;
 end
 
->>>>>>> dev_enignes_FRED
 % Define steering file like struct. Prellocating for speed.
 stf = struct;
 
@@ -75,13 +67,9 @@ stf.isoCenter     = pln.propStf.isoCenter(1,:);
 stf.numOfRays     = 1;
 
 % Save ray and target position in beam eye's view (bev)
-<<<<<<< HEAD
-stf.ray.rayPos_bev = [0 0 0];
-stf.ray.targetPoint_bev = [0 SAD 0];
-=======
+
 stf.ray.rayPos_bev = [x 0 y];
 stf.ray.targetPoint_bev = [2*x SAD 2*y];
->>>>>>> dev_enignes_FRED
 
 % source position in bev
 stf.sourcePoint_bev = [0 -SAD 0];
@@ -101,11 +89,7 @@ stf.ray.targetPoint = stf.ray.targetPoint_bev*rotMat_vectors_T;
 % loop over all rays to determine meta information for each ray    
 stf.numOfBixelsPerRay = 1;
 
-<<<<<<< HEAD
-stf.ray.energy = 100;
-=======
 stf.ray.energy = energy;
->>>>>>> dev_enignes_FRED
 
 stf.ray.rangeShifter.ID = 0;
 stf.ray.rangeShifter.eqThickness = 0;

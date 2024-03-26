@@ -63,13 +63,14 @@ if ~isa(this.multScen,'matRad_ScenarioModel')
     this.multScen = matRad_multScen(ct,this.multScen);
 end
 
+
 if ~isa(this.bioParam,'matRad_BiologicalModel')
     this.bioParam = matRad_bioModel(radiationMode,'physicalDose','none');
 end
 
 dij = struct();
 
-if ~isnan(this.bioParam.RBE)
+if isprop(this.bioParam, 'RBE') && ~isnan(this.bioParam.RBE)
     dij.RBE = this.bioParam.RBE; 
 end
 

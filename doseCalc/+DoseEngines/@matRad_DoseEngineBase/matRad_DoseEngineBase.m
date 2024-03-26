@@ -169,7 +169,7 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             % copy bixel weight vector into stf struct
             if nargin == 5
                 if sum([stf.totalNumOfBixels]) ~= numel(w)
-                    matRad_cfg.dispEerror('weighting does not match steering information');
+                    matRad_cfg.dispError('weighting does not match steering information');
                 end
                 counter = 0;
                 for i = 1:size(stf,2)

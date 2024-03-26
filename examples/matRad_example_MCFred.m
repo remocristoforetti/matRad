@@ -4,8 +4,7 @@ load('BOXPHANTOM.mat');
 
 pln.radiationMode = 'protons';
 
-pln.machine       = 'generic_MCsquare';
-pln.propOpt.bioOptimization = 'physicalDose';
+pln.machine       = 'newGeneric_4Aug';%'generic_MCsquare';%'newGeneric_4Aug';
 
 pln.propDoseCalc.calcLET = 0;
 
@@ -23,26 +22,13 @@ pln.propDoseCalc.doseGrid.resolution.x = 2; % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = 2; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 2; % [mm]
 
-
-%testStfSingleField;
-
-%%% reduce target to get less bixels
-% maskV = zeros(ct.cubeDim);
-% targetIndex = find(strcmp([cst(:,3)], 'TARGET'));
-% maskV(cst{targetIndex,4}{1}) = 1;
-% 
-% c = strel('disk',10);
-% maskV = imerode(maskV,c);
-% 
-% cst{targetIndex,4}{1} = find(maskV);
-% %%%
-%stf = matRad_generateStf(ct,cst,pln);
+pln.bioParam = matRad_bioModel(pln.radiationMode, 'physicalDose','none');
+pln.multScen = matRad_multScen(ct, 'nomScen');
 
 machine = matRad_loadMachine(pln);
 %stf = matRad_generateStfSinglePencilBeam(ct,cst,pln, machine.data(37).energy, 0, 0);
-x = [-100:30:100];
-y = [-100:30:100];
-
+x = [0,20,40,70]; %[-100:30:100];
+y = [0]; %[-100:30:100];
 
 stf = matRad_generateStfSpotGridForTesting(ct,cst,pln,machine.data(37).energy, x,y);
 
@@ -54,114 +40,159 @@ dij_PB = matRad_calcDoseInfluence(ct,cst,stf,pln);
 
 %resultGUI = matRad_fluenceOptimization(dij_PB,cst,pln);
 
-% %% Dose calc MCsquare
+%% Dose calc MCsquare
 matRad_cfg = MatRad_Config.instance();
+matRad_cfg.propDoseCalc.defaultNumHistoriesDirect = 100000*sum([stf.totalNumOfBixels]);
 
-
-matRad_cfg.propDoseCalc.defaultNumHistoriesPerBeamlet = 1000;%1000*dij_PB.totalNumOfBixels;%floor((1000*dij_PB.totalNumOfBixels)/sum(resultGUI.w));
+% load([pln.radiationMode, '_', pln.machine]);
+% machine.meta.created_by = machine.meta.createdBy;
+% machine.meta.created_on = machine.meta.createdOn;
+% save('basedata/protons_newGeneric_4Aug.mat', 'machine');
 
 pln.propDoseCalc.engine = 'MCsquare';
 
 
-%dij_MCsquare = matRad_calcDoseInfluence(ct,cst,stf,pln);
+dij_MCsquare = matRad_calcDoseInfluence(ct,cst,stf,pln);
 
-resultGUI_MCsquare = matRad_calcDoseDirect(ct,stf,pln,cst,ones(stf.totalNumOfBixels,1));
+%resultGUI_MCsquare = matRad_calcDoseDirect(ct,stf,pln,cst,ones(stf.totalNumOfBixels,1));
 %% Dose Calculation
 stfFred = stf;
 counter = 0;
 calcDoseDirect = 1;
 
-% if calcDoseDirect == 1
-% 
-%     for i=1:numel(stfFred)
-% 
-%         counterBixel=1;
-%         for j=1:stfFred(i).numOfRays
-% 
-%             stfFred(i).ray(j).weight = resultGUI.w(counter+1:counter+stfFred(i).numOfBixelsPerRay(counterBixel));%3*rand(1,stf(i).numOfBixelsPerRay(j),'double');
-%             % if i==1
-%             %      stfFred(i).ray(j).weight = 0*stfFred(i).ray(j).weight;
-%             % end
-%             counter = counter+stfFred(i).numOfBixelsPerRay(counterBixel);
-% 
-%             counterBixel = counterBixel+1;
-% 
-%         end
-%     end
-% end
 pln.propDoseCalc.engine = 'FRED';
-pln.propDoseCalc.calcLET = true;
+pln.propDoseCalc.calcLET = false;
+matRad_cfg.propDoseCalc.defaultNumHistoriesPerBeamlet = 1000000;%*sum([stf.totalNumOfBixels]);
 
 resultGUI.w = ones(stf.totalNumOfBixels,1);
+resultGUI_FRED = matRad_calcDoseDirect(ct,stf,pln,cst,resultGUI.w);
+%dij_FRED = matRad_calcDoseInfluence(ct,cst,stf,pln);
+%resultGUI = matRad_calcCubes(resultGUI.w, dij_FRED,1);
+%resultGUI = matRad_calcDoseDirect(ct,stf,pln,cst,resultGUI.w);
 
 
-pln.propOpt.bioOptimization = 'MCN_RBExD';
-resultGUI = matRad_calcDoseDirect(ct,stf,pln,cst,resultGUI.w);
-%dij = matRad_calcDoseInfluence(ct,cst,stfFred,pln);
-
-%resultGUI.w = 1;
 %% read
+usedEngines = {'PB', 'FRED'};
 
-%cube = matRad_readMhd('FRED/MCrun/out', 'Dose.mhd');
 
-%cube = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
-%                                             cube, ...
-%                                             dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z,'linear',0);
+for k=1:numel(usedEngines)
 
-try
-    cube = reshape(full(dij.physicalDose{1}*resultGUI.w),dij.doseGrid.dimensions);
-    %cube = matRad_interp3(dij.doseGrid.x, dij.doseGrid.y', dij.doseGrid.z, cube, dij.ctGrid.x, dij.ctGrid.y', dij.ctGrid.z, 'linear',0);
-    
-    cubePB = reshape(full(dij_PB.physicalDose{1}*resultGUI.w), dij_PB.doseGrid.dimensions);
-    
-    %cubePB = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
-    %                                             cubePB, ...
-    %                                             dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z,'linear',0);
-    
-    cube_MCsquare = reshape(full(dij_MCsquare.physicalDose{1}*resultGUI.w), dij_MCsquare.doseGrid.dimensions);
-    
-    %cube_MCsquare = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
-    %                                             cube_MCsquare, ...
-    %                                             dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z,'linear',0);
-    currCT = ct;
-    currCT.cube{1} = matRad_interp3(dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z, ...
-                                                 ct.cube{1}, ...
-                                                 dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear',0);
-    currCT.cubeHU{1} = matRad_interp3(dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z, ...
-                                                 ct.cubeHU{1}, ...
-                                                 dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear',0);
-    
-    currCT.cubeDim = size(cube);
-    currCT.resolution = dij.doseGrid.resolution;
-    
-    cstOnGrid = matRad_resizeCstToGrid(cst,dij.ctGrid.x,dij.ctGrid.y, dij.ctGrid.z, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z);
-catch
-    cube = resultGUI.physicalDose;
-    cubeLET = resultGUI.LET;
-    %cubeLET_PB = dij_PB.mLETDose{1}*resultGUI.w;
-    cubePB = reshape(full(dij_PB.physicalDose{1}*resultGUI.w), dij_PB.doseGrid.dimensions);
-    
-    cubePB = matRad_interp3(dij_PB.doseGrid.x,dij_PB.doseGrid.y',dij_PB.doseGrid.z, ...
-                                                 cubePB, ...
-                                                 dij_PB.ctGrid.x,dij_PB.ctGrid.y',dij_PB.ctGrid.z,'linear',0);
+    if exist(['dij_',usedEngines{k}], 'var')
+        currDij = eval(['dij_',usedEngines{k}]);
+        eval(['cube', usedEngines{k}, '= reshape(full(currDij.physicalDose{1}*resultGUI.w), currDij.doseGrid.dimensions);']);
+    end
+end
 
-    % cube_MCsquare = reshape(full(dij_PB.physicalDose{1}*resultGUI.w), dij_PB.doseGrid.dimensions);
-    % 
-    % cube_MCsquare = matRad_interp3(dij_PB.doseGrid.x,dij_PB.doseGrid.y',dij_PB.doseGrid.z, ...
-    %                                              cube_MCsquare, ...
-    %                                              dij_PB.ctGrid.x,dij_PB.ctGrid.y',dij_PB.ctGrid.z,'linear',0);
-    cube_MCsquare = resultGUI_MCsquare.physicalDose;
+currCT = ct;
+currCT.cube{1} = matRad_interp3(dij_PB.ctGrid.x,dij_PB.ctGrid.y',dij_PB.ctGrid.z, ...
+                                             ct.cube{1}, ...
+                                             dij_PB.doseGrid.x,dij_PB.doseGrid.y',dij_PB.doseGrid.z,'linear',0);
+currCT.cubeHU{1} = matRad_interp3(dij_PB.ctGrid.x,dij_PB.ctGrid.y',dij_PB.ctGrid.z, ...
+                                             ct.cubeHU{1}, ...
+                                             dij_PB.doseGrid.x,dij_PB.doseGrid.y',dij_PB.doseGrid.z,'linear',0);
 
-    currCT = ct;
-    cstOnGrid = cst;
+currCT.cubeDim = dij_PB.doseGrid.dimensions;
+currCT.resolution = dij_PB.doseGrid.resolution;
 
-    cubeMCN = resultGUI.BioDose;
+
+cstOnGrid = matRad_resizeCstToGrid(cst,dij_PB.ctGrid.x,dij_PB.ctGrid.y, dij_PB.ctGrid.z, dij_PB.doseGrid.x, dij_PB.doseGrid.y, dij_PB.doseGrid.z);
+
+%% Get profiles
+sliceDepth = 71;%121;%40;%121;%40;%121;%93;%121;%40;%70;%121;
+sliceLateral = 121;%240;%80;%242;%80;%242;%121;%250;%60;%121;%250;
+profileIdx = [1:currCT.cubeDim(3)];%floor(size(cubePB,2)/2);
+
+
+figure;
+%tiledlayout(numel(usedEngines)+1,2);
+
+
+for k=1:numel(usedEngines)
+    curCube = eval(['cube', usedEngines{k}]);
+    %nexttile(k);
+    subplot(numel(usedEngines)+1,2,2*k-1);
+    matRad_plotSliceWrapper(gca(),currCT,cstOnGrid,1,curCube,1,sliceDepth);
+    ylabel(usedEngines{k}, 'FontSize', 17);
+    %nexttile([k,2]);
+    subplot(numel(usedEngines)+1,2,2*k);
+    matRad_plotSliceWrapper(gca(),currCT,cstOnGrid,1,curCube,3,sliceLateral);
+
+    currProfile_1 = sum(squeeze(curCube(sliceDepth,profileIdx,:)),2);
+    x_1 = [1:currCT.cubeDim(1)]*currCT.resolution.y - (currCT.cubeDim(1)*currCT.resolution.y/2);% + currCT.resolution.y;
+
+    %nexttile([numel(usedEngines)+1,1]);
+    subplot(numel(usedEngines)+1,2,2*numel(usedEngines)+1);
+    hold on;
+    semilogy(x_1, currProfile_1, '.-');
+    grid on;
+    hold off;
+    xlim([-50,50])
+    xlabel('mm', 'FontSize',17);
+    legend(usedEngines(1:k));
+
+
+    currProfile_2 = sum(squeeze(curCube(:,:,:)),[2,3]);
+    x_2 = [1:currCT.cubeDim(2)]*currCT.resolution.x - currCT.resolution.x/2;
+    
+    %nexttile([numel(usedEngines)+1,2]);
+    subplot(numel(usedEngines)+1,2,2*numel(usedEngines)+2);
+    hold on;
+    semilogy(x_2, currProfile_2, '.-');
+    grid on;
+    hold off;
+    xlabel('mm', 'FontSize',17);
+    legend(usedEngines(1:k));
 
 end
-%% Get profiles
-sliceShallow = 40;%93;%121;%40;%70;%121;
-sliceISO = 80;%121;%250;%60;%121;%250;
-profileIdx = [1:size(cube,3)];%floor(size(cubePB,2)/2);
+
+%% other
+figure;
+
+tiledlayout(2,1);
+nexttile;
+for k=1:numel(usedEngines)
+    curCube = eval(['cube', usedEngines{k}]);
+    currProfile_1 = squeeze(sum(curCube(sliceDepth,profileIdx,:),2));
+    x_1 = [1:currCT.cubeDim(1)]*currCT.resolution.y - (currCT.cubeDim(1)*currCT.resolution.y/2);% + currCT.resolution.y;
+    hold on;
+    semilogy(x_1, currProfile_1, '.-');
+    grid on;
+    hold off;
+    xlim([-50,50])
+    xlabel('mm', 'FontSize',17);
+    legend(usedEngines(1:k));
+end
+
+nexttile;
+for k=1:numel(usedEngines)
+    
+    curCube = eval(['cube', usedEngines{k}]);
+    currProfile_1 = squeeze(sum(curCube(sliceDepth,profileIdx,:),3));
+    
+    x_1 = [1:currCT.cubeDim(1)]*currCT.resolution.y - (currCT.cubeDim(1)*currCT.resolution.y/2);% + currCT.resolution.y;
+    hold on;
+    semilogy(x_1, currProfile_1, '.-');
+    grid on;
+    hold off;
+    xlim([-50,50])
+    xlabel('mm', 'FontSize',17);
+    legend(usedEngines(1:k));
+end
+%% Comp dose 
+
+
+for k=1:numel(usedEngines)
+
+    if exist(['dij_',usedEngines{k}], 'var')
+        currDij = eval(['dij_',usedEngines{k}]);
+        eval(['resampled', usedEngines{k}, '= matRad_calcCubes(ones(4,1),currDij,1);']);
+    end
+end
+
+
+matRad_compareDose(resampledPB.physicalDose,resultGUI_FRED.physicalDose,ct,cst);
+%% asd
+
 
 cube1 = cube;
 cube2 = cubePB;
@@ -170,7 +201,7 @@ cube3 = cubeMCN;
 leg = {'FRED', 'PB', 'MCsquare'};
 
 figure;
-tiledlayout(5,2)
+tiledlayout(5,2);
 nexttile;
 
 matRad_plotSliceWrapper(gca(),currCT,cstOnGrid,1,cube1,1,sliceShallow);

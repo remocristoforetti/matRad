@@ -32,11 +32,18 @@ function writePlanFile(this, fName, stf)
                     
                     currLayer.Energy   = num2str(stf(i).energies(j));
                     currLayer.Espread  = num2str(stf(i).energySpread(j));
-                    %currLayer.FWHM     = num2str(stf(i).FWHMs(j));
-                    currLayer.emittanceX  = num2str(stf(i).emittanceX(j));
-                    currLayer.twissAlphaX = num2str(stf(i).twissAlphaX(j));
-                    currLayer.twissBetaX  = num2str(stf(i).twissBetaX(j));
-                    
+                    switch this.sourceModel
+                        case 'gaussian'
+                            currLayer.FWHM     = num2str(stf(i).FWHMs(j));
+                        case 'emittance'
+                            currLayer.emittanceX  = num2str(stf(i).emittanceX(j), '%1.10f');
+                            currLayer.twissAlphaX = num2str(stf(i).twissAlphaX(j),'%1.10f');
+                            currLayer.twissBetaX  = num2str(stf(i).twissBetaX(j), '%1.10f');
+                        case 'sigmaSqrModel'
+                            currLayer.sSQr_a = num2str(stf(i).sSQr_a(j));
+                            currLayer.sSQr_b = num2str(stf(i).sSQr_b(j));
+                            currLayer.sSQr_c = num2str(stf(i).sSQr_c(j));
+                    end
                     currLayer.beamlets = arrayfun(@(idx) ['S', num2str(idx)], bixelCounter:stf(i).energyLayer(j).nBixels+bixelCounter-1, 'UniformOutput', false);
 
                     
@@ -57,6 +64,7 @@ function writePlanFile(this, fName, stf)
             currF.dim         = arrayfun(@num2str, [fieldLimX, fieldLimY, 0.1], 'UniformOutput', false);
             currF.Layers      = arrayfun(@(idx) ['L', num2str(idx)], layerCounter:numel(stf(i).energies)+layerCounter-1, 'UniformOutput', false);
 
+            %currF.refPlane    = num2str(stf(i).refPlane);
             layerCounter = layerCounter + numel(stf(i).energies);
 
             

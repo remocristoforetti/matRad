@@ -46,9 +46,9 @@ function stf = matRad_generateStfSpotGridForTesting(ct,cst,pln,energies,x,y)
                     stf.ray(spotIdx).(tmpFields{k}) = tmpRay.(tmpFields{k});
                 end
                 stf.ray(spotIdx).energy = energies;
-                stf.ray(spotIdx).rangeShifter = repmat(tmpRay.rangeShifter, nEnergies);
-                stf.ray(spotIdx).focusIx = repmat(tmpRay.focusIx, nEnergies);
-                stf.ray(spotIdx).numParticlesPerMU = repmat(10^6, nEnergies);
+                stf.ray(spotIdx).rangeShifter = repmat(tmpRay.rangeShifter, 1, nEnergies);
+                stf.ray(spotIdx).focusIx = repmat(tmpRay.focusIx, 1,nEnergies);
+                stf.ray(spotIdx).numParticlesPerMU = repmat(10^6, 1, nEnergies);
                 stf.ray(spotIdx).minMU = zeros(1,nEnergies);
                 stf.ray(spotIdx).maxMU = Inf(1,nEnergies);         
     end
