@@ -1,4 +1,4 @@
-function stf = matRad_generateStf(ct,cst,pln,visMode)
+function stf = matRad_generateStf(ct,cst,pln,visMode,ctScensToInclude)
 % matRad steering information generation
 % 
 % call
@@ -41,6 +41,11 @@ if nargin < 4
     visMode = 0;
 end
 
+if ~exist('ctScensToInclude', 'var') || isempty(ctScensToInclude)
+    ctScensToInclude = [1:ct.numOfCtScen];
+
+end
+
 if numel(pln.propStf.gantryAngles) ~= numel(pln.propStf.couchAngles)
     matRad_cfg.dispError('Inconsistent number of gantry and couch angles.');
 end
@@ -59,8 +64,8 @@ V = [];
 
 for i=1:size(cst,1)
     if isequal(cst{i,3},'TARGET') && ~isempty(cst{i,6})
-        for j=1:numel(cst{i,4})
-            V = [V; cst{i,4}{j}];
+        for j=1:numel(ctScensToInclude)
+            V = [V; cst{i,4}{ctScensToInclude(j)}];
         end
     end
 end
