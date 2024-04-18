@@ -1,4 +1,4 @@
-function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit)
+function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit,computeScenarios)
 % matRad inverse planning wrapper function
 %
 % call
@@ -50,7 +50,7 @@ for i = 1:size(cst,1)
         %In case it is a default saved struct, convert to object
         %Also intrinsically checks that we have a valid optimization
         %objective or constraint function in the end
-        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective')
+        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective') && ~isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
             try
                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
             catch
@@ -83,11 +83,14 @@ for i = 1:size(cst,1)
         %Iterate through objectives/constraints
         fDoses = [];
         for fObjCell = cst{i,6}
-            dParams = fObjCell{1}.getDoseParameters();
-            %Don't care for Inf constraints
-            dParams = dParams(isfinite(dParams));
-            %Add do dose list
-            fDoses = [fDoses dParams];
+            
+            if isa(fObjCell{1},'DoseObjectives.matRad_DoseObjective') || isa(fObjCell{1},'DoseConstraints.matRad_DoseConstraint')
+                dParams = fObjCell{1}.getDoseParameters();
+                %Don't care for Inf constraints
+                dParams = dParams(isfinite(dParams));
+                %Add do dose list
+                fDoses = [fDoses dParams];
+            end
         end
 
         doseTarget = [doseTarget fDoses];
@@ -102,7 +105,7 @@ wOnes          = ones(dij.totalNumOfBixels,1);
 % calculate initial beam intensities wInit
 matRad_cfg.dispInfo('Estimating initial weights... ');
 
-if exist('wInit','var')
+if exist('wInit','var') && ~isempty(wInit)
     %do nothing as wInit was passed to the function
     matRad_cfg.dispInfo('chosen provided wInit!\n');
 
@@ -244,7 +247,7 @@ voiForOmegaIx = [];
 if PROB_FLAG
     for i = 1:size(cst,1)
         for j=1:size(cst{i,6},2)
-            if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance')
+            if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
                 voiForOmegaIx = [voiForOmegaIx i];
             end
         end
@@ -502,16 +505,23 @@ resultGUI.costFunctions(i+1).values = optiProb.graphicOutput.data.totFValues;
 
 %Robust quantities
 %if FLAG_ROB_OPT || numel(ixForOpt) > 1
-if ROB_FLAG
 
-    Cnt = 1;
-    for i = find(~cellfun(@isempty,dij.physicalDose))'
-        tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
-        resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
-        Cnt = Cnt + 1;
-    end
+
+if ~exist('computeScenarios', 'var') || isempty(computeScenarios)
+    computeScenarios = 1;
 end
 
+if computeScenarios
+    if ROB_FLAG
+    
+        Cnt = 1;
+        for i = find(~cellfun(@isempty,dij.physicalDose))'
+            tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
+            resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
+            Cnt = Cnt + 1;
+        end
+    end
+end
 
 
 % unblock mex files

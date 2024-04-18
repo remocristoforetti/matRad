@@ -36,6 +36,8 @@ function c = matRad_constraintFunctions(optiProb,w,dij,cst)
 % get current dose / effect / RBExDose vector
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
+[dExp,~, vTot] = optiProb.BP.GetResultProb();
+
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
@@ -48,7 +50,8 @@ contourScen = fullScen{1};
 
 % Initializes constraints
 c = [];
-
+constIndxI = [];
+constIndxJ = [];
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
    
@@ -61,8 +64,10 @@ for  i = 1:size(cst,1)
          constraint = cst{i,6}{j};
          
          % only perform computations for constraints
+         
          if isa(constraint,'DoseConstraints.matRad_DoseConstraint')
-            
+            constIndxI = [constIndxI, i];
+            constIndxJ = [constIndxJ,j];
             % rescale dose parameters to biological optimization quantity if required
             constraint = optiProb.BP.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
             
@@ -134,6 +139,13 @@ for  i = 1:size(cst,1)
             end
             
             
+         elseif isa(constraint, 'OmegaConstraints.matRad_VarianceConstraint')
+             constIndxI = [constIndxI, i];
+             constIndxJ = [constIndxJ, j];
+             allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{i,4}, 'UniformOutput',false);
+             nVoxel = numel(unique([allVoxels{:}]));
+             c = [c; constraint.computeVarianceConstraintFunction(vTot{i},nVoxel)];
+
          end
          
       end % if we are a constraint
@@ -142,4 +154,10 @@ for  i = 1:size(cst,1)
    
 end % if structure not empty and oar or target
 
+optiProb.graphicOutput.updateDataConstraints(c);
+optiProb.graphicOutput.updatePlotConstraints();
+
+
 end % over all structures
+
+

@@ -38,6 +38,7 @@ function jacob = matRad_constraintJacobian(optiProb,w,dij,cst)
 %d = optiProb.matRad_backProjection(w,dij);
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
+[dExp,dOmega] = optiProb.BP.GetResultProb();
 
 % initialize jacobian (only single scenario supported in optimization)
 jacob = sparse([]);
@@ -57,11 +58,12 @@ scenProb = optiProb.BP.scenarioProb;
 fullScen      = cell(ndims(d),1);
 [fullScen{:}] = ind2sub(size(d),useScen);
 contourScen   = fullScen{1};
-
+VarianceJacob{1} = [];
 % compute objective function for every VOI.
 for i = 1:size(cst,1)
    
    % Only take OAR or target VOI.
+   
    if ~isempty(cst{i,4}{1}) && ( isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET') )
       
       % loop over the number of constraints for the current VOI
@@ -186,6 +188,13 @@ for i = 1:size(cst,1)
             end
             
         
+         elseif isa(constraint, 'OmegaConstraints.matRad_VarianceConstraint')
+            
+             allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{i,4}, 'UniformOutput',false);
+             nVoxels = numel(unique([allVoxels{:}])); 
+ 
+
+             VarianceJacob{1} = [VarianceJacob{1}, constraint.computeVarianceConstraintJacobian(dOmega{i,1}, nVoxels)];
          end
          
       end
@@ -200,13 +209,23 @@ scenario = 1;
 if isa(optiProb.BP,'matRad_DoseProjection')
    
    if ~isempty(DoseProjection{scenario})
-      jacob = DoseProjection{scenario}' * dij.physicalDose{scenario};
+      if ~isempty(dij.physicalDose{1})
+          jacobDose = DoseProjection{scenario}' * dij.physicalDose{scenario};
+      else
+          jacob = DoseProjection{scenProb}' * dij.physicalDoseExp{1};
+      end
    end
    
 elseif isa(optiProb.BP,'matRad_ConstantRBEProjection')
    
    if ~isempty(DoseProjection{scenario})
-      jacob = DoseProjection{scenario}' * dij.RBE * dij.physicalDose{scenario};
+      if ~isempty(dij.physicalDose{1})
+
+          jacobDose = DoseProjection{scenario}' * dij.RBE * dij.physicalDose{scenario};
+      
+      else
+          jacobDose = DoseProjection{scenario}' * dij.RBE * dij.physicalDoseExp{scenario};
+      end
    end
    
 elseif isa(optiProb.BP,'matRad_EffectProjection')
@@ -216,9 +235,34 @@ elseif isa(optiProb.BP,'matRad_EffectProjection')
       mSqrtBetaDoseProjection{scenario} = sparse(voxelID,constraintID,mSqrtBetaDoseProjection{scenario},...
          size(mAlphaDoseProjection{scenario},1),size(mAlphaDoseProjection{scenario},2));
       
-      jacob   = mAlphaDoseProjection{scenario}' * dij.mAlphaDose{scenario} +...
+      jacobDose   = mAlphaDoseProjection{scenario}' * dij.mAlphaDose{scenario} +...
          mSqrtBetaDoseProjection{scenario}' * dij.mSqrtBetaDose{scenario};
       
    end
+end
+
+cumDoseJacobIdx = 1;
+cumVarianceJacobIdx = 1;
+
+for i=1:size(cst,1)
+    for j=1:numel(cst{i,6})
+
+        constraint = cst{i,6}{j};
+
+       
+        if isa(constraint, 'DoseConstraints.matRad_DoseConstraint')
+            jacobDoseStruct = constraint.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
+            nRows = size(jacobDoseStruct,2);
+            jacob = [jacob;jacobDose(cumDoseJacobIdx:cumDoseJacobIdx+nRows-1,:)];
+            cumDoseJacobIdx = cumDoseJacobIdx+1;
+        elseif isa(constraint, 'OmegaConstraints.matRad_VarianceConstraint')
+            jacobDoseStruct = constraint.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
+            nRows = size(jacobDoseStruct,2);
+            jacob = [jacob; VarianceJacob{1}(:,cumVarianceJacobIdx:cumVarianceJacobIdx+nRows-1)'];
+            cumVarianceJacobIdx = cumVarianceJacobIdx +1;
+        end
+    end
+end
+
 end
 

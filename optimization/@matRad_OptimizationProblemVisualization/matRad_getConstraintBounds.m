@@ -63,6 +63,7 @@ for  i = 1:size(cst,1)
                     [clTmp,cuTmp] = matRad_getConstBounds(cst{i,6}(j),param);
 %}
             %if ~isempty(strfind(cst{i,6}{j}.type,'constraint'))
+            
             if isa(optiFunc,'DoseConstraints.matRad_DoseConstraint')
                 
                 if isEffectBP
@@ -73,10 +74,14 @@ for  i = 1:size(cst,1)
                     optiFunc = optiFunc.setDoseParameters(effect);
                 end
                    
-                 cl = [cl;optiFunc.lowerBounds(numel(cst{i,4}{1}))];
-                 cu = [cu;optiFunc.upperBounds(numel(cst{i,4}{1}))];
+                 
+                cl = [cl;optiFunc.lowerBounds(numel(cst{i,4}{1}))];
+                cu = [cu;optiFunc.upperBounds(numel(cst{i,4}{1}))];
                     
                 %end
+            elseif isa(optiFunc, 'OmegaConstraints.matRad_VarianceConstraint')
+                cl = [cl;optiFunc.lowerBounds];
+                cu = [cu;optiFunc.upperBounds];
             end
 
         end % over all objectives of structure

@@ -32,7 +32,7 @@ function jacobStruct = matRad_getJacobianStructure(optiProb,w,dij,cst)
 %	
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
  % Initializes constraints	
-jacobStruct = sparse([]);	
+jacobStruct = sparse([]);
  % compute objective function for every VOI.	
 for i = 1:size(cst,1)	
      % Only take OAR or target VOI.	
@@ -43,14 +43,21 @@ for i = 1:size(cst,1)
             obj = cst{i,6}{j};	
             	
             % only perform computations for constraints	
-              if isa(obj,'DoseConstraints.matRad_DoseConstraint')	
+
+            if isa(obj,'DoseConstraints.matRad_DoseConstraint')	|| isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
                 	
                 % get the jacobian structure depending on dose	
                 jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
-                nRows = size(jacobDoseStruct,2);	
-                jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
-                 
-             end	
+                nRows = size(jacobDoseStruct,2);
+                switch obj.robustness
+                    case 'PROB'
+                        jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{i,4}{1},:),1)),nRows,1)];	
+                    otherwise
+                        jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
+
+                end
+
+             end
          end	
      end	
  end

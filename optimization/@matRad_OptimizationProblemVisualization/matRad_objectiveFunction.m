@@ -280,6 +280,7 @@ for  i = 1:size(cst,1)
 
                         f_objective = 0;
                         for s=nonEmptyExp%useNominalCtScen
+%                            f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(newIdx{s}));
                             f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(newIdx{s}));
 
                         end
