@@ -63,6 +63,7 @@ for i = 1:numOfVois
     dvh(i).doseGrid     = doseGrid;
     dvh(i).volumePoints = getDVHPoints(cst, i, doseCube,ctScen, doseGrid, dvhType);
     dvh(i).name         = cst{i,2};
+
 end
 
 end %eof 
@@ -70,7 +71,10 @@ end %eof
 function dvh = getDVHPoints(cst, sIx, doseCube,ctScen, dvhPoints, dvhType)
 n = numel(dvhPoints);
 dvh         = NaN * ones(1,n);
-indices     = cst{sIx,4}{ctScen};
+%indices     = cst{sIx,4}{ctScen};
+allVoxels = arrayfun(@(scenStruct) scenStruct{1}', cst{sIx,4}(ctScen), 'UniformOutput',false);
+indices = unique([allVoxels{:}])';
+
 numOfVoxels = numel(indices);
 
 doseInVoi   = doseCube(indices);
