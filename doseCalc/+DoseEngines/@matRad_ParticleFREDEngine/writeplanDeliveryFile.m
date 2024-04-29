@@ -98,8 +98,13 @@ function writePlanDeliveryFile(this, fName, stf)
                     fprintf(fID, '\t\t\tpb<\n');
                         fprintf(fID, '\t\t\t\tID      = ${beamlet.get(''beamletID'')}\n');
                         fprintf(fID, '\t\t\t\tfieldID = $fieldIdx\n');
-                        fprintf(fID, '\t\t\t\tparticle = proton\n');
-                        fprintf(fID, '\t\t\t\tT	= $currEnergy\n');
+                        switch this.machine.meta.radiationMode
+                            case 'protons'
+                                fprintf(fID, '\t\t\t\tparticle = proton\n');
+                            case 'carbon'
+                                fprintf(fID, '\t\t\t\tparticle = C12\n');
+                        end
+                        fprintf(fID, '\t\t\t\tTu	= $currEnergy\n');
                         fprintf(fID, '\t\t\t\tEFWHM	= $currEspread\n');
             
                         switch this.sourceModel
@@ -143,7 +148,7 @@ function writePlanDeliveryFile(this, fName, stf)
 
             fprintf(fID, 'for>\n\n');
 
-            if ~this.calcDoseDirect
+            if ~this.calcDoseDirect && ~strcmp(this.currentVersion, '3.69.14')
                 fprintf(fID, 'lwriteDij_bin = t');
             end
     catch

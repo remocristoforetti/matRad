@@ -19,7 +19,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
    
     properties (Constant)
         
-        possibleRadiationModes = {'protons'};
+        possibleRadiationModes = {'protons', 'carbon'};
         name = 'FRED';
         shortName = 'FRED';
     end
@@ -46,6 +46,14 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         sourceModel;
         AvailableSourceModels = {'gaussian', 'emittance', 'sigmaSqrModel'};
+
+        useWaterPhantom;
+        roomMaterial;
+        useWSL = false;
+        useGPU;
+        currentVersion;
+        availableVersions;
+        fragDataLib;
     end
 
     properties
@@ -80,6 +88,8 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         inputFolder;
         regionsFolder;
         planFolder;
+
+        cmdCall;
 
     end
     
@@ -116,14 +126,43 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     this.exportCalculation = matRad_cfg.propMC.defaultExternalCalculation;
                 end
 
-                 if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'sourceModel')
+                if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'sourceModel')
                     this.sourceModel = pln.propDoseCalc.sourceModel; 
                 else
                     this.sourceModel = matRad_cfg.propMC.defaultSourceModel;
                 end
-            end
+
+                if isfield(pln, 'propDoseCalc') && isfield(pln.propDoseCalc,'useWSL')
+                    this.useWSL = pln.propDoseCalc.useWSL;
+                else
+                    this.useWSL = false;
+                end
+
+                if isfield(pln, 'propDoseCalc') && isfield(pln.propDoseCalc,'useGPU')
+                    this.useGPU = pln.propDoseCalc.useGPU;
+                else
+                    this.useGPU = true;
+                end
+
+                if isfield(pln, 'propDoseCalc') && isfield(pln.propDoseCalc,'useWaterPhantom')
+                    this.useWaterPhantom = pln.propDoseCalc.useWaterPhantom;
+                else
+                    this.useWaterPhantom = false;
+                end
+
+                if isfield(pln, 'propDoseCalc') && isfield(pln.propDoseCalc,'roomMaterial')
+                    this.roomMaterial = pln.propDoseCalc.roomMaterial;
+                else
+                    this.roomMaterial = 'Air';
+                end
+                 
+             end
 
             this.FREDrootFolder = fullfile(matRad_cfg.matRadRoot, 'FRED');
+
+            tmpWlsFolder = this.FREDrootFolder;
+            tmpWlsFolder(this.FREDrootFolder == '\') = '/';
+            this.fragDataLib = [tmpWlsFolder, '/CarbonFragmentationLibraries/data'];
 
         end
 
@@ -132,22 +171,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             obj.updatePaths;
         end
-
-        % function set.RBEmodel(this, value)
-        % 
-        %     valid = ischar(value) && any(strcmp(value, this.availableRBEmodels));
-        % 
-        %     if valid
-        %         this.RBEmodel = value;
-        %     else
-        %         matRad_cfg.dispWarning('RBE model not recognized. Setting constRBE');
-        %         this.RBEmodel = 'constRBE';
-        %     end
-        % 
-        % 
-        % 
-        % end
-
     end
 
     methods(Access = protected)
@@ -157,15 +180,15 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         function dij = initDoseCalc(this,ct,cst,stf)
 
-            matRad_cfg = MatRad_Config.instance();            
-            
+            matRad_cfg = MatRad_Config.instance();
+
             dij = initDoseCalc@DoseEngines.matRad_MonteCarloEngineAbstract(this,ct,cst,stf); 
             
             dij = this.allocateQuantityMatrixContainers(dij, {'physicalDose'});
 
             
-            % This is a mess
-            if strcmp(this.machine.meta.machine, 'generic_MCsquare')
+            %!!!!!!!!!! This is a mess !!!!! TODO: Understand this better
+            if any(strcmp(this.machine.meta.machine, 'generic_MCsquare'))
 %                this.machine.meta.fitWithSpotSizeAirCorrection = false;
                 this.machine.meta.fitWithSpotSizeAirCorrection = false;
 
@@ -223,6 +246,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             end
             
             
+            
             if this.calcLET
                 if this.calcDoseDirect
                     this.scorers = [this.scorers, {'LETd'}];
@@ -270,40 +294,40 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
 
         writeRunFile(~, fName)
-
-        function setUp(this,nCasePerBixel,calcDoseDirect)    
-        % SETUP Set up properties used for dose calculation
-        %
-        % input:
-        %   nCasePerBixel:  number of histories per beamlet
-        %   calcDoseDirect: binary switch to enable forward dose calculation output
-        %
-   
-            matRad_cfg = MatRad_Config.instance();
-
-            % first argument should be nCasePerBixel
-            if (exist('nCasePerBixel','var') && isa(nCasePerBixel,'numeric'))    
-                this.nCasePerBixel = nCasePerBixel;
-            else
-                %set number of particles simulated per pencil beam
-                this.nCasePerBixel = matRad_cfg.propMC.MCsquare_defaultHistories;
-                matRad_cfg.dispInfo('No number of Histories given or wrong type given. Using default number of Histories per Bixel: %d\n',this.nCasePerBixel);
-            end
-
-            if (exist('calcDoseDirect', 'var'))
-                this.calcDoseDirect = true;
-            end
-            
-        end
+        % 
+        % function setUp(this,nCasePerBixel,calcDoseDirect)    
+        % % SETUP Set up properties used for dose calculation
+        % %
+        % % input:
+        % %   nCasePerBixel:  number of histories per beamlet
+        % %   calcDoseDirect: binary switch to enable forward dose calculation output
+        % %
+        % 
+        %     matRad_cfg = MatRad_Config.instance();
+        % 
+        %     % first argument should be nCasePerBixel
+        %     if (exist('nCasePerBixel','var') && isa(nCasePerBixel,'numeric'))    
+        %         this.nCasePerBixel = nCasePerBixel;
+        %     else
+        %         %set number of particles simulated per pencil beam
+        %         this.nCasePerBixel = matRad_cfg.propMC.MCsquare_defaultHistories;
+        %         matRad_cfg.dispInfo('No number of Histories given or wrong type given. Using default number of Histories per Bixel: %d\n',this.nCasePerBixel);
+        %     end
+        % 
+        %     if (exist('calcDoseDirect', 'var'))
+        %         this.calcDoseDirect = true;
+        %     end
+        % 
+        % end
         
-        function setBinaries(this)
-            % setBinaries check if the binaries are available on the current
-            % machine and sets to the mcsquarebinary object property
-            %
-
-            [~,binaryFile] = this.checkBinaries();
-            this.mcSquareBinary = binaryFile;
-        end
+        % function setBinaries(this)
+        %     % setBinaries check if the binaries are available on the current
+        %     % machine and sets to the mcsquarebinary object property
+        %     %
+        % 
+        %     [~,binaryFile] = this.checkBinaries();
+        %     this.mcSquareBinary = binaryFile;
+        % end
         
         %% Write files functions
                 
@@ -406,7 +430,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 checkBasic = isfield(machine,'meta') && isfield(machine,'data');
 
                 %check modality
-                checkModality = any(strcmp(DoseEngines.matRad_ParticleMCsquareEngine.possibleRadiationModes, machine.meta.radiationMode));
+                checkModality = any(strcmp(DoseEngines.matRad_ParticleFREDEngine.possibleRadiationModes, machine.meta.radiationMode));
                 
                 preCheck = checkBasic && checkModality;
 
@@ -421,8 +445,15 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             %For the time being, just use the generic machine, will need to
             %have a specific one later on
-            available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare', 'newGeneric_4Aug'}));
+            switch machine.meta.radiationMode
+                case 'protons'
+                    available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare', 'newGeneric_4Aug'}));
+
+                case 'carbon'
+                    available = any(strcmp(pln.machine,{'Generic', 'HITfixedBL'}));
+            end
             msg = 'Machine check is currently not reliable';
+
         end
 
         function cube = readSimulationOutput(this,fileName,doseGrid)
@@ -434,7 +465,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
 
         
-        function dijMatrix = readSparseDijBin(fName)
+        function dijMatrix = readSparseDijBinOlderVersion(fName)
  
             f = fopen(fName,'r','l');
 
@@ -469,7 +500,49 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             fclose(f);
             
             dijMatrix = sparse(voxelIndices,colIndices,values,prod(dims),numberOfBixels);
-        end              
+        end
+
+        function dijMatrix = readSparseDijBin(fName)
+
+            f = fopen(fName,'r','l');
+
+            %Header
+            dims = fread(f,3,"int32");
+            %dims = dims([1,2,3]);
+            res = fread(f,3,"float32");
+            offset = fread(f,3,"float32");
+            numberOfBixels = fread(f,1,"int32");
+        
+            values = [];
+            voxelIndices = [];
+            colIndices = [];
+            
+            fprintf("Reading %d number of beamlets in %d voxels (%dx%dx%d)\n",numberOfBixels,prod(dims),dims(1),dims(2),dims(3));
+        
+            for i = 1:numberOfBixels
+                %Read Beamlet
+                bixNum = fread(f,1,"int32");
+                numVox  = fread(f,1,"int32");
+                
+                colIndices(end+1:end+numVox) = bixNum + 1;
+                currVoxelIndices = fread(f,numVox,"uint32") + 1;
+                values(end+1:end+numVox)  = fread(f,numVox,"float32");
+            
+                [indX, indY, indZ] = ind2sub(dims, currVoxelIndices);
+
+%                voxelIndices(end+1:end+numVox) = sub2ind(dims, indY, indX, indZ);
+                voxelIndices(end+1:end+numVox) = sub2ind(dims([2,1,3]), indY, indX, indZ);
+
+                fprintf("\tRead beamlet %d, %d voxels...\n",bixNum,numVox);
+            end
+            
+            fclose(f);
+            
+            dijMatrix = sparse(voxelIndices,colIndices,values,prod(dims),numberOfBixels);
+
+        end
+
+
     end
 
 
@@ -481,7 +554,144 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             obj.regionsFolder   = fullfile(obj.inputFolder, 'regions');
             obj.planFolder      = fullfile(obj.inputFolder, 'plan');
         end
+
+
+        function calculationAvailable = checkSystemAvailability(this)
+
+            calculationAvailable = true;
+
+ 
+            matRad_cfg = MatRad_Config.instance();
+
+            % Disabling GPU for WSL
+            if this.useWSL
+                matRad_cfg.dispInfo('Calling FRED from WSL');
+
+                if this.useGPU
+                    matRad_cfg.dispWarning('GPU not available in WSL');
+                end
+                this.useGPU = false;
+            end
+
+            
+            switch this.machine.meta.radiationMode
+                case 'protons'
+
+                case 'carbon'
+                    availableVersionsForCarbon = {'3.69.14'};
+
+                    if ~ismember(this.currentVersion, availableVersionsForCarbon)
+                        matRad_cfg.dispWarning('current version: %s does not support carbon calculation', this.currentVersion);
+                        calculationAvailable = false;
+                    else
+                        %this only works in wsl
+                        this.createSymbolicLinkToData();
+                    end
+            end
+
+            this.availableVersions = this.getAvailableVersions;
+
+        end
+
+
+        function version = getVersion(this)
+
+            matRad_cfg = MatRad_Config.instance();
+
+            [status, cmdOut] = system([this.cmdCall,'fred -vn']);
+
+            if status == 0
+                %dotIdx = find('.' == cmdOut, 1,'first')-1;
+                version = cmdOut(1:end-1);
+
+            else
+                matRad_dispError('Something wrong occured in checking FRED installation. Please check correct FRED installation');
+            end
+        end
+
+        function availableVersions = getAvailableVersions(this, sist)
+            
+            
+            matRad_cfg = MatRad_Config.instance();
+
+            if ~exist('sist', 'var') || isempty(sist)
+                if this.useWSL
+                    sist = 'wsl';
+                else
+                    sist = 'win';
+                end                   
+            end
+
+            if strcmp(sist, 'win')
+                currCmdCall = '';
+            else
+                currCmdCall = 'wsl if [ -f ~/.fredenv.sh ] ; then source ~/.fredenv.sh ; fi;';
+            end
+
+            availableVersions = [];
+
+            [status, cmdOut] = system([currCmdCall, 'fred -listVers']);
+            
+            if status == 0
+                nLidx = regexp(cmdOut, '\n')+6; %6 because of tab
+                nVersions = numel(nLidx)-1;
+                
+                for versIdx=1:nVersions
+                    availableVersions = [availableVersions,{cmdOut(nLidx(versIdx):nLidx(versIdx)+5)}];
+                end
+
+            else
+                matRad_cfg.dispError('Something wrong occured in checking FRED available verions. Please check correct FRED installation');
+            end
+        end
+        
+        function createSymbolicLinkToData(this)
+            matRad_cfg = MatRad_Config.instance();
+            % This only works for wsl
+            originDataDirectory = this.fragDataLib;
+            originDataDirectory(1:find(originDataDirectory == ':')) = [];
+            originDataDirectory = ['/mnt/c', originDataDirectory];
+
+            tmpWlsFolder = this.MCrunFolder;
+            tmpWlsFolder(this.MCrunFolder == '\') = '/';
+
+            targetDataDirectory = tmpWlsFolder;
+            targetDataDirectory(1:find(targetDataDirectory == ':')) = [];
+            targetDataDirectory = ['/mnt/c', targetDataDirectory];
+
+            currCmdCall = sprintf('ln -s %s %s',originDataDirectory,targetDataDirectory);
+
+            
+            
+            
+            
+            
+            
+            if matRad_cfg.logLevel > 1
+                [stat,~] = system([this.cmdCall, currCmdCall], '-echo');
+            else    
+                [stat,~] = system([this.cmdCall, currCmdCall]);
+            end
+            
+            
+            
+            if stat > 0
+                rmCmdCode = sprintf('rm %s/data', targetDataDirectory);
+                if matRad_cfg.logLevel>1
+                    [~,~] = system(['wsl ', rmCmdCode], '-echo');
+                    [~,~] = system([this.cmdCall, currCmdCall], '-echo');
+                else
+                    [~,~] = system(['wsl ', rmCmdCode]);
+                    [~,~] = system([this.cmdCall, currCmdCall]);
+
+                end
+            end
+        end
+
+     
      end
+
+     
 
      methods
 
@@ -494,7 +704,29 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 this.sourceModel = value;
             end
                
-        end
+         end
+
+         function version = get.currentVersion(this)
+
+             if isempty(this.currentVersion)
+                version = this.getVersion();
+                this.currentVersion = version;
+             else
+                version = this.currentVersion;
+             end
+               
+         end
+
+         function set.useWSL(this,value)
+             
+             this.useWSL = value;
+        
+             if value
+                this.cmdCall = 'wsl if [ -f ~/.fredenv.sh ] ; then source ~/.fredenv.sh ; fi;';
+             else
+                this.cmdCall = '';
+             end
+         end
 
      end
 end

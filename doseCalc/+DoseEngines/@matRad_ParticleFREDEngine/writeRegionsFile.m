@@ -7,55 +7,73 @@ function writeRegionsFile(this,fName, stf)
     try
         fprintf(fID,'region<\n');
         fprintf(fID,'\tID=Phantom\n');
-        fprintf(fID,'\tCTscan=inp/regions/%s\n', fred_cfg.patientFilename);
-        fprintf(fID,'\tO=[%i,%i,%i]\n', 0,0,0);
-        fprintf(fID,'\tpivot=[0.5,0.5,0.5]\n');
+        
+        if this.useWaterPhantom
+            % TODO: check these coordinates dimensions
+            fprintf(fID, '\tL=[%2.2f,%2.2f,%2.2f]\n', this.doseGrid.dimensions(2)*this.doseGrid.resolution.x/10,...
+                                                      this.doseGrid.dimensions(1)*this.doseGrid.resolution.y/10,...
+                                                      this.doseGrid.dimensions(3)*this.doseGrid.resolution.z/10);
+            fprintf(fID, '\tvoxels=[%i,%i,%i]\n',  this.doseGrid.dimensions(2),  this.doseGrid.dimensions(1),  this.doseGrid.dimensions(3));
+            fprintf(fID, '\tmaterial=water78\n');
+        else
+            fprintf(fID,'\tCTscan=inp/regions/%s\n', fred_cfg.patientFilename);
+        end
+            fprintf(fID,'\tO=[%i,%i,%i]\n', 0,0,0);
+            fprintf(fID,'\tpivot=[0.5,0.5,0.5]\n');
 
         %This is gantry angle = 0
         fprintf(fID, '\tl=[%1.1f,%1.1f,%1.1f]\n', 1,0,0);
         fprintf(fID, '\tu=[%1.1f,%1.1f,%1.1f]\n', 0,-1,0);
 
+        %if numel(this.scorers)>1
+        switch this.currentVersion
+            case '3.69.14'
+                 if this.calcDoseDirect
+                    fprintf(fID,'\tscore=[');
+                else
+                    fprintf(fID,'\tscoreij=[');
+                end
+
+            otherwise
+                fprintf(fID,'\tscore=[');
+        end
+       
         if numel(this.scorers)>1
-            fprintf(fID,'\tscore=[');
             for k=1:size(this.scorers,2)-1
                 fprintf(fID,'%s,', this.scorers{k});
             end
-            fprintf(fID,'%s]\n', this.scorers{end});
-        else
-            fprintf(fID,'\tscore=[%s]\n', this.scorers{1});
         end
-
+        fprintf(fID,'%s]\n', this.scorers{end});    
+        
         fprintf(fID,'region>\n');
 
         fprintf(fID, 'region<\n');
         fprintf(fID, '\tID=Room\n');
-        fprintf(fID, '\tmaterial=Air\n');
+        fprintf(fID, '\tmaterial=%s\n', this.roomMaterial);
         fprintf(fID, 'region>\n');
         
-        if this.useInternalHUConversion
-            fprintf(fID, 'lUseInternalHU2Mat=t\n');
+        if ~this.useWaterPhantom
+            if this.useInternalHUConversion
+                fprintf(fID, 'lUseInternalHU2Mat=t\n');
+            else
+                fprintf(fID, 'include: inp/regions/hLut.inp\n');
+                writeHlut(this.HUtable);
+            end
+            
+            if this.HUclamping
+                fprintf(fID, 'lAllowHUClamping=t\n');
+            end        
         
-        else
-            fprintf(fID, 'include: inp/regions/hLut.inp\n');
-            writeHlut(this.HUtable);
-        end
-        
-        if this.HUclamping
-            fprintf(fID, 'lAllowHUClamping=t\n');
         end
 
-        % if this.calcBioDose
-        %     switch this.RBEmodel
-        % 
-        %         case 'MCN_RBExD'
-        %             modelName = 'lRBE_McNamara';
-        % 
-        %         otherwise
-        %             matRad_cfg.dispError('Unrecognized bio model');
-        %     end
-        % 
-        %     fprintf(fID, '%s = t\n', modelName);  
-        % end
+        if this.useWaterPhantom
+            fprintf(fID, 'material<\n');
+            fprintf(fID, '\tID=water78\n');
+            fprintf(fID, '\tbasedOn=water\n');
+            fprintf(fID, '\trho=1\n');
+            fprintf(fID, '\tIpot=78\n');
+            fprintf(fID, 'material>\n');
+        end
 
     catch
         matRad_cfg.dispError('Failed to write regions file');

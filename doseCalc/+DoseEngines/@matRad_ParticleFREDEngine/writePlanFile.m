@@ -31,7 +31,7 @@ function writePlanFile(this, fName, stf)
                 end
                     
                     currLayer.Energy   = num2str(stf(i).energies(j));
-                    currLayer.Espread  = num2str(stf(i).energySpread(j));
+                    currLayer.Espread  = num2str(stf(i).energySpreadFWHMMev(j));
                     switch this.sourceModel
                         case 'gaussian'
                             currLayer.FWHM     = num2str(stf(i).FWHMs(j));
@@ -54,14 +54,15 @@ function writePlanFile(this, fName, stf)
             end
         
             
-            fieldLimX = max(abs([stf(i).energyLayer.rayPosX])) + 10*max([stf(i).FWHMs]);
-            fieldLimY = max(abs([stf(i).energyLayer.rayPosY])) + 10*max([stf(i).FWHMs]);
+            %fieldLimX = max(abs([stf(i).energyLayer.rayPosX])) + 10*max([stf(i).FWHMs]);
+            %fieldLimY = max(abs([stf(i).energyLayer.rayPosY])) + 10*max([stf(i).FWHMs]);
+            fieldLim = max(abs([stf(i).energyLayer.rayPosX,stf(i).energyLayer.rayPosY])) + 10*max([stf(i).FWHMs]);
 
             currF.fieldNumber = i-1;
             currF.GA          = num2str(stf(i).gantryAngle);
             currF.CA          = num2str(stf(i).couchAngle);
             currF.ISO         = arrayfun(@num2str, stf(i).isoCenter, 'UniformOutput', false);
-            currF.dim         = arrayfun(@num2str, [fieldLimX, fieldLimY, 0.1], 'UniformOutput', false);
+            currF.dim         = arrayfun(@num2str, [fieldLim, fieldLim, 0.1], 'UniformOutput', false);
             currF.Layers      = arrayfun(@(idx) ['L', num2str(idx)], layerCounter:numel(stf(i).energies)+layerCounter-1, 'UniformOutput', false);
 
             %currF.refPlane    = num2str(stf(i).refPlane);
