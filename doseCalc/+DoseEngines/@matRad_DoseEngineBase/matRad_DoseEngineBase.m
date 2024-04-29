@@ -200,7 +200,8 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             % calculate cubes; use uniform weights here, weighting with actual fluence 
             % already performed in dij construction
             resultGUI    = matRad_calcCubes(ones(dij.numOfBeams,1),dij);
-            resultGUI.w  = w; 
+            resultGUI.w  = w;
+            resultGUI.info.timers = dij.info.timers;
         end
 
         function dij = calcDoseInfluence(this,ct,cst,stf)
@@ -239,6 +240,7 @@ classdef (Abstract) matRad_DoseEngineBase < handle
 
             this.timers.full = toc(this.timers.full);
             
+            dij.info.timers.full = this.timers.full;
             matRad_cfg.dispInfo('Dose calculation finished in %g seconds!\n',this.timers.full);
         end
 
