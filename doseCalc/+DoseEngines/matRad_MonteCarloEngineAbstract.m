@@ -100,6 +100,7 @@ classdef (Abstract) matRad_MonteCarloEngineAbstract < DoseEngines.matRad_DoseEng
 
             % remember original fluence weights
             resultGUI.w  = w;
+            resultGUI.info.timers = dij.info.timers;
         end
     end
 
