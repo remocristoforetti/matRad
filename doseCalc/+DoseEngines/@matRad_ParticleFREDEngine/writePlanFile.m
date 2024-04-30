@@ -22,8 +22,8 @@ function writePlanFile(this, fName, stf)
                 fprintf(fID, '#Bixels Field%i, Layer%i\n', i-1,layerCounter+j-1);
                 for k=1:stf(i).energyLayer(j).nBixels
                     currBixel.beamletID = num2str(bixelCounter+k-1);
-                    currBixel.P         = arrayfun(@(idx) num2str(idx, '%2.3f'), [stf(i).energyLayer(j).rayPosX(k),stf(i).energyLayer(j).rayPosY(k),0], 'UniformOutput', false);
-                    currBixel.v         = arrayfun(@(idx) num2str(idx, '%2.5f'), [stf(i).energyLayer(j).rayDivX(k),stf(i).energyLayer(j).rayDivY(k),1], 'UniformOutput', false);
+                    currBixel.P         = arrayfun(@(idx) num2str(idx, '%2.3f'), [stf(i).energyLayer(j).rayPosY(k),stf(i).energyLayer(j).rayPosX(k),0], 'UniformOutput', false);
+                    currBixel.v         = arrayfun(@(idx) num2str(idx, '%2.5f'), [stf(i).energyLayer(j).rayDivY(k),stf(i).energyLayer(j).rayDivX(k),1], 'UniformOutput', false);
                     currBixel.w         = num2str(stf(i).energyLayer(j).numOfPrimaries(k), '%2.7f');
 
                     printStructToDictionary(fID, currBixel, ['S', num2str(bixelCounter+k-1)],2);

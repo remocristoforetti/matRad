@@ -185,7 +185,7 @@ function dij = calcDose(this,ct,cst,stf)
            
             for k = 1:numel(stfFred(i).energies)
 
-                if any(stf(i).ray(j).energy == stfFred.nominalEnergies(k)) %any(stf(i).ray(j).energy == nominalEnergies(k))
+                if any(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k)) %any(stf(i).ray(j).energy == nominalEnergies(k))
                     stfFred(i).energyLayer(k).rayNum   = [stfFred(i).energyLayer(k).rayNum j];
                     
                     if isfield(stf(i).ray(j), 'energySpread')
@@ -222,13 +222,13 @@ function dij = calcDose(this,ct,cst,stf)
 
 
 
-                    stfFred(i).energyLayer(k).targetPoints    = [stfFred(i).energyLayer(k).targetPoints; targetX -targetY];
+                    stfFred(i).energyLayer(k).targetPoints    = [stfFred(i).energyLayer(k).targetPoints; -targetX targetY];
 
                     stfFred(i).energyLayer(k).rayPosX         = [stfFred(i).energyLayer(k).rayPosX, getPointAtBAMS(targetX,sourceX,distance,stfFred(i).BAMStoIsoDist)];
-                    stfFred(i).energyLayer(k).rayPosY         = [stfFred(i).energyLayer(k).rayPosY, -getPointAtBAMS(targetY,sourceY,distance,stfFred(i).BAMStoIsoDist)];
+                    stfFred(i).energyLayer(k).rayPosY         = [stfFred(i).energyLayer(k).rayPosY, getPointAtBAMS(targetY,sourceY,distance,stfFred(i).BAMStoIsoDist)];
 
                     stfFred(i).energyLayer(k).rayDivX         = [stfFred(i).energyLayer(k).rayDivX, divergenceX];
-                    stfFred(i).energyLayer(k).rayDivY         = [stfFred(i).energyLayer(k).rayDivY, -divergenceY];
+                    stfFred(i).energyLayer(k).rayDivY         = [stfFred(i).energyLayer(k).rayDivY, divergenceY];
                     
                     
                     if this.calcDoseDirect

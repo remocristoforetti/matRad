@@ -31,8 +31,12 @@ function writePlanDeliveryFile(this, fName, stf)
                 fprintf(fID, '\t\tO = [0,${plan.get(''SAD'')},0]\n');
                 fprintf(fID, '\t\tL = ${currField.get(''dim'')}\n');
                 fprintf(fID, '\t\tpivot = [0.5,0.5,0.5]\n');
-                fprintf(fID, '\t\tf = [0, -1, 0]\n');
-                fprintf(fID, '\t\tu = [0, 0 ,1]\n');
+                %fprintf(fID, '\t\tf = [0, -1, 0]\n');
+                %fprintf(fID, '\t\tu = [0, 0 ,1]\n');
+
+                fprintf(fID, '\t\tl = [0, 0, -1]\n');
+                fprintf(fID, '\t\tu = [1, 0 ,0]\n');
+               
             fprintf(fID, '\tfield>\n');
 
             fprintf(fID, '\n');
@@ -68,7 +72,7 @@ function writePlanDeliveryFile(this, fName, stf)
             fprintf(fID, '\t#Second rotate the patient according to the gantry and couch angles.\n');
             fprintf(fID, '\t#In this configuration the fileds are always fixed in +SAD in y direction and the patient is rotated accordingly\n');
             fprintf(fID, '\ttransform: Phantom rotate y ${-1*CA} Room\n');
-            fprintf(fID, '\ttransform: Phantom rotate z ${-1*GA} Room\n');
+            fprintf(fID, '\ttransform: Phantom rotate z ${GA} Room\n');
             fprintf(fID, '\n');
 
             fprintf(fID, '\tfor(layer in currField.get(''Layers''))<\n');
@@ -142,7 +146,7 @@ function writePlanDeliveryFile(this, fName, stf)
             fprintf(fID, '\n');
 
             fprintf(fID, '\t#Restore the patient to original position\n');
-            fprintf(fID, '\ttransform: Phantom rotate z ${GA} Room\n');
+            fprintf(fID, '\ttransform: Phantom rotate z ${-1*GA} Room\n');
             fprintf(fID, '\ttransform: Phantom rotate y ${CA} Room\n');
             fprintf(fID, '\ttransform: Phantom move_to 0 0 0 Room\n');
 
