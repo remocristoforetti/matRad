@@ -53,11 +53,12 @@ function writeRegionsFile(this,fName, stf)
         fprintf(fID, 'region>\n');
         
         if ~this.useWaterPhantom
-            if this.useInternalHUConversion
-                fprintf(fID, 'lUseInternalHU2Mat=t\n');
-            else
-                fprintf(fID, 'include: inp/regions/hLut.inp\n');
-                writeHlut(this.HUtable);
+            switch this.HUtable
+                case 'internal'
+                    fprintf(fID, 'lUseInternalHU2Mat=t\n');
+                otherwise
+                    fprintf(fID, 'include: inp/regions/hLut.inp\n');
+                    writeHlut(this.HUtable);
             end
             
             if this.HUclamping

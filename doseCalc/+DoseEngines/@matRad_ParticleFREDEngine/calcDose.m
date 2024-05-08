@@ -49,15 +49,19 @@ function dij = calcDose(this,ct,cst,stf)
                                      dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear');
      end
 
-     if this.useInternalHUConversion
-        if any(HUcube{1}(:)>this.hLutLimits(2)) || any(HUcube{1}(:)<this.hLutLimits(1))
-            matRad_cfg.dispWarning('HU outside of boundaries');
-            this.HUclamping = true;
-        end
-        this.HUtable = 'internal';
-     else
-        this.HUtable = this.defaultHUtable;
+     switch this.HUtable
+        case 'internal'
+            if any(HUcube{1}(:)>this.hLutLimits(2)) || any(HUcube{1}(:)<this.hLutLimits(1))
+                matRad_cfg.dispWarning('HU outside of boundaries');
+                this.HUclamping = true;
+            end
+        otherwise
+            matRad_cfg.dispInfo('Using custom HU table: %s', this.HUtable);
      end
+            %this.HUtable = 'internal';
+     %else
+     %   this.HUtable = this.defaultHUtable;
+     
    
 
     %Write the directory tree necessary for the simulation
@@ -125,14 +129,14 @@ function dij = calcDose(this,ct,cst,stf)
             stfFred(i).energies = ones(1,nEnergies)*monteCarloBaseData.MeanEnergy;
             stfFred(i).energySpread = stf.ray.energySpread;
             stfFred(i).energySpreadMeV = (stf.ray.energySpread*monteCarloBaseData.MeanEnergy/100);        
-            stfFred(i).FWHMs = 2.355*[monteCarloBaseData.SpotSize1x(stf(i).ray(1).focusIx(1))]*ones(1,numel(stfFred(i).energies));
+            stfFred(i).FWHMs = 2.355*[monteCarloBaseData.SpotSize1x]*ones(1,numel(stfFred(i).energies));
 
         else
             stfFred(i).nominalEnergies = nominalEnergies;
             stfFred(i).energies        = [monteCarloBaseData.MeanEnergy];
             stfFred(i).energySpread    = [monteCarloBaseData.EnergySpread];
             stfFred(i).energySpreadMeV = [monteCarloBaseData.EnergySpread].*[monteCarloBaseData.MeanEnergy]/100;
-            stfFred(i).FWHMs = 2.355*[monteCarloBaseData.SpotSize1x(stf(i).ray(1).focusIx(1))];
+            stfFred(i).FWHMs = 2.355*[monteCarloBaseData.SpotSize1x];%(stf(i).ray(1).focusIx(1));
 
         end
         
@@ -194,8 +198,8 @@ function dij = calcDose(this,ct,cst,stf)
                     %     % a special case, different energy spreads are
                     %     % seen as different energy layers
                         stfFred(i).energyLayer(k).bixelNum = [stfFred(i).energyLayer(k).bixelNum ...
-                            find(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k) & ...
-                                 stf(i).ray(j).energySpread == stfFred(i).energySpread(k))];
+                                                              find(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k) & ...
+                                                              stf(i).ray(j).energySpread == stfFred(i).energySpread(k))];
 
                     else
 

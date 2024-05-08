@@ -226,7 +226,19 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 X.beta = baseData.beta;
             end   
             
-            X = structfun(@(v) matRad_interp1(depths,v,bixel.radDepths,'nearest'),X,'UniformOutput',false); %Extrapolate to zero?           
+            X = structfun(@(v) matRad_interp1(depths,v,bixel.radDepths,'nearest'),X,'UniformOutput',false); %Extrapolate to zero?
+
+            % Temporary correction to avoid negative interpolation of the
+            % weight
+            switch this.lateralModel
+                case 'single'
+
+                case 'double'
+                    X.weight(X.weight<0) = 0;
+                case 'multi'
+                    X.weightMulti(X.weightMulti<0) = 0;
+            end
+
         end
 
         % We override this function to boost efficiency a bit (latDistX & Z

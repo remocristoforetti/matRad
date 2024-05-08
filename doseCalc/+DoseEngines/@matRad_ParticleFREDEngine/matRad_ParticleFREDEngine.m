@@ -1,9 +1,23 @@
 classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 % Engine for particle dose calculation using monte carlo calculation
-% specificly the mc square method
+% specificly the FRED MC code ()
 % for more informations see superclass
 % DoseEngines.matRad_MonteCarloEngineAbstract
 %
+% pln.propDoseCalc fields:
+% 
+% HUclamping:           [b] allows for clamping of HU table
+% HUtable:              [s] 'internal', 'matRad_water', 'matRad_water_78'
+% exportCalculation     [b] t:Only write simulation paramter files, f: run
+%                             FRED
+% sourceModel           [s] see AvailableSourceModels, {'gaussian', 'emittance', 'sigmaSqrModel'}
+% useWSL                [b]
+% useGPU                [b]
+% useWaterPhantom       [b] overwrite ct phantom with uniform water phantom
+%                           (same resolution as doseGrid)
+% roomMaterial          [s] vacuum, Air
+
+
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2019 the matRad development team.
@@ -30,7 +44,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         
         %nbThreads; %number of threads for MCsquare, 0 is all available
 
-        useInternalHUConversion;
+        %useInternalHUConversion;
         noozleToAxis;
         scorers = {'Dose'};
      
@@ -115,9 +129,16 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % call superclass constructor
             this = this@DoseEngines.matRad_MonteCarloEngineAbstract(pln);
 
+
             if nargin > 0
                 if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'HUclamping')
                     this.HUclamping = pln.propDoseCalc.HUclamping;
+                end
+
+                if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'HUtable')
+                    this.HUtable = pln.propDoseCalc.HUtable;
+                else
+                    this.HUtable = this.defaultHUtable;
                 end
 
                 if isfield(pln,'propDoseCalc') && isfield(pln.propDoseCalc,'exportCalculation')
@@ -260,12 +281,12 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 %matRad_cfg.dispWarning('LET calculation not yet supported');
             end
 
-            if isempty(this.useInternalHUConversion)
-                this.useInternalHUConversion = false;
+            %if isempty(this.useInternalHUConversion)
+            %    this.useInternalHUConversion = false;
                 %For the time being and for testing just use the internal
                 %one
                 %this.useInternalHUConversion = true;
-            end
+            %end
 
         end
 
@@ -294,41 +315,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
 
         writeRunFile(~, fName)
-        % 
-        % function setUp(this,nCasePerBixel,calcDoseDirect)    
-        % % SETUP Set up properties used for dose calculation
-        % %
-        % % input:
-        % %   nCasePerBixel:  number of histories per beamlet
-        % %   calcDoseDirect: binary switch to enable forward dose calculation output
-        % %
-        % 
-        %     matRad_cfg = MatRad_Config.instance();
-        % 
-        %     % first argument should be nCasePerBixel
-        %     if (exist('nCasePerBixel','var') && isa(nCasePerBixel,'numeric'))    
-        %         this.nCasePerBixel = nCasePerBixel;
-        %     else
-        %         %set number of particles simulated per pencil beam
-        %         this.nCasePerBixel = matRad_cfg.propMC.MCsquare_defaultHistories;
-        %         matRad_cfg.dispInfo('No number of Histories given or wrong type given. Using default number of Histories per Bixel: %d\n',this.nCasePerBixel);
-        %     end
-        % 
-        %     if (exist('calcDoseDirect', 'var'))
-        %         this.calcDoseDirect = true;
-        %     end
-        % 
-        % end
-        
-        % function setBinaries(this)
-        %     % setBinaries check if the binaries are available on the current
-        %     % machine and sets to the mcsquarebinary object property
-        %     %
-        % 
-        %     [~,binaryFile] = this.checkBinaries();
-        %     this.mcSquareBinary = binaryFile;
-        % end
-        
+
         %% Write files functions
                 
         writeRegionsFile(this,fName, stf)
@@ -447,7 +434,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %have a specific one later on
             switch machine.meta.radiationMode
                 case 'protons'
-                    available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare', 'newGeneric_4Aug'}));
+                    available = any(strcmp(pln.machine,{'Generic', 'generic_MCsquare', 'newGeneric_4Aug', 'test_machine_SAD'}));
 
                 case 'carbon'
                     available = any(strcmp(pln.machine,{'Generic', 'HITfixedBL'}));
@@ -578,6 +565,12 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 case 'protons'
 
                 case 'carbon'
+                    % This is temporary
+                    if ~this.useWSL
+                        matRad_cfg.dispWarning('carbon simulation only available in WSL mode. Switching to WSL');
+                        this.useWSL = true;
+                    end
+                    
                     availableVersionsForCarbon = {'3.69.14'};
 
                     if ~ismember(this.currentVersion, availableVersionsForCarbon)
@@ -587,6 +580,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                         %this only works in wsl
                         this.createSymbolicLinkToData();
                     end
+
             end
 
             this.availableVersions = this.getAvailableVersions;
