@@ -3,7 +3,7 @@ function dij = matRad_calcDoseInfluence(ct,cst,stf,pln)
 % for the given pln struct and called the associated dose calculation funtion
 %
 % call
-%   dij =  matRad_calcDoseInfluence(ct,stf,pln,cst)
+%   dij =  matRad_calcDoseInfluence(ct,cst,stf,pln)
 %
 % input
 %   ct:         ct cube

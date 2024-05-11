@@ -132,7 +132,7 @@ classdef matRad_MCemittanceBaseData
                     if isfield(energySpectrum,'type') && strcmp(energySpectrum.type,'gaussian')
                         energyData.NominalEnergy    = ones(1,4) * machine.data(ixE).energy(:);
                         energyData.MeanEnergy       = machine.data(ixE).energySpectrum.mean(:);
-                        energyData.EnergySpread     = machine.data(ixE).energySpectrum.sigma(:)./energyData.MeanEnergy * 100;
+                        energyData.EnergySpread     = machine.data(ixE).energySpectrum.sigma(:);%./energyData.MeanEnergy * 100;
                     else
                         energyData = obj.fitPhaseSpaceForEnergy(ixE);
                     end
@@ -377,9 +377,9 @@ classdef matRad_MCemittanceBaseData
                     % Data from "Update to ESTAR, PSTAR, and ASTAR Databases" - ICRU Report 90, 2014
                     % Normalized energy before fit (MeV/u)! Only used ranges [10 350] mm for fit
                     % https://www.nist.gov/system/files/documents/2017/04/26/newstar.pdf
-                    %meanEnergyFromRange = @(R) 11.39 * R^0.628 + 11.24;
+                    meanEnergyFromRange = @(R) 11.39 * R^0.628 + 11.24;
                     fMeanEnergyFromRange = @(R) fEnergyFromRange(R,alpha,p);
-                    mcDataEnergy.MeanEnergy = fMeanEnergyFromRange(r80);
+                    mcDataEnergy.MeanEnergy = meanEnergyFromRange(r80); %fMeanEnergyFromRange(r80);
                     % reading in a potential given energyspread could go here directly. How would you parse the energyspread
                     % into the function? Through a field in the machine?
                     
