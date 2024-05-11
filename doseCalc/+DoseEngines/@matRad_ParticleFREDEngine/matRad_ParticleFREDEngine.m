@@ -480,7 +480,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             
                 [indX, indY, indZ] = ind2sub(dims, currVoxelIndices);
 
-                voxelIndices(end+1:end+numVox) = sub2ind(dims, indY, indX, indZ);
+                voxelIndices(end+1:end+numVox) = sub2ind(dims([2,1,3]), indY, indX, indZ);
                 fprintf("\tRead beamlet %d, Field %d, %d voxels...\n",bixNum,beamNum,numVox);
             end
             
