@@ -70,6 +70,8 @@ function dij = calcDose(this,ct,cst,stf)
 
     if ~this.useWaterPhantom
         cd(this.regionsFolder);
+        %%%%%% !!!!!!!!!!!!! %%%%%
+        HUcube{1} = flip(HUcube{1},2);
         matRad_writeMhd(HUcube{1},[this.doseGrid.resolution.x, this.doseGrid.resolution.y, this.doseGrid.resolution.z], this.patientFilename, 'MET_SHORT');
         cd(this.FREDrootFolder);
     end
