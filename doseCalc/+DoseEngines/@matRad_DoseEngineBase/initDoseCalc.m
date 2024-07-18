@@ -63,23 +63,13 @@ if ~isa(this.multScen,'matRad_ScenarioModel')
     this.multScen = matRad_multScen(ct,this.multScen);
 end
 
-% load machine file from base data folder
-this.machine = this.loadMachine(radiationMode,machine);
-
-if ~ischar(this.bioModel)
-    matRad_cfg.dispError('bioModel property should be a string');
-else
-    this.assignBioParam(this.bioModel, radiationMode);
-end
-
-if any(strcmp(this.bioParam.requiredQuantities, 'LET'))
-
-    this.calcLET = true;
+if ~isa(this.bioParam,'matRad_BiologicalModel')
+    this.bioParam = matRad_bioModel(radiationMode,'physicalDose','none');
 end
 
 dij = struct();
 
-if isfield(this.bioParam, 'RBE') && ~isnan(this.bioParam.RBE)
+if ~isnan(this.bioParam.RBE)
     dij.RBE = this.bioParam.RBE; 
 end
 
@@ -194,6 +184,9 @@ this.VdoseGridMask(this.VdoseGrid) = true;
 
 this.VctGridMask = false(prod(ct.cubeDim),1);
 this.VctGridMask(this.VctGrid) = true;
+
+% load machine file from base data folder
+this.machine = this.loadMachine(radiationMode,machine);
 
 this.doseGrid = dij.doseGrid;
 

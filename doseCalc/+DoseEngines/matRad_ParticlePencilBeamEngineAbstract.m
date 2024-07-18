@@ -213,51 +213,19 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                     matRad_cfg = MatRad_Config.instance();
                     matRad_cfg.dispError('Invalid Lateral Model');
             end
- 
-
-            
-            % Biological kernels
-            biologicalKernels = this.bioParam.requiredQuantities;
-            for kernelIdx = 1:numel(biologicalKernels)
-
-                % Get the kernel, can be 1 or 2 dimensional kernel
-
-
-                % Temporary: get the kernel field name
-                kernelName = biologicalKernels{kernelIdx}(biologicalKernels{kernelIdx} ~= '.');
-                eval(['X.', kernelName, ' = baseData.', biologicalKernels{kernelIdx}, ';']);
-
-                % Check if size of kernel is correct
-                if size(X.(kernelName),1) ~= numel(depths)
-                    
-                    X.(kernelName) = X.(kernelName)';
-                    
-                    % If still not correct, cannot be interpolated
-                    if size(X.(kernelName),1) ~= numel(depths)
-                        matRad_dispError('Kernel: %s with dimension (%u,%u) cannot be interpolated', biologicalKernels{kernel}, ...
-                                                                                                     num2str(size(X.(kernelName),1)),...
-                                                                                                     num2str(size(X.(kernelName),2)))
-                    end
-
-                    
-                end
-
-
-             end
-            
+                   
             % LET
-            if this.calcLET && ~any(strcmp(biologicalKernels, 'LET'))
+            if this.calcLET
                 X.LET = baseData.LET;
             end
 
             % bioDose
             % TODO: Improve isfield check by better model management
-            % if this.calcBioDose && strcmp(this.bioParam.model,'LEM')
-            %     X.alpha = baseData.alpha;
-            %     X.beta = baseData.beta;
-            % end   
+            if this.calcBioDose && strcmp(this.bioParam.model,'LEM')
+                X.alpha = baseData.alpha;
+                X.beta = baseData.beta;
+            end   
             
-
             X = structfun(@(v) matRad_interp1(depths,v,bixel.radDepths,'nearest'),X,'UniformOutput',false); %Extrapolate to zero?           
         end
 
@@ -394,53 +362,19 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             
             % TODO: this is clumsy and needs to be changed with the
             % biomodel update
-            % if this.bioParam.bioOpt
-            %     this.calcBioDose = true;
-            % end
-
-            % Load biologicla base data if needed
-            % if this.calcBioDose
-            %     dij = this.loadBiologicalBaseData(cst,dij);
-            %     % allocate alpha and beta dose container and sparse matrices in the dij struct,
-            %     % for more informations see corresponding method
-            %     dij = this.allocateBioDoseContainer(dij);
-            % end
-
-            if ~isa(this.bioParam, 'matRad_None') && ~isa(this.bioParam, 'matRad_ConstantRBE')
-                % This is independent of the biological model implemented.
-                % Not performed for 'none' and 'constRBE' because not
-                % neccessary. We could as well always do this calculation,
-                % probably no great benefit in avoiding it
-
-                dij = this.loadBiologicalBaseData(cst,dij);
-
-                dij = this.allocateBioDoseContainer(dij);
-             
-                % This is messed up, the only case in which this is
-                % necessary is for LEM model. I want to move this function
-                % to be model specific so that future tabulated RBE models
-                % can implement their own definition of the "tissue index".
-                % This requires the cst and dij because cst is still the
-                % original cst, gets downsampled multiple times in
-                % different parts of the code.
-                %
-                % Not sure about the VdoseGridScenIdx, is this really
-                % necessary? Index information should be all in the
-                % down-sampled cst{i,4}. We could as well have a
-                % this.VdoseGrid{s}, cell array containing different array
-                % of indexes (on the dose grid) for different scenarios.
-                %
-                % getTissueInformation is defined in the BiologicalModel
-                % main class and masked by the LEM model only.
-
-                [this.vTissueIndex] = this.bioParam.getTissueInformation(this.machine,cst,dij,this.vAlphaX, this.vBetaX,this.VdoseGrid, this.VdoseGridScenIx);
-           
-
+            if this.bioParam.bioOpt
+                this.calcBioDose = true;
             end
 
+            % Load biologicla base data if needed
+            if this.calcBioDose
+                dij = this.loadBiologicalBaseData(cst,dij);
+                % allocate alpha and beta dose container and sparse matrices in the dij struct,
+                % for more informations see corresponding method
+                dij = this.allocateBioDoseContainer(dij);
+            end           
 
             % allocate LET containner and let sparse matrix in dij struct
-
             if this.calcLET
                 if isfield(this.machine.data,'LET')
                     dij = this.allocateLETContainer(dij);
@@ -506,65 +440,60 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 % vAlphaX and vBetaX for parameters in VdoseGrid
                 this.vAlphaX{s}         = dij.ax{s}(tmpScenVdoseGrid{s});
                 this.vBetaX{s}          = dij.bx{s}(tmpScenVdoseGrid{s});
-                %this.vTissueIndex{s}    = zeros(size(tmpScenVdoseGrid{s},1),1);
+                this.vTissueIndex{s}    = zeros(size(tmpScenVdoseGrid{s},1),1);
             end
-            
-            % This part is model specific and can be implemented directly
-            % by the bioModel, does not affect the dij
+                   
+            if strcmp(this.bioParam.model,'LEM') 
+                matRad_cfg.dispInfo('\tUsing LEM model with precomputed kernels\n');                    
 
-            % if strcmp(this.bioParam.model,'LEM') 
-            %     matRad_cfg.dispInfo('\tUsing LEM model with precomputed kernels\n');                    
-            % 
-            %     if isfield(this.machine.data,'alphaX') && isfield(this.machine.data,'betaX')
-            %         for i = 1:size(cstDownsampled,1)
-            % 
-            %             % check if cst is compatiable
-            %             if ~isempty(cstDownsampled{i,5}) && isfield(cstDownsampled{i,5},'alphaX') && isfield(cstDownsampled{i,5},'betaX')
-            % 
-            %                 % check if base data contains alphaX and betaX
-            %                 IdxTissue = find(ismember(this.machine.data(1).alphaX,cstDownsampled{i,5}.alphaX) & ...
-            %                     ismember(this.machine.data(1).betaX,cstDownsampled{i,5}.betaX));
-            % 
-            %                 % check consitency of biological baseData and cst settings
-            %                 if ~isempty(IdxTissue)
-            %                     for s = 1:numOfCtScen
-            %                         tmpScenVdoseGrid = this.VdoseGrid(this.VdoseGridScenIx{s});
-            %                         isInVdoseGrid = ismember(tmpScenVdoseGrid,cstDownsampled{i,4}{s});
-            %                         this.vTissueIndex{s}(isInVdoseGrid) = IdxTissue;
-            %                     end
-            %                 else
-            %                     matRad_cfg.dispError('Biological base data and cst are inconsistent!');
-            %                 end
-            % 
-            %             else
-            %                 for s = 1:numOfCtScen
-            %                     this.vTissueIndex{s}(:) = 1;
-            %                 end
-            %                 matRad_cfg.dispWarning('\tTissue type of %s was set to 1\n',cstDownsampled{i,2});
-            %             end
-            %         end
-            %         dij.vTissueIndex = this.vTissueIndex;
-            %         matRad_cfg.dispInfo('done.\n');
-            %     else
-            %         matRad_cfg.dispError('Base data is missing alphaX and/or betaX!');
-            %     end
-            % elseif any(strcmp(this.bioParam.model,{'HEL','MCN','WED'}))
-            %     matRad_cfg.dispInfo('\tUsing LET-dependent model\n');
-            %     if ~this.calcLET
-            %         matRad_cfg.dispWarning('Forcing LET calculation as it is required for LET-dependent models!');
-            %         this.calcLET = true;
-            %     end
-            % else
-            %     matRad_cfg.dispError('Unknown Biological Model!');
-            % end
+                if isfield(this.machine.data,'alphaX') && isfield(this.machine.data,'betaX')
+                    for i = 1:size(cstDownsampled,1)
+
+                        % check if cst is compatiable
+                        if ~isempty(cstDownsampled{i,5}) && isfield(cstDownsampled{i,5},'alphaX') && isfield(cstDownsampled{i,5},'betaX')
+
+                            % check if base data contains alphaX and betaX
+                            IdxTissue = find(ismember(this.machine.data(1).alphaX,cstDownsampled{i,5}.alphaX) & ...
+                                ismember(this.machine.data(1).betaX,cstDownsampled{i,5}.betaX));
+
+                            % check consitency of biological baseData and cst settings
+                            if ~isempty(IdxTissue)
+                                for s = 1:numOfCtScen
+                                    tmpScenVdoseGrid = this.VdoseGrid(this.VdoseGridScenIx{s});
+                                    isInVdoseGrid = ismember(tmpScenVdoseGrid,cstDownsampled{i,4}{s});
+                                    this.vTissueIndex{s}(isInVdoseGrid) = IdxTissue;
+                                end
+                            else
+                                matRad_cfg.dispError('Biological base data and cst are inconsistent!');
+                            end
+
+                        else
+                            for s = 1:numOfCtScen
+                                this.vTissueIndex{s}(:) = 1;
+                            end
+                            matRad_cfg.dispWarning('\tTissue type of %s was set to 1\n',cstDownsampled{i,2});
+                        end
+                    end
+                    dij.vTissueIndex = this.vTissueIndex;
+                    matRad_cfg.dispInfo('done.\n');
+                else
+                    matRad_cfg.dispError('Base data is missing alphaX and/or betaX!');
+                end
+            elseif any(strcmp(this.bioParam.model,{'HEL','MCN','WED'}))
+                matRad_cfg.dispInfo('\tUsing LET-dependent model\n');
+                if ~this.calcLET
+                    matRad_cfg.dispWarning('Forcing LET calculation as it is required for LET-dependent models!');
+                    this.calcLET = true;
+                end
+            else
+                matRad_cfg.dispError('Unknown Biological Model!');
+            end
 
         end
 
         function dij = allocateBioDoseContainer(this,dij)
             % allocate space for container used in bio optimization
             dij = this.allocateQuantityMatrixContainers(dij,{'mAlphaDose','mSqrtBetaDose'});
-
-            this.calcBioDose = true;
         end
 
         function dij = allocateLETContainer(this,dij)

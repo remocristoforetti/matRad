@@ -37,26 +37,6 @@ function model = matRad_bioModel(sRadiationMode,sQuantityOpt, sModel)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-matRad_cfg = MatRad_Config.instance();
-
-switch sModel
-    case 'MCN'
-        model = matRad_bioModelMCN(sRadiationMode);
-    case 'CAR'
-        model = matRad_bioModelCAR(sRadiationMode);
-    case 'WED'
-        model = matRad_bioModelWED(sRadiationMode);
-    case 'LEM'
-        model = matRad_bioModel_LEM(sRadiationMode);
-    case 'constRBE'
-        model = matRad_bioModel_constRBE(sRadiationMode);
-    case 'none'
-        model = matRad_bioModel_none(sRadiationMode);
-    case 'HEL'
-        model = matRad_bioModel_HEL(sRadiationMode);
-    otherwise
-        model = [];
-        matRad_cfg.dispError('Unrecognized model');
-end
+model = matRad_BiologicalModel(sRadiationMode,sQuantityOpt,sModel);
 
 end % end class definition
