@@ -99,7 +99,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             'sharedSubscorers',true,...
             'outputType','binary',... %'csv'; 'binary';%
             ... % This variable is only used for physicalDose, since for now it adds unnecessary computation time
-            'reportQuantity',{{'Sum','Standard_Deviation'}});         % 'reportQuantity',{{'Sum'}});
+            'reportQuantity',{{'Sum'}});%'reportQuantity',{{'Sum','Standard_Deviation'}});         % 'reportQuantity',{{'Sum'}});
         scorerRBEmodelOrderForEvaluation = {'MCN','WED','LEM','libamtrack'};
         bioParameters = struct( 'PrescribedDose',2,...
             'AlphaX',0.1,...
@@ -1387,8 +1387,8 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 if obj.scorer.doseToMedium
                     tallyName{end+1} = 'Patient/Tally_DoseToMedium';
                 end
-                if obj.scorer.doseToMedium
-                    tallyName{end+1} = 'Tally_DoseToWater';
+                if obj.scorer.doseToWater
+                    tallyName{end+1} = 'Patient/Tally_DoseToWater';
                 end
 
                 % We should discuss here if that's something that has to be available for photons as well, turned off for now
@@ -1761,26 +1761,32 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     if ~isPhoton && isfield(baseData.machine.data,'energySpectrum') && obj.useEnergySpectrum
                         matRad_cfg.dispInfo('Beam energy spectrum available\n');
                         energySpectrum = [baseData.machine.data(:).energySpectrum];
-                        nbSpectrumPoints = length(energySpectrum(1).energy_MeVpN);
+                        
+                        if strcmp(energySpectrum.type, 'histogram')
+                            nbSpectrumPoints = length(energySpectrum(1).energy_MeVpN);
 
-                        % Get energy indices of the current energies in the baseData
-                        [~,energyIx] = ismember([dataTOPAS.nominalEnergy],[baseData.machine.data.energy]);
+                            % Get energy indices of the current energies in the baseData
+                            [~,energyIx] = ismember([dataTOPAS.nominalEnergy],[baseData.machine.data.energy]);
 
-                        fprintf(fileID,'s:So/PencilBeam/BeamEnergySpectrumType = "Continuous"\n');
-                        fprintf(fileID,'dv:So/PencilBeam/BeamEnergySpectrumValues = %d %s MeV\n',nbSpectrumPoints,strtrim(sprintf('Tf/Beam/EnergySpectrum/Energy/Point%03d/Value ',1:nbSpectrumPoints)));
-                        fprintf(fileID,'uv:So/PencilBeam/BeamEnergySpectrumWeights = %d %s\n',nbSpectrumPoints,strtrim(sprintf('Tf/Beam/EnergySpectrum/Weight/Point%03d/Value ',1:nbSpectrumPoints)));
-                        points_energy = reshape([energySpectrum(energyIx).energy_MeVpN],[],length(energyIx));
-                        points_weight = reshape([energySpectrum(energyIx).weight],[],length(energyIx));
-                        for spectrumPoint=1:nbSpectrumPoints
-                            fprintf(fileID,'s:Tf/Beam/EnergySpectrum/Energy/Point%03d/Function = "Step"\n',spectrumPoint);
-                            fprintf(fileID,'dv:Tf/Beam/EnergySpectrum/Energy/Point%03d/Times = Tf/Beam/Spot/Times ms\n',spectrumPoint);
-                            fprintf(fileID,'dv:Tf/Beam/EnergySpectrum/Energy/Point%03d/Values = %d %s MeV\n',spectrumPoint,cutNumOfBixel,strtrim(sprintf('%f ',particleA*points_energy(spectrumPoint,:))));
-                            fprintf(fileID,'s:Tf/Beam/EnergySpectrum/Weight/Point%03d/Function = "Step"\n',spectrumPoint);
-                            fprintf(fileID,'dv:Tf/Beam/EnergySpectrum/Weight/Point%03d/Times = Tf/Beam/Spot/Times ms\n',spectrumPoint);
-                            fprintf(fileID,'uv:Tf/Beam/EnergySpectrum/Weight/Point%03d/Values = %d %s\n',spectrumPoint,cutNumOfBixel,strtrim(sprintf('%f ',points_weight(spectrumPoint,:))));
+                            fprintf(fileID,'s:So/PencilBeam/BeamEnergySpectrumType = "Continuous"\n');
+                            fprintf(fileID,'dv:So/PencilBeam/BeamEnergySpectrumValues = %d %s MeV\n',nbSpectrumPoints,strtrim(sprintf('Tf/Beam/EnergySpectrum/Energy/Point%03d/Value ',1:nbSpectrumPoints)));
+                            fprintf(fileID,'uv:So/PencilBeam/BeamEnergySpectrumWeights = %d %s\n',nbSpectrumPoints,strtrim(sprintf('Tf/Beam/EnergySpectrum/Weight/Point%03d/Value ',1:nbSpectrumPoints)));
+                            points_energy = reshape([energySpectrum(energyIx).energy_MeVpN],[],length(energyIx));
+                            points_weight = reshape([energySpectrum(energyIx).weight],[],length(energyIx));
+                            for spectrumPoint=1:nbSpectrumPoints
+                                fprintf(fileID,'s:Tf/Beam/EnergySpectrum/Energy/Point%03d/Function = "Step"\n',spectrumPoint);
+                                fprintf(fileID,'dv:Tf/Beam/EnergySpectrum/Energy/Point%03d/Times = Tf/Beam/Spot/Times ms\n',spectrumPoint);
+                                fprintf(fileID,'dv:Tf/Beam/EnergySpectrum/Energy/Point%03d/Values = %d %s MeV\n',spectrumPoint,cutNumOfBixel,strtrim(sprintf('%f ',particleA*points_energy(spectrumPoint,:))));
+                                fprintf(fileID,'s:Tf/Beam/EnergySpectrum/Weight/Point%03d/Function = "Step"\n',spectrumPoint);
+                                fprintf(fileID,'dv:Tf/Beam/EnergySpectrum/Weight/Point%03d/Times = Tf/Beam/Spot/Times ms\n',spectrumPoint);
+                                fprintf(fileID,'uv:Tf/Beam/EnergySpectrum/Weight/Point%03d/Values = %d %s\n',spectrumPoint,cutNumOfBixel,strtrim(sprintf('%f ',points_weight(spectrumPoint,:))));
+                            end
+
+                        else
+                            matRad_dispError('Binned energy spectrum requested but not provided in machine');
                         end
                     end
-
+                   
                     % Write amount of energies in plan
                     fprintf(fileID,'s:Tf/Beam/Energy/Function = "Step"\n');
                     fprintf(fileID,'dv:Tf/Beam/Energy/Times = Tf/Beam/Spot/Times ms\n');
