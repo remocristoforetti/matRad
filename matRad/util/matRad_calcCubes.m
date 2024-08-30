@@ -1,4 +1,4 @@
-function resultGUI = matRad_calcCubes(w,dij,scenNum)
+function resultGUI = matRad_calcCubes(w,dij,scenNum,boolInterpolate)
 % matRad computation of all cubes for the resultGUI struct
 % which is used as result container and for visualization in matRad's GUI
 %
@@ -32,8 +32,12 @@ function resultGUI = matRad_calcCubes(w,dij,scenNum)
 
 matRad_cfg = MatRad_Config.instance();
 
-if nargin < 3
+if  ~exist('scenNum', 'var') || isempty(scenNum)
     scenNum = 1;
+end
+
+if ~exist('boolInterpolate', 'var') || isempty(boolInterpolate)
+    boolInterpolate = false;
 end
 
 resultGUI.w = w;
@@ -217,20 +221,21 @@ end
 resultGUI = orderfields(resultGUI);
 
 % interpolation if dose grid does not match ct grid
-if isfield(dij,'ctGrid') && any(dij.ctGrid.dimensions~=dij.doseGrid.dimensions)
-    myFields = fieldnames(resultGUI);
-    for i = 1:numel(myFields)
-        if numel(resultGUI.(myFields{i})) == dij.doseGrid.numOfVoxels
-
-            % interpolate!
-            resultGUI.(myFields{i}) = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
-                resultGUI.(myFields{i}), ...
-                dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z,'linear',0);
-
+if boolInterpolate
+    if isfield(dij,'ctGrid') && any(dij.ctGrid.dimensions~=dij.doseGrid.dimensions)
+        myFields = fieldnames(resultGUI);
+        for i = 1:numel(myFields)
+            if numel(resultGUI.(myFields{i})) == dij.doseGrid.numOfVoxels
+    
+                % interpolate!
+                resultGUI.(myFields{i}) = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
+                    resultGUI.(myFields{i}), ...
+                    dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z,'linear',0);
+    
+            end
         end
     end
 end
-
 
 end
 
