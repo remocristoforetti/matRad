@@ -38,7 +38,7 @@ function test_propertyAssignmentFromPln
         plnFields(strcmp([plnFields(:)], 'engine')) = [];
         
         for fieldIdx=1:numel(plnFields)
-            assertTrue(sequal(engine.(plnFields{fieldIdx}), pln.propDoseCalc.(plnFields{fieldIdx})));
+            assertTrue(isequal(engine.(plnFields{fieldIdx}), pln.propDoseCalc.(plnFields{fieldIdx})));
         end
     end
 
@@ -46,6 +46,6 @@ function test_writeFiles
 
         pln = struct('radiationMode','protons','machine','Generic','propDoseCalc',struct('engine','FRED'));
 
-        
+
 
     
