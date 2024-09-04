@@ -16,7 +16,7 @@ classdef matRad_BackProjection < handle
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
     properties (SetAccess = protected)
-        wCache
+ wCache
         wGradCache  %different cache for optimal performance (if multiple evaluations of objective but not gradient are required)
         wGradCacheProb
         d
@@ -24,6 +24,7 @@ classdef matRad_BackProjection < handle
         wGradProb
         dExp
         dOmegaV
+        vTot
     end
     
     properties 
@@ -31,6 +32,7 @@ classdef matRad_BackProjection < handle
         scenarios    = 1        %Scenario indices to evaluate (used for 4D & robust/stochastic optimization)
         scenarioProb = 1        %Probability associated with scenario (for stochastic optimization)
         nominalCtScenarios = 1; %nominal ct scenario (no shift, no range error) indices to evaluate (used for 4D & robust/stochastic optimization, when at least one cst structure does not have robustness)
+        useStructsForOmega
     end
 
     
@@ -49,7 +51,7 @@ classdef matRad_BackProjection < handle
         function obj = compute(obj,dij,w)
             if ~isequal(obj.wCache,w)
                 obj.d = obj.computeResult(dij,w);
-                [obj.dExp,obj.dOmegaV] = obj.computeResultProb(dij,w);
+                [obj.dExp,obj.dOmegaV, obj.vTot] = obj.computeResultProb(dij,w);
                 obj.wCache = w;                
             end
         end
@@ -72,9 +74,10 @@ classdef matRad_BackProjection < handle
             d = obj.d;
         end
         
-        function [dExp,dOmegaV] = GetResultProb(obj)
+        function [dExp,dOmegaV, vTot] = GetResultProb(obj)
             dExp = obj.dExp;
             dOmegaV = obj.dOmegaV;
+            vTot = obj.vTot;
         end
 
         function wGrad = GetGradient(obj)
@@ -90,15 +93,23 @@ classdef matRad_BackProjection < handle
             d(obj.scenarios) = arrayfun(@(scen) computeSingleScenario(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
         end
         
-        function [dExp,dOmegaV] = computeResultProb(obj,dij,w)
+        function [dExp,dOmegaV,vTot] = computeResultProb(obj,dij,w)
+            
             if isfield(dij,'physicalDoseExp')
+                scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
                 dExp = cell(size(dij.physicalDoseExp));
-                [dExp(obj.scenarios),dOmegaVTmp] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
+                [dExp(scensToInclude),dOmegaVTmp(scensToInclude), vTotTmp(scensToInclude)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),scensToInclude,'UniformOutput',false);
+                
                 dOmegaV = cell(size(dij.physicalDoseOmega));
-                dOmegaV(:,obj.scenarios) = dOmegaVTmp{:};
+                dOmegaV(:, scensToInclude) = [dOmegaVTmp{:}];
+
+                vTot = cell(size(dij.physicalDoseOmega));                
+                vTot(:, scensToInclude) = [vTotTmp{:}];
+                
             else
                 dExp = [];
                 dOmegaV = [];
+                vTot = [];
             end
         end
         
@@ -108,8 +119,15 @@ classdef matRad_BackProjection < handle
         end
         
         function wGrad = projectGradientProb(obj,dij,dExpGrad,dOmegaVgrad,w)
-            wGrad = cell(size(dij.physicalDose));
-            wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),obj.scenarios,'UniformOutput',false);
+
+            scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
+            wGrad = cell(size(dij.physicalDoseExp));
+            % There is no need here to separate Exp and Omega part, in any
+            % case if a structure has only one or the other, the non used
+            % dExpGrad or dOmegaVgrad will be zero/non included, thus the
+            % contribution will be zero.
+            % For cleaner implementation could be separated
+            wGrad(scensToInclude) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),scensToInclude,'UniformOutput',false);
         end
     end
    

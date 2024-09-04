@@ -1,4 +1,4 @@
-function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit)
+function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit,computeScenarios)
 % matRad inverse planning wrapper function
 %
 % call
@@ -50,7 +50,7 @@ for i = 1:size(cst,1)
         %In case it is a default saved struct, convert to object
         %Also intrinsically checks that we have a valid optimization
         %objective or constraint function in the end
-        if ~isa(obj,'matRad_DoseOptimizationFunction')
+        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective') && ~isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
             try
                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
             catch
@@ -58,9 +58,10 @@ for i = 1:size(cst,1)
             end
         end
 
-        obj = obj.setDoseParameters(obj.getDoseParameters()/pln.numOfFractions);
-
-        cst{i,6}{j} = obj;
+       if isa(obj, 'matRad_DoseOptimizationFunction')
+            obj = obj.setDoseParameters(obj.getDoseParameters()/pln.numOfFractions);
+       end
+       cst{i,6}{j} = obj;
     end
 end
 
@@ -91,11 +92,13 @@ for i = 1:size(cst,1)
         %Iterate through objectives/constraints
         fDoses = [];
         for fObjCell = cst{i,6}
-            dParams = fObjCell{1}.getDoseParameters();
-            %Don't care for Inf constraints
-            dParams = dParams(isfinite(dParams));
-            %Add do dose list
-            fDoses = [fDoses dParams];
+            if isa(fObjCell{1},'DoseObjectives.matRad_DoseObjective') || isa(fObjCell{1},'DoseConstraints.matRad_DoseConstraint')
+                dParams = fObjCell{1}.getDoseParameters();
+                %Don't care for Inf constraints
+                dParams = dParams(isfinite(dParams));
+                %Add do dose list
+                fDoses = [fDoses dParams];
+            end
         end
 
         doseTarget = [doseTarget fDoses];
@@ -128,7 +131,11 @@ elseif strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'proton
         dij.RBE = 1.1;
     end
 
-    doseTmp = dij.physicalDose{1}*wOnes;
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/(dij.RBE * mean(doseTmp(V)));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -180,7 +187,11 @@ elseif pln.bioParam.bioOpt
         % calculate current effect in target
         aTmp = dij.mAlphaDose{1}*wOnes;
         bTmp = dij.mSqrtBetaDose{1} * wOnes;
-        doseTmp = dij.physicalDose{1}*wOnes;
+        if ~isempty(dij.physicalDose{1})
+            doseTmp = dij.physicalDose{1}*wOnes;
+        else
+            doseTmp = dij.physicalDoseExp{1}*wOnes;
+        end
 
         CurrEffectTarget = aTmp(V) + bTmp(V).^2;
         % ensure a underestimated biological effective dose
@@ -198,11 +209,21 @@ elseif pln.bioParam.bioOpt
             BEDTarget = doseTarget.*(1 + doseTarget./abr);
         elseif isfield(dij, 'RBE')
             abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
-            meanBED = mean(dij.RBE.*dij.physicalDose{1}(V,:)*wOnes.*(1+dij.RBE.*dij.physicalDose{1}(V,:)*wOnes./abr));
+            if ~isempty(dij.physicalDose{1})
+                doseTmp = dij.physicalDose{1}*wOnes;
+            else
+                doseTmp = dij.physicalDoseExp{1}*wOnes;
+            end
+            meanBED = mean(dij.RBE.*dij.physicalDose{1}(V,:)*wOnes.*(1+dij.RBE.*doseTmp(V,:)*wOnes./abr));
             BEDTarget = dij.RBE.*doseTarget.*(1 + dij.RBE.*doseTarget./abr);
         else
             abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
-            meanBED = mean(dij.physicalDose{1}(V,:)*wOnes.*(1+dij.physicalDose{1}(V,:)*wOnes./abr));
+            if ~isempty(dij.physicalDose{1})
+                doseTmp = dij.physicalDose{1}*wOnes;
+            else
+                doseTmp = dij.physicalDoseExp{1}*wOnes;
+            end
+            meanBED = mean(dij.physicalDose{1}(V,:)*wOnes.*(1+doseTmp(V,:)*wOnes./abr));
             BEDTarget = doseTarget.*(1 + doseTarget./abr);
         end
 
@@ -213,7 +234,11 @@ elseif pln.bioParam.bioOpt
 
     matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
 else
-    doseTmp = dij.physicalDose{1}*wOnes;
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/mean(doseTmp(V));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -232,17 +257,22 @@ end
 
 %If "all" provided, use all scenarios
 if isequal(scen4D,'all')
-    scen4D = 1:size(dij.physicalDose,1);
+    scen4D = 1:pln.multScen.numOfCtScen;
 end
 
-linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
+if ~isempty(dij.physicalDose{:})
+    linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 
-%Only select the indexes of the nominal ct Scenarios
-linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+    %Only select the indexes of the nominal ct Scenarios
+    linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+
+else
+    linIxDIJ = [];
+    linIxDIJ_nominalCT = scen4D;
+end
 
 FLAG_CALC_PROB = false;
 FLAG_ROB_OPT   = false;
-
 
 for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
@@ -255,13 +285,26 @@ for i = 1:size(cst,1)
     end
 end
 
-if FLAG_CALC_PROB
+if FLAG_CALC_PROB && ~isfield(dij, 'physicalDoseExp') && ~isfield(dij, 'physicalDoseOmega')
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
 end
 
+%Set the structures to be included for prob calculation
+voiForOmegaIx = [];
+if isfield(dij, 'physicalDoseOmega') && ~isempty(dij.physicalDoseOmega)
+    for i = 1:size(cst,1)
+        for j=1:size(cst{i,6},2)
+            if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+                voiForOmegaIx = [voiForOmegaIx i];
+            end
+        end
+    end
+    voiForOmegaIx = unique(voiForOmegaIx);
+end
 
 % set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
+
+if ~isempty(dij.physicalDose{:}) && ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
     ixForOpt = scen4D;
 else
     ixForOpt = linIxDIJ;
@@ -288,11 +331,19 @@ end
 
 %Give scenarios used for optimization
 backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenProb;
+backProjection.scenarioProb = pln.multScen.scenWeight;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-%backProjection.scenDim      = pln.multScen
+backProjection.useStructsForOmega = voiForOmegaIx;
 
-optiProb = matRad_OptimizationProblem(backProjection);
+if ~isfield(pln.propOpt, 'visualizeSingleObjectives')
+   pln.propOpt.visualizeSingleObjectives = false;
+end
+
+optiProb = matRad_OptimizationProblemPROB(backProjection);
+optiProb.instantiateVisualization(cst);
+
+optiProb.graphicOutput.active = pln.propOpt.visualizeSingleObjectives;
+
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
     optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
@@ -353,14 +404,21 @@ resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
 
-%Robust quantities
-if pln.multScen.totNumScen > 1
-    for i = 1:pln.multScen.totNumScen
-        scenSubIx = pln.multScen.linearMask(i,:);
-        resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
-        resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
-    end
+if ~exist('computeScenarios', 'var') || isempty(computeScenarios)
+    computeScenarios = 1;
 end
 
+%Robust quantities
+if computeScenarios
+    if FLAG_ROB_OPT
+        if pln.multScen.totNumScen > 1
+            for i = 1:pln.multScen.totNumScen
+                scenSubIx = pln.multScen.linearMask(i,:);
+                resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
+                resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
+            end
+        end
+    end
+end
 % unblock mex files
 clear mex

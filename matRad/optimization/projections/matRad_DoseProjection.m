@@ -31,16 +31,29 @@ classdef matRad_DoseProjection < matRad_BackProjection
             end 
         end
         
-        function [dExp,dOmegaV] = computeSingleScenarioProb(~,dij,scen,w)
+        function [dExp,dOmegaV, vTot] = computeSingleScenarioProb(obj,dij,scen,w)
             if ~isempty(dij.physicalDoseExp{scen})
+
                 dExp = dij.physicalDoseExp{scen}*w;
                 
-                for i = 1:size(dij.physicalDoseOmega,2)
-                   dOmegaV{scen,i} = dij.physicalDoseOmega{scen,i} * w;
-                end 
+                selectedStructs = obj.useStructsForOmega;%find(~cellfun(@isempty, dij.physicalDoseOmega(:,scen)));
+
+                dOmegaV = cell(size(dij.physicalDoseOmega,1),1);
+                vTot = cell(size(dij.physicalDoseOmega,1),1);
+
+                
+                dOmegaV(selectedStructs) = arrayfun(@(i) dij.physicalDoseOmega{i,scen}*w, selectedStructs, 'UniformOutput',false);
+                vTot(selectedStructs)= arrayfun(@(i) w'*dOmegaV{i}, selectedStructs, 'UniformOutput',false);
+                
+                if any([vTot{:}]<0)
+                    matRad_cfg = MatRad_Config.instance();
+                    matRad_cfg.dispWarning('Negative total variance detected, this should not happen.');
+                end
+
             else
                 dExp = [];
                 dOmegaV = [];
+                vTot    = [];
             end             
         end
         
@@ -57,7 +70,8 @@ classdef matRad_DoseProjection < matRad_BackProjection
         function wGrad = projectSingleScenarioGradientProb(~,dij,dExpGrad,dOmegaVgrad,scen,~)
             if ~isempty(dij.physicalDoseExp{scen})
                 wGrad = (dExpGrad{scen}' * dij.physicalDoseExp{scen})';
-                wGrad = wGrad + 2 * dOmegaVgrad;
+                wGrad = wGrad + 2 * dOmegaVgrad{scen};
+
             else
                 wGrad = [];
                 matRad_cfg = MatRad_Config.instance();
