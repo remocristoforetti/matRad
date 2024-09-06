@@ -8,8 +8,8 @@ function multScen = matRad_getMultiScenFromScenarios(saveDir,scenarioModel)
     % Recover scenarios meta
     scenariosMeta = matRad_getMetaFromScenariosPool(saveDir);
 
-    numDetectedCtScenarios = numel(unique([scenarios.ctScenIdx]));
-
+    numDetectedCtScenarios = numel(unique([scenariosMeta.ctScenIdx]));
+    numDetectedScenarios   = numel(scenariosMeta);
     %Build the multscen
     if isstruct(scenarioModel)
         if isfield(scenarioModel, 'model')
@@ -27,7 +27,7 @@ function multScen = matRad_getMultiScenFromScenarios(saveDir,scenarioModel)
     ct.numOfCtScen = numDetectedCtScenarios;
 
     isoShiftMat = reshape([scenariosMeta.isoShift], 3, numDetectedScenarios)';
-    relShiftMat = [scenariosMeta.relRangeSHift]';
+    relShiftMat = [scenariosMeta.relRangeShift]';
     absShiftMat = [scenariosMeta.absRangeShift]';
     senProbMat  = [scenariosMeta.scenProb]';
 
