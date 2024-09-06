@@ -1,4 +1,4 @@
-function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid)
+function dvh = matRad_calcDVH(cst,doseCube,ctScen,dvhType,doseGrid)
 % matRad dvh calculation
 % 
 % call
@@ -28,7 +28,7 @@ function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid)
 % 
 % This file is part of the matRad project. It is subject to the license 
 % terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
 % of the matRad project, including this file, may be copied, modified, 
 % propagated, or distributed except according to the terms contained in the 
 % LICENSE file.
@@ -38,6 +38,11 @@ function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid)
 if ~exist('dvhType','var') || isempty(dvhType)
     dvhType = 'cum';
 end
+
+if ~exist('ctScen', 'var') || isempty(ctScen)
+    ctScen = 1;
+end
+
 
 if ~exist('doseGrid', 'var') || isempty(doseGrid)
     maxDose = max(doseCube(:));
@@ -56,16 +61,20 @@ numOfVois = size(cst,1);
 dvh = struct;
 for i = 1:numOfVois
     dvh(i).doseGrid     = doseGrid;
-    dvh(i).volumePoints = getDVHPoints(cst, i, doseCube, doseGrid, dvhType);
+    dvh(i).volumePoints = getDVHPoints(cst, i, doseCube,ctScen, doseGrid, dvhType);
     dvh(i).name         = cst{i,2};
+
 end
 
 end %eof 
 
-function dvh = getDVHPoints(cst, sIx, doseCube, dvhPoints, dvhType)
+function dvh = getDVHPoints(cst, sIx, doseCube,ctScen, dvhPoints, dvhType)
 n = numel(dvhPoints);
 dvh         = NaN * ones(1,n);
-indices     = cst{sIx,4}{1};
+%indices     = cst{sIx,4}{ctScen};
+allVoxels = arrayfun(@(scenStruct) scenStruct{1}', cst{sIx,4}(ctScen), 'UniformOutput',false);
+indices = unique([allVoxels{:}])';
+
 numOfVoxels = numel(indices);
 
 doseInVoi   = doseCube(indices);
