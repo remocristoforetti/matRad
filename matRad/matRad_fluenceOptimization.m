@@ -403,7 +403,16 @@ resultGUI = matRad_calcCubes(wOpt,dij);
 resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
+resultGUI.info.timePerIteration = resultGUI.info.cpu/resultGUI.info.iter;
 
+for i=1:numel(optiProb.graphicOutput.data.objectiveFunctions)
+    functionName = optiProb.graphicOutput.leg{i};
+    resultGUI.costFunctions(i).name = functionName;
+    resultGUI.costFunctions(i).values = optiProb.graphicOutput.data.objectiveFunctions(i).values;
+
+end
+resultGUI.costFunctions(i+1).name = 'total Function';
+resultGUI.costFunctions(i+1).values = optiProb.graphicOutput.data.totFValues;
 if ~exist('computeScenarios', 'var') || isempty(computeScenarios)
     computeScenarios = 1;
 end
