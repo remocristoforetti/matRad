@@ -11,7 +11,6 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
         wGrad;
         wCache;
         wGradCache;
-        scenarios;
     end
 
     methods
@@ -19,20 +18,17 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
 
         end
 
-        function quantityOutput = getResult(this,dij,w)
-            if ~isequal(this.wCache,w)
-                this.d = arrayfun(@(scen) this.computeQuantity(dij,scen,w), this.scenarios, 'UniformOutput',false);
-                this.wCache = w;
-            end
-            quantityOutput = this.d;
+        function output = getResult(~)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError('Function needs to be implemented by subclass');
+            output = [];
+
         end
 
-        function gradOutput = getProjectedGradient(this,dij,fGrad,w)
-            if ~isequal(this.wGradCache,w)
-                this.wGrad = arrayfun(@(scen) this.projectGradient(dij,scen,fGrad,w), this.scenarios, 'UniformOutput',false);
-                this.wGradCache = w;
-            end
-            gradOutput = this.wGrad;
+        function output = getProjectedGradient(~)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError('Function needs to be implemented by subclass');
+            output = [];
         end
 
         function output = computeQuantity(~)
@@ -53,4 +49,5 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
 
         end
     end
+
 end

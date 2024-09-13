@@ -89,8 +89,10 @@ for  i = 1:size(cst,1)
                     end
                 end
 
-                gGrad.(quantityOptimized)          = cell(numel(d.(quantityOptimized)),1);
-                gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimized)
+                    gGrad.(quantityOptimized)          = cell(size(d.(quantityOptimized)));
+                    gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                end
                 % retrieve the robustness type
                 robustness = objective.robustness;
                 
@@ -106,6 +108,7 @@ for  i = 1:size(cst,1)
                             ixContour = contourScen(s);
                             d_i = d.(quantityOptimized){ixScen}(cst{i,4}{ixContour});
                             %add to dose gradient
+                            %mean(objective.penalty*objective.computeDoseObjectiveGradient(d_i))
                             gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                             %doseGradient{ixScen}(cst{i,4}{ixContour}) = gGrad.physicalDose{ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                         end
@@ -114,27 +117,33 @@ for  i = 1:size(cst,1)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             
-                            d_i = d{ixScen}(cst{i,4}{ixContour});
+                            d_i = d.(quantityOptimized){ixScen}(cst{i,4}{ixContour});
                             
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + ...
+                            gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) + ...
                                 (objective.penalty*objective.computeDoseObjectiveGradient(d_i) * scenProb(s));
                             
                         end
                         
                     case 'PROB' % use the expectation value and the integral variance influence matrix
                         %First check the speficic cache for probabilistic
-                        if ~exist('doseGradientExp','var')
-                            doseGradientExp{1} = zeros(dij.doseGrid.numOfVoxels,1);
+                        % if ~exist('doseGradientExp','var')
+                        %     doseGradientExp{1} = zeros(dij.doseGrid.numOfVoxels,1);
+                        % end
+                        nPhases = numel(d.(quantityOpimized));
+
+                        if nPhases==1
+                            structIdxs = cat(1,cst{i,4}{useNominalCtScen});
+                            structIdxs = unique(structIdxs);
+                        else
+                            structIdxs = cst{i,4}(useNominalCtScen);
                         end
                         
-                        d_i = dExp{1}(cst{i,4}{1});
-                        
-                        doseGradientExp{1}(cst{i,4}{1}) = doseGradientExp{1}(cst{i,4}{1}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
-                        
-                        p = objective.penalty/numel(cst{i,4}{1});
-                        
-                        vOmega = vOmega + p * dOmega{i,1};
-                    
+                        for phaseIdx=1:nPhases
+                            d_i = d.(quantityOptimized){phaseIdx}(structIdxs{phaseIdx});
+        
+                            gGrad.(quantityOptimized){phaseIdx}(cst{i,4}{phaseIdx}) = gGrad.(quantityOptimized){phaseIdx}(cst{i,4}{phaseIdx}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                        end
+
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
                         if ~isscalar(contourIx)
@@ -285,7 +294,39 @@ for  i = 1:size(cst,1)
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         
                 end  %robustness type                              
-            end  % objective check         
+            elseif isa(objective, 'OmegaObjectives.matRad_VarianceObjective')
+            
+                robustness = objective.robustenss;
+
+                %This is just for temporary compatibility
+                for optQt=optiProb.BP.optimizationQuantities
+                    if any(strcmp(optQt, {'meanVariance'}))
+                        quantityOptimizedVariance = optQt{1};
+                    end
+                end
+
+                quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+                quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimizedVariance,quantityNames)};
+                % rescale dose parameters to biological optimization quantity if required
+                objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+
+                 switch robustness
+                     case 'PROB'
+
+                        if nPhases==1
+                            structIdxs = cat(1,cst{i,4}{useNominalCtScen});
+                            structIdxs = unique(structIdxs);
+                        else
+                            structIdxs = cst{i,4}(useNominalCtScen);
+                        end
+
+                        for phaseIdx = 1:nPhases
+                            vTot = d.(quantityOptimizedVariance){i, phaseIdx};
+                            f = f + objective.penalty * objective.computeVarianceObjective(vTot,structIdxs{phaseIdx});
+                        end
+                 end
+
+            end
         end %objective loop       
     end %empty check    
 end %cst structure loop
@@ -327,7 +368,7 @@ weightGradient = zeros(dij.totalNumOfBixels,1);
 
 
 optiProb.BP.computeGradient(dij,gGrad,w);
-g = optiProb.BP.GetGradient();
+g = optiProb.BP.wGrad;
 
 for s = 1:numel(useScen)
     % This could be moved to BP
@@ -335,14 +376,6 @@ for s = 1:numel(useScen)
         weightGradient = weightGradient + g.(quantityIdx{1}){useScen(s)};
     end
 end
-
-% if vOmega ~= 0
-%     optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
-%     gProb = optiProb.BP.GetGradientProb();
-% 
-%     %Only implemented for first scenario now
-%     weightGradient = weightGradient + gProb{1};
-% end
 
 gradientChecker = 0;
 if gradientChecker == 1

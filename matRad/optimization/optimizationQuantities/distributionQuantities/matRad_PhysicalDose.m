@@ -1,4 +1,4 @@
-classdef matRad_PhysicalDose < matRad_OptimizationQuantity
+classdef matRad_PhysicalDose < matRad_DistributionQuantity
 
     properties (Constant)
         quantityName = 'physicalDose';
@@ -6,8 +6,16 @@ classdef matRad_PhysicalDose < matRad_OptimizationQuantity
     end
 
     methods
-        function this = matRad_PhysicalDose()
-            this@matRad_OptimizationQuantity();
+        function this = matRad_PhysicalDose(dij)
+
+            if nargin>0
+                supArg = {dij};
+            else
+                supArg = {};
+            end
+            
+            this@matRad_DistributionQuantity(supArg{:});
+
         end
 
         function quantityOutput = computeQuantity(~, dij, scen,w)

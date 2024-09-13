@@ -269,40 +269,40 @@ end
 
 backProjection = matRad_BackProjectionQuantity();
 
-switch pln.bioParam.quantityOpt
-    case 'effect'
-        backProjection.instantiateQuatities({'effect'});
-    case 'RBExD'
-        backProjection.instantiateQuatities({'RBExD'});
-    case 'physicalDose'
-        backProjection.instantiateQuatities({'physicalDose'});
-end
-
 % switch pln.bioParam.quantityOpt
 %     case 'effect'
-%         backProjection = matRad_EffectProjection;
+%         backProjection.instantiateQuatities({'effect'},dij,cst);
 %     case 'RBExD'
-%         %Capture special case of constant RBE
-%         if strcmp(pln.bioParam.model,'constRBE')
-%             backProjection = matRad_ConstantRBEProjection;
-%         else
-%             backProjection = matRad_VariableRBEProjection;
-%         end
-%     case 'BED'
-%         backProjection = matRad_BEDProjection;     
+% 
+%         backProjection.instantiateQuatities({'RBExD'},dij,cst);
 %     case 'physicalDose'
-%         backProjection = matRad_BackProjectionQuantity;
-%         backProjection.quantities = {matRad_PhysicalDose};
-%     otherwise
-%         warning(['Did not recognize bioloigcal setting ''' pln.probOpt.bioOptimization '''!\nUsing physical dose optimization!']);
-%         backProjection = matRad_DoseProjection;
+%         backProjection.instantiateQuatities({'physicalDose'},dij,cst);
+%     case 'BED'
 % end
+
+% For the time being
+useStructsForOmega = [];
+omegaQuantity = [];
+for i=1:size(cst,1)
+    for j=1:numel(cst{1,6})
+        if isa(cst{i,6}{j}, 'OmegaObjective.matRad_OmegaObjective')
+            omegaQuantity = 'vTot';
+            useStructsForOmega = [useStructsForOmega,i];
+        end
+    end
+end
+
+optQuantities = {pln.bioParam.quantityOpt, omegaQuantity};
+optQuantities(cellfun(@isempty,optQuantities)) = [];
+
+backProjection.instantiateQuatities(optQuantities,dij,cst);
 
 %Give scenarios used for optimization
 backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-%backProjection.scenDim      = pln.multScen
+backProjection.structsForScalarQuantity = useStructsForOmega;
+
 
 optiProb = matRad_OptimizationProblemQuantities(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;

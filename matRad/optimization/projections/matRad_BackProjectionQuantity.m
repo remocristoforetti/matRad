@@ -30,6 +30,7 @@ classdef matRad_BackProjectionQuantity < handle
         nominalCtScenarios = 1; %nominal ct scenario (no shift, no range error) indices to evaluate (used for 4D & robust/stochastic optimization, when at least one cst structure does not have robustness)
         quantities;             % Quantities that need to be evaluated (includes subquantities)
         optimizationQuantities; % Quantities on which an objective function is defined
+        structsForScalarQuantity;
     end
 
     
@@ -94,7 +95,7 @@ classdef matRad_BackProjectionQuantity < handle
             obj.wGrad = tmpGradient;
         end
       
-        function instantiateQuatities(this, optimizationQuantities)
+        function instantiateQuatities(this, optimizationQuantities, dij,cst)
             
             matRad_cfg = MatRad_Config.instance();
 
@@ -118,7 +119,7 @@ classdef matRad_BackProjectionQuantity < handle
 
                 if ~isempty(currQuantityIdx)
                     currQuantity = availableQuantitiesMeta(currQuantityIdx).handle();
-                    subQuantitiesName = [subQuantitiesName,this.getSubQuantities(currQuantity)];
+                    subQuantitiesName = [subQuantitiesName,this.getSubQuantities(currQuantity,availableQuantitiesMeta)];
                 end
             end
 
@@ -129,6 +130,17 @@ classdef matRad_BackProjectionQuantity < handle
             %Instantiate the quantities
            
             this.quantities = cellfun(@(x) x(), {selectedQuantitiesMeta.handle}, 'UniformOutput',false)';
+            
+            distributionProperties = cellfun(@(x) isa(x, 'matRad_DistributionQuantity'), this.quantities);
+            
+
+            if  any(distributionProperties)
+                cellfun(@(x) x.initializeProperties(dij), this.quantities(distributionProperties));
+            end
+
+            if any(~distributionProperties)
+                cellfun(@(x) x.initializeProperties(cst), this.quantities(~distributionProperties));
+            end
             
             for quantityIdx=1:numel(this.quantities)
                 requiredSubquantitiesName = this.quantities{quantityIdx}.requiredSubquantities;
@@ -258,7 +270,19 @@ classdef matRad_BackProjectionQuantity < handle
             % For the time being just mirror the scenarios here, then
             % assign according to selection of the objectives
             for quantityIdx=1:numel(this.quantities)
-                this.quantities{quantityIdx}.scenarios = this.scenarios;
+                if isa(this.quantities{quantityIdx}, 'matRad_DistributionQuantity')
+                    this.quantities{quantityIdx}.useScenarios = this.scenarios;
+                end
+            end
+        end
+
+        function updateStructsForQuantities(this)
+            % For the time being just mirror here, then
+            % assign according to selection of the objectives
+            for quantityIdx=1:numel(this.quantities)
+                if isa(this.quantities{quantityIdx}, 'matRad_ScalarQuantity')
+                    this.quantities{quantityIdx}.useStructs = this.structsForScalarQuantity;
+                end
             end
         end
     end
@@ -309,7 +333,7 @@ classdef matRad_BackProjectionQuantity < handle
 
         end
 
-        function subQuantity = getSubQuantities(quantity)
+        function subQuantity = getSubQuantities(quantity, availableQuantitiesMeta)
 
             
             subQuantity = quantity.requiredSubquantities';
@@ -317,10 +341,15 @@ classdef matRad_BackProjectionQuantity < handle
             nQuantities  = numel(currLevelQuantities);
 
             for subIdx=1:nQuantities
-                currQuantity = currLevelQuantities{subIdx};
-                if isa(currQuantity(), 'matRad_OptimizationQuantity')
-                    subSubQuantities = getSubQuantities@matRad_BackProjectionQuantity(currQuantity());
+                currQuantityName = currLevelQuantities{subIdx};
+                [~,classIdx] = intersect({availableQuantitiesMeta.quantityName},currQuantityName);
+                currQuantityInstance = availableQuantitiesMeta(classIdx).handle();
+                
+                if isa(currQuantityInstance, 'matRad_OptimizationQuantity')
+
+                    subSubQuantities = getSubQuantities@matRad_BackProjectionQuantity(currQuantityInstance,availableQuantitiesMeta);
                     subQuantity = [subQuantity; subSubQuantities];
+
                 end
             end
 
@@ -331,6 +360,11 @@ classdef matRad_BackProjectionQuantity < handle
         function set.scenarios(this,value)
             this.scenarios = value;
             this.updateScenariosForQuantities();
+        end
+
+         function set.structsForScalarQuantity(this,value)
+            this.structsForScalarQuantity = value;
+            this.updateStructsForQuantities();
         end
     end
 end
