@@ -86,7 +86,7 @@ for  i = 1:size(cst,1)
 
                 %This is just for temporary compatibility
                 for optQt=optiProb.BP.optimizationQuantities
-                    if any(strcmp(optQt, {'physicalDose', 'RBExD', 'effect', 'BED'}))
+                    if any(strcmp(optQt, {'physicalDose', 'RBExD', 'effect', 'BED', 'physicalDoseExp'}))
                         quantityOptimized = optQt{1};
                     end
                 end
@@ -117,7 +117,7 @@ for  i = 1:size(cst,1)
 
                     case 'PROB' % if prob opt: sum up expectation value of objectives
 
-                        nPhases = numel(d.(quantityOpimized));
+                        nPhases = numel(d.(quantityOptimized));
                         
                         fphase = 0;
 
@@ -125,7 +125,7 @@ for  i = 1:size(cst,1)
                         % expected dose distribution for all cts/phases
                         if nPhases==1
                             structIdxs = cat(1,cst{i,4}{useNominalCtScen});
-                            structIdxs = unique(structIdxs);
+                            structIdxs = {unique(structIdxs)};
                         else
                             structIdxs = cst{i,4}(useNominalCtScen);
                         end

@@ -34,7 +34,7 @@ classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
             % This is quite a mess
             if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
                 distributionQuantity = 'physicalDose';
-            elseif isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalExpDose{1})
+            elseif isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
                 distributionQuantity = 'physicalDoseExp';
             elseif isfield(dij, 'mAlphaDose') && ~isempty(dij.mAlphaDose{1})
                 distributionQuantity = 'mAlphaDose';

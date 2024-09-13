@@ -54,8 +54,17 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(resultGUI.w,1),1);
 
 
 %% Physical Dose
-doseFields = {'physicalDose','doseToWater'};
-doseQuantities = {'','_std','_batchStd'};
+if ~isempty(dij.physicalDose{1})
+    doseFields = {'physicalDose','doseToWater'};
+    doseQuantities = {'','_std','_batchStd'};
+    if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1}) && scenNum==1
+        doseFields = [doseFields, {'physicalDoseExp'}];
+    end
+else
+    doseFields = {'physicalDoseExp'};
+    doseQuantities = {'','_std','_batchStd'};
+
+end
 % compute physical dose for all beams individually and together
 for j = 1:length(doseFields)
     for k = 1:length(doseQuantities)
@@ -80,8 +89,12 @@ end
 if ~isfield(dij,'doseWeightingThreshold')
     dij.doseWeightingThreshold = 0.01;
 end
-absoluteDoseWeightingThreshold = dij.doseWeightingThreshold*max(resultGUI.physicalDose(:));
 
+if ~isempty(dij.physicalDose{scenNum})
+    absoluteDoseWeightingThreshold = dij.doseWeightingThreshold*max(resultGUI.physicalDose(:));
+else
+    absoluteDoseWeightingThreshold = dij.doseWeightingThreshold*max(resultGUI.physicalDoseExp(:));
+end
 
 
 %% LET
@@ -233,4 +246,3 @@ end
 
 
 end
-

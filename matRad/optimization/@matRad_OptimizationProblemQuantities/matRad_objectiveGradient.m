@@ -84,7 +84,7 @@ for  i = 1:size(cst,1)
                 
                 %This is just for temporary compatibility
                 for optQt=optiProb.BP.optimizationQuantities
-                    if any(strcmp(optQt, {'physicalDose', 'RBExD', 'effect', 'BED'}))
+                    if any(strcmp(optQt, {'physicalDose', 'RBExD', 'effect', 'BED', 'physicalDoseExp'}))
                         quantityOptimized = optQt{1};
                     end
                 end
@@ -129,11 +129,11 @@ for  i = 1:size(cst,1)
                         % if ~exist('doseGradientExp','var')
                         %     doseGradientExp{1} = zeros(dij.doseGrid.numOfVoxels,1);
                         % end
-                        nPhases = numel(d.(quantityOpimized));
+                        nPhases = numel(d.(quantityOptimized));
 
                         if nPhases==1
                             structIdxs = cat(1,cst{i,4}{useNominalCtScen});
-                            structIdxs = unique(structIdxs);
+                            structIdxs = {unique(structIdxs)};
                         else
                             structIdxs = cst{i,4}(useNominalCtScen);
                         end

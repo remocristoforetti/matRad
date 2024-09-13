@@ -213,7 +213,11 @@ elseif pln.bioParam.bioOpt
 
     matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
 else
-    doseTmp = dij.physicalDose{1}*wOnes;
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/mean(doseTmp(V));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -232,14 +236,21 @@ end
 
 %If "all" provided, use all scenarios
 if isequal(scen4D,'all')
-    scen4D = 1:size(dij.physicalDose,1);
+    if ~isempty(dij.physicalDose{1})
+        scen4D = 1:size(dij.physicalDose,1);
+    else
+        scen4D = 1:size(dij.physicalDoseExp,1);
+    end
 end
 
 linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 
 %Only select the indexes of the nominal ct Scenarios
-linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
-
+if ~isempty(dij.physicalDose{1})
+    linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+else
+    linIxDIJ_nominalCT = scen4D;
+end
 FLAG_CALC_PROB = false;
 FLAG_ROB_OPT   = false;
 
@@ -283,16 +294,21 @@ backProjection = matRad_BackProjectionQuantity();
 % For the time being
 useStructsForOmega = [];
 omegaQuantity = [];
+quantitiesFromCst = [];
 for i=1:size(cst,1)
-    for j=1:numel(cst{1,6})
+    for j=1:numel(cst{i,6})
         if isa(cst{i,6}{j}, 'OmegaObjective.matRad_OmegaObjective')
             omegaQuantity = 'vTot';
             useStructsForOmega = [useStructsForOmega,i];
+        elseif isa(cst{i,6}{j}, 'DoseObjective.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
+            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
         end
+        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
     end
 end
 
-optQuantities = {pln.bioParam.quantityOpt, omegaQuantity};
+quantitiesFromCst = unique(quantitiesFromCst);
+optQuantities = [quantitiesFromCst, {omegaQuantity}];
 optQuantities(cellfun(@isempty,optQuantities)) = [];
 
 backProjection.instantiateQuatities(optQuantities,dij,cst);
