@@ -43,7 +43,9 @@ classdef matRad_BackProjection < handle
             obj.wGradCacheProb = [];
             obj.d = [];
             obj.dExp = [];
+            
             obj.dOmegaV = [];
+            obj.vTot = [];
             obj.wGrad = [];            
             obj.wGradProb = [];
         end       
@@ -63,9 +65,9 @@ classdef matRad_BackProjection < handle
             end
         end
         
-        function obj = computeGradientProb(obj,dij,doseGrad,vOmegaGrad,w)
+        function obj = computeGradientProb(obj,dij,doseGrad,doseGradientOmega,vOmegaGrad,w)
             if ~isequal(obj.wGradCacheProb,w)
-                obj.wGradProb = obj.projectGradientProb(dij,doseGrad,vOmegaGrad,w);
+                obj.wGradProb = obj.projectGradientProb(dij,doseGrad,doseGradientOmega,vOmegaGrad,w);
                 obj.wGradCacheProb = w;
             end
         end
@@ -95,15 +97,26 @@ classdef matRad_BackProjection < handle
         
         function [dExp,dOmegaV,vTot] = computeResultProb(obj,dij,w)
             
-            if isfield(dij,'physicalDoseExp')
-                scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
-                dExp = cell(size(dij.physicalDoseExp));
+            if isfield(dij,'physicalDoseExp') || (isfield(dij, 'mAlphaDoseExp') && isfield(dij, 'mSqrtBetaDoseExp'))
+                if (isfield(dij,'physicalDoseExp') && ~isempty(dij.physicalDoseExp)) && ~(isfield(dij, 'mAlphaDoseExp') && isfield(dij, 'mSqrtBetaDoseExp'))
+                    scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
+                    dExp = cell(size(dij.physicalDoseExp));
+                    dOmegaV = cell(size(dij.physicalDoseOmega));
+                    vTot = cell(size(dij.physicalDoseOmega));
+                elseif (isfield(dij, 'mAlphaDoseExp') && ~isempty(dij.mAlphaDoseExp))
+                    scensToInclude = find(~cellfun(@isempty, dij.mAlphaDoseExp));
+    
+                    dExp = cell(size(dij.mAlphaDoseExp));
+                    dOmegaV = cell(size(dij.mAlphaDoseOmega));
+                    vTot = cell(size(dij.mAlphaDoseOmega));
+                end
+    
+                   
                 [dExp(scensToInclude),dOmegaVTmp(scensToInclude), vTotTmp(scensToInclude)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),scensToInclude,'UniformOutput',false);
-                
-                dOmegaV = cell(size(dij.physicalDoseOmega));
+                                
                 dOmegaV(:, scensToInclude) = [dOmegaVTmp{:}];
-
-                vTot = cell(size(dij.physicalDoseOmega));                
+    
+                               
                 vTot(:, scensToInclude) = [vTotTmp{:}];
                 
             else
@@ -118,16 +131,22 @@ classdef matRad_BackProjection < handle
             wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradient(obj,dij,doseGrad,scen,w),obj.scenarios,'UniformOutput',false);         
         end
         
-        function wGrad = projectGradientProb(obj,dij,dExpGrad,dOmegaVgrad,w)
+        function wGrad = projectGradientProb(obj,dij,dExpGrad,doseGradientOmega,dOmegaVgrad,w)
 
-            scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
-            wGrad = cell(size(dij.physicalDoseExp));
+
+            if (isfield(dij,'physicalDoseExp') && ~isempty(dij.physicalDoseExp)) && ~(isfield(dij, 'mAlphaDoseExp') && isfield(dij, 'mSqrtBetaDoseExp'))
+                scensToInclude = find(~cellfun(@isempty, dij.physicalDoseExp));
+                wGrad = cell(size(dij.physicalDoseExp));
+            elseif (isfield(dij, 'mAlphaDoseExp') && ~isempty(dij.mAlphaDoseExp))
+                scensToInclude = find(~cellfun(@isempty, dij.mAlphaDoseExp));
+                wGrad = cell(size(dij.mAlphaDoseExp));
+            end
             % There is no need here to separate Exp and Omega part, in any
             % case if a structure has only one or the other, the non used
             % dExpGrad or dOmegaVgrad will be zero/non included, thus the
             % contribution will be zero.
             % For cleaner implementation could be separated
-            wGrad(scensToInclude) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),scensToInclude,'UniformOutput',false);
+            wGrad(scensToInclude) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,doseGradientOmega,dOmegaVgrad,scen,w),scensToInclude,'UniformOutput',false);
         end
     end
    

@@ -73,6 +73,10 @@ end
 vOmega                   = cell(numel(nonEmptyExp),1); 
 vOmega(nonEmptyExp) = {zeros(dij.totalNumOfBixels,1)};
 
+
+doseGradientOmega = cell(numel(nonEmptyExp),1);
+doseGradientOmega(nonEmptyExp) = {zeros(dij.doseGrid.numOfVoxels,1)};
+
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
 
@@ -330,7 +334,7 @@ for  i = 1:size(cst,1)
                 robustness = objective.robustness;
         
                 % rescale dose parameters to biological optimization quantity if required
-                objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+                %objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
                 if objective.isActive
                     switch robustness
                         case 'PROB'
@@ -351,8 +355,12 @@ for  i = 1:size(cst,1)
                             end
                             for s=nonEmptyExp
                                 %vOmega here is sum over all structures
-                                tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{i,s}, numel(newIdx{s}));
-                                vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{i,s};
+                                d_i = dExp{s}(newIdx{s});
+                                [tvGrad, tmp_doseGradientOmega] = objective.computeTotalVarianceGradient(vTot{i,s}, d_i);
+                                %tvGrad = sum(tvGrad);
+                                vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{i,s} .* objective.penalty;
+
+                                doseGradientOmega{s,1}(newIdx{s}) = doseGradientOmega{s,1}(newIdx{s}) + tmp_doseGradientOmega.*objective.penalty;
                             end
                     end
                 end % isActive
@@ -400,7 +408,10 @@ end
 %nonZerosOmega = arrayfun(@(scen) nnz(vOmega{scen}),nonEmptyOmega);
 %if any(nonEmptyOmega) && all(nonZerosOmega>0)
 if exist('doseGradientExp', 'var')
-    optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
+    if all(cellfun(@(x) sum(x) == 0, doseGradientOmega))
+        doseGradientOmega = cell(numel(nonEmptyExp),1);
+    end
+    optiProb.BP.computeGradientProb(dij,doseGradientExp,doseGradientOmega,vOmega,w);
     gProb = optiProb.BP.GetGradientProb();
     
     %Only implemented for first scenario now
@@ -413,9 +424,9 @@ end
 
 gradientChecker = 0;
 if gradientChecker == 1
+
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
     epsilon = 1e-6;
-
 
     ix = unique(randi([dij.totalNumOfBixels],1,5));
 

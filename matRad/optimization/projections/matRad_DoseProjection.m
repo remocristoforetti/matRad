@@ -67,11 +67,14 @@ classdef matRad_DoseProjection < matRad_BackProjection
             end
         end
         
-        function wGrad = projectSingleScenarioGradientProb(~,dij,dExpGrad,dOmegaVgrad,scen,~)
+        function wGrad = projectSingleScenarioGradientProb(~,dij,dExpGrad,doseGradientOmega,dOmegaVgrad,scen,~)
             if ~isempty(dij.physicalDoseExp{scen})
                 wGrad = (dExpGrad{scen}' * dij.physicalDoseExp{scen})';
                 wGrad = wGrad + 2 * dOmegaVgrad{scen};
-
+                % If doseGradientOmega is empty, no overhead
+                if ~isempty(doseGradientOmega{scen})
+                    wGrad = wGrad + (doseGradientOmega{scen}' * dij.physicalDoseExp{scen})';
+                end
             else
                 wGrad = [];
                 matRad_cfg = MatRad_Config.instance();

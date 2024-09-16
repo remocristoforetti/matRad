@@ -24,8 +24,8 @@ classdef matRad_EffectProjection < matRad_BackProjection
             if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
                 if isempty(dij.mAlphaDose{scen}) || isempty(dij.mSqrtBetaDose{scen})
                     effect = [];
-                    matRad_cfg = MatRad_Config.instance();
-                    matRad_cfg.dispWarning('Empty mAlphaDose scenario in optimization detected! This should not happen...\n');
+                    %matRad_cfg = MatRad_Config.instance();
+                    %matRad_cfg.dispWarning('Empty mAlphaDose scenario in optimization detected! This should not happen...\n');
                 else
                     effect = dij.mAlphaDose{scen}*w + (dij.mSqrtBetaDose{scen}*w).^2;
                 end 
@@ -66,26 +66,37 @@ classdef matRad_EffectProjection < matRad_BackProjection
             end
         end
         
-        function [eExp,dOmegaV] = computeSingleScenarioProb(~,dij,scen,w)
+        function [eExp,dOmegaV,vTot] = computeSingleScenarioProb(obj,dij,scen,w)
             if isempty(dij.mAlphaDoseExp{scen}) || isempty(dij.mSqrtBetaDoseExp{scen})
                 eExp = [];
                 dOmegaV = [];
+                vTot = [];
                 %matRad_cfg = MatRad_Config.instance();
                 %matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
             else
                 matRad_cfg = MatRad_Config.instance();
-                matRad_cfg.dispWarning('Probabilistic Backprojection uses inaccurate approximation for effect computation...\n');
-                %eExpLinTerm = dij.mAlphaDose{scen}*w;
-                %eExpSqTerm  = dij.mSqrtBetaDose{scen}*w;
-                eExp = dij.mAlphaDose{scen}*w + (dij.mSqrtBetaDose{scen}*w).^2;
+                %matRad_cfg.dispWarning('Probabilistic Backprojection uses inaccurate approximation for effect computation...\n');
                 
-                for i = 1:size(dij.physicalDoseOmega,2)
-                   dOmegaV{scen,i} = dij.mAlphaDoseOmega{scen,i} * w;
-                end 
+                eExp = dij.mAlphaDoseExp{scen}*w + (dij.mSqrtBetaDoseExp{scen}*w).^2;
+                
+                selectedStructs = obj.useStructsForOmega;%find(~cellfun(@isempty, dij.physicalDoseOmega(:,scen)));
+
+                dOmegaV = cell(size(dij.mAlphaDoseOmega,1),1);
+                vTot = cell(size(dij.mAlphaDoseOmega,1),1);
+
+                
+                dOmegaV(selectedStructs) = arrayfun(@(i) dij.mAlphaDoseOmega{i,scen}*w, selectedStructs, 'UniformOutput',false);
+                vTot(selectedStructs)= arrayfun(@(i) w'*dOmegaV{i}, selectedStructs, 'UniformOutput',false);
+                
+                if any([vTot{:}]<0)
+                    matRad_cfg = MatRad_Config.instance();
+                    matRad_cfg.dispWarning('Negative total variance detected, this should not happen.');
+                end
+
             end      
         end
         
-        function wGrad = projectSingleScenarioGradientProb(~,dij,dExpGrad,dOmegaVgrad,scen,~)
+        function wGrad = projectSingleScenarioGradientProb(~,dij,dExpGrad,doseGradientOmega,dOmegaVgrad,scen,w)
             if isempty(dij.mAlphaDoseExp{scen}) || isempty(dij.mSqrtBetaDoseExp{scen})
                 wGrad = [];
             else
@@ -93,7 +104,14 @@ classdef matRad_EffectProjection < matRad_BackProjection
                 quadTerm = dij.mSqrtBetaDoseExp{scen} * w;
                 mPsi = (2*(dExpGrad{scen}.*quadTerm)' * dij.mSqrtBetaDoseExp{scen})';
                 wGrad = vBias + mPsi;
-                wGrad = wGrad + 2 * dOmegaVgrad;
+                wGrad = wGrad + 2 * dOmegaVgrad{scen};
+
+                if ~isempty(doseGradientOmega{scen})
+                    vBias = (doseGradientOmega{scen}' * dij.mAlphaDoseExp{scen})';
+                    mPsi = (2*(doseGradientOmega{scen}.*quadTerm)' * dij.mSqrtBetaDoseExp{scen})';
+                    wGrad = wGrad + (vBias + mPsi);
+                end
+
             end            
         end        
     end

@@ -259,7 +259,7 @@ for  i = 1:size(cst,1)
             elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
 
 
-                objective = optiProb.BP.setBiologicalDosePrescriptions(objective, cst{i,5}.alphaX, cst{i,5}.betaX);
+                %objective = optiProb.BP.setBiologicalDosePrescriptions(objective, cst{i,5}.alphaX, cst{i,5}.betaX);
                 robustness = objective.robustness;
 
                 switch robustness
@@ -279,9 +279,9 @@ for  i = 1:size(cst,1)
                         end
 
                         f_objective = 0;
-                        for s=nonEmptyExp%useNominalCtScen
-%                            f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(newIdx{s}));
-                            f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(newIdx{s}));
+                        for s=nonEmptyExp
+                            d_i = dExp{s}(newIdx{s});
+                            f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, d_i);
 
                         end
 
