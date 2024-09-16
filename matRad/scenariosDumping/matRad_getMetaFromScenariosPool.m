@@ -1,5 +1,18 @@
-function scenariosMeta =  matRad_getMetaFromScenariosPool(saveDir)
+function [scenariosMeta, dijTemplate] =  matRad_getMetaFromScenariosPool(saveDir)
     
+    matRad_cfg = MatRad_Config.instance();
+
+    if ~exist(saveDir, 'dir')
+        matRad_cfg.dispError('Could not find directory: %s', saveDir);
+    end
+
+    try
+        load(fullfile(saveDir, 'dijTemplate.mat'),'dijTemplate');
+        matRad_cfg.dispInfo('done. \n');
+    catch
+        matRad_cfg.dispWarning('Unable to load dijTemplate file');
+    end
+
     % Detect files
     dirFiles = dir(saveDir);
 

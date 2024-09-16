@@ -77,8 +77,10 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
                     matRad_cfg.dispInfo('saving scenario...');
                     fileName = fullfile(saveDirectory, ['scenario_', num2str(currScenIndex)]);
     
-                    dijScenario = currDij.physicalDose;
-                   
+                    dijScenario.physicalDose  = currDij.physicalDose;
+                    dijScenario.mAlphaDose    = currDij.mAlphaDose;
+                    dijScenario.mSqrtBetaDose = currDij.mSqrtBetaDose;
+
                     isoShift = currMultiScenMeta.isoShift;
                     relRangeShift = currMultiScenMeta.relRangeShift;
                     absRangeShift = currMultiScenMeta.absRangeShift;
@@ -96,7 +98,9 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
                     
                     if scenCounter ==1
                         dijTemplate = currDij;
-                        dijTemplate.physicalDose = {};
+                        dijTemplate.physicalDose  = {[]};
+                        dijTemplate.mAlphaDose    = {[]};
+                        dijTemplate.mSqrtBetaDose = {[]};
                     end
                     
                     clear currDij dijScenario;
@@ -111,8 +115,9 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
     dij = dijTemplate;
     dij.doseCalcTime = tEnd;
     
+    
     save(fullfile(saveDirectory, 'dijTemplate.mat'), 'dijTemplate');
-
+    
     save(fullfile(saveDirectory, 'stf.mat'), 'stf');
 
 end

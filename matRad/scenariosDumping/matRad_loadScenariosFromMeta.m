@@ -1,4 +1,4 @@
-function physicalDose = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate)
+function [physicalDose, mAlphaDose, mSqrtBetaDose]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate)
 
     matRad_cfg = MatRad_Config.instance();
 
@@ -6,7 +6,7 @@ function physicalDose = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dij
 
         matRad_cfg.dispInfo('No dijTemplate provided, trying to locate one ...');
         try
-            load(fullfile(saveDirectory, 'dijTemplate'));
+            load(fullfile(saveDirectory, 'dijTemplate.mat'),'dijTemplate');
             matRad_cfg.dispInfo('done. \n');
         catch
 
@@ -20,8 +20,9 @@ function physicalDose = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dij
 
     nScensToLoad = numel(scenariosMeta);
     
-    
     physicalDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
+    mAlphaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
+    mSqrtBetaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
     
     for scenIdx=1:nScensToLoad
 
@@ -30,6 +31,14 @@ function physicalDose = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dij
         
         currDijScen = load(fileName, 'dijScenario');
         currDijScen = currDijScen.dijScenario;
-        physicalDose(scenIdx) = currDijScen;
+
+        if ~isstruct(currDijScen)
+            % This is for older compatibility
+            physicalDose(scenIdx) = currDijScen;
+        else
+            physicalDose(scenIdx)  = currDijScen.physicalDose;
+            mAlphaDose(scenIdx)    = currDijScen.mAlphaDose;
+            mSqrtBetaDose(scenIdx) = currDijScen.mSqrtBetaDose; 
+        end
     end
 end
