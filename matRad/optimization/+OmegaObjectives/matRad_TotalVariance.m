@@ -18,17 +18,18 @@ classdef matRad_TotalVariance < OmegaObjectives.matRad_OmegaObjective
         function obj = matRad_TotalVariance()
         end
         
-        function f = computeTotalVarianceObjective(obj,totVariance,nVoxels)
+        function f = computeTotalVarianceObjective(obj,totVariance,d_i)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
-            f = 1/nVoxels * totVariance;
+            f = 1/numel(d_i) * totVariance;
         end
         
         
-        function g = computeTotalVarianceGradient(obj,~,nVoxels)
+        function [g,dExpG] = computeTotalVarianceGradient(obj,~,d_i)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
-            g = 1/nVoxels;
+            g = 1/numel(d_i);
+            dExpG = 0;
         end
     end
 end
