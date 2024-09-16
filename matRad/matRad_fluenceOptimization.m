@@ -93,11 +93,14 @@ for i = 1:size(cst,1)
         fDoses = [];
         for fObjCell = cst{i,6}
             if isa(fObjCell{1},'DoseObjectives.matRad_DoseObjective') || isa(fObjCell{1},'DoseConstraints.matRad_DoseConstraint')
+                
                 dParams = fObjCell{1}.getDoseParameters();
                 %Don't care for Inf constraints
                 dParams = dParams(isfinite(dParams));
                 %Add do dose list
                 fDoses = [fDoses dParams];
+            elseif isa(fObjCell{1},'OmegaObjectives.matRad_OmegaObjective') || isa(fObjCell{1},'OmegaConstraints.matRad_VarianceConstraint')
+                fDoses = [fDoses 1];
             end
         end
 
@@ -168,10 +171,16 @@ elseif pln.bioParam.bioOpt
     if isequal(pln.bioParam.quantityOpt,'effect')
 
         effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
-        aTmp = dij.mAlphaDose{1}*wOnes;
-        bTmp = dij.mSqrtBetaDose{1} * wOnes;
-        p = sum(aTmp(V)) / sum(bTmp(V).^2);
-        q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
+        if ~isempty(dij.mAlphaDose{1})
+            aTmp = dij.mAlphaDose{1}*wOnes;
+            bTmp = dij.mSqrtBetaDose{1} * wOnes;
+            bTmp = bTmp(V);
+        else
+            aTmp = dij.mAlphaDoseExp{1}*wOnes;
+            bTmp = wOnes' * dij.mSqrtBetaDoseOmega{find(strcmp(cst(:,3), 'TARGET'),1,'first')} * wOnes;
+        end
+        p = sum(aTmp(V)) / sum(bTmp.^2);
+        q = -(effectTarget * length(V)) / sum(bTmp.^2);
 
         wInit        = -(p/2) + sqrt((p^2)/4 -q) * wOnes;
 
@@ -185,8 +194,16 @@ elseif pln.bioParam.bioOpt
 
 
         % calculate current effect in target
-        aTmp = dij.mAlphaDose{1}*wOnes;
-        bTmp = dij.mSqrtBetaDose{1} * wOnes;
+        % aTmp = dij.mAlphaDose{1}*wOnes;
+        % bTmp = dij.mSqrtBetaDose{1} * wOnes;
+        if ~isempty(dij.mAlphaDose{1})
+            aTmp = dij.mAlphaDose{1}*wOnes;
+            bTmp = dij.mSqrtBetaDose{1} * wOnes;
+        else
+            aTmp = dij.mAlphaDoseExp{1}*wOnes;
+            bTmp = wOnes' * dij.omegaBeta{find(strcmp(cst(:,3), 'TARGET'),1,'first')} * wOnes;
+        end
+
         if ~isempty(dij.physicalDose{1})
             doseTmp = dij.physicalDose{1}*wOnes;
         else
@@ -271,13 +288,18 @@ else
     linIxDIJ_nominalCT = scen4D;
 end
 
+
 FLAG_CALC_PROB = false;
+FLAG_PROB_OPT  = false;
 FLAG_ROB_OPT   = false;
 
 for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
-        if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
-            FLAG_CALC_PROB = true;
+        if strcmp(cst{i,6}{j}.robustness,'PROB')
+            FLAG_PROB_OPT = true;
+            if all([(~isfield(dij, 'physicalDoseExp') || isempty(dij.physicalDoseExp)), (~isfield(dij, 'mAlphaDoseExp')|| isempty(dij.mAlphaDoseExp))])
+                FLAG_CALC_PROB = true;
+            end
         end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;
@@ -285,33 +307,47 @@ for i = 1:size(cst,1)
     end
 end
 
-if FLAG_CALC_PROB && ~isfield(dij, 'physicalDoseExp') && ~isfield(dij, 'physicalDoseOmega')
+if FLAG_CALC_PROB %&& ~isfield(dij, 'physicalDoseExp') && ~isfield(dij, 'physicalDoseOmega')
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
 end
 
-%Set the structures to be included for prob calculation
-voiForOmegaIx = [];
-if isfield(dij, 'physicalDoseOmega') && ~isempty(dij.physicalDoseOmega)
-    for i = 1:size(cst,1)
-        for j=1:size(cst{i,6},2)
-            if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
-                voiForOmegaIx = [voiForOmegaIx i];
+if FLAG_PROB_OPT
+    %Set the structures to be included for prob calculation
+    voiForOmegaIx = [];
+    if (isfield(dij, 'physicalDoseOmega') && ~isempty(dij.physicalDoseOmega)) || (isfield(dij, 'mAlphaDoseOmega') && ~isempty(dij.mAlphaDoseOmega))
+        for i = 1:size(cst,1)
+            for j=1:size(cst{i,6},2)
+                if isa(cst{i,6}{j},'OmegaObjectives.matRad_OmegaObjective') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+                    voiForOmegaIx = [voiForOmegaIx i];
+                end
             end
         end
+        voiForOmegaIx = unique(voiForOmegaIx);
     end
-    voiForOmegaIx = unique(voiForOmegaIx);
 end
 
 % set optimization options
+useScen = 1;
 
-if ~isempty(dij.physicalDose{:}) && ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
-    ixForOpt = scen4D;
-else
-    ixForOpt = linIxDIJ;
+if FLAG_ROB_OPT && ~FLAG_PROB_OPT
+    useScen = linIxDIJ;
+elseif FLAG_PROB_OPT && ~FLAG_ROB_OPT
+    useScen = [];
 end
+
+% if ~isfield(dij, 'physicalDoseExp') && ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
+%     ixForOpt = scen4D;
+% else
+%     ixForOpt = linIxDIJ;
+% end
 
 switch pln.bioParam.quantityOpt
     case 'effect'
+        % if isfield(dij, 'mAlphaDoseExp')
+        %     backProjection = matRad_ProbEffectProjection;
+        % else
+        %     backProjection = matRad_EffectProjection;
+        % end
         backProjection = matRad_EffectProjection;
     case 'RBExD'
         %Capture special case of constant RBE
@@ -325,12 +361,12 @@ switch pln.bioParam.quantityOpt
     case 'physicalDose'
         backProjection = matRad_DoseProjection;
     otherwise
-        warning(['Did not recognize bioloigcal setting ''' pln.probOpt.bioOptimization '''!\nUsing physical dose optimization!']);
+        warning(['Did not recognize biological setting ''' pln.probOpt.bioOptimization '''!\nUsing physical dose optimization!']);
         backProjection = matRad_DoseProjection;
 end
 
 %Give scenarios used for optimization
-backProjection.scenarios    = ixForOpt;
+backProjection.scenarios    = useScen;
 backProjection.scenarioProb = pln.multScen.scenWeight;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 backProjection.useStructsForOmega = voiForOmegaIx;
