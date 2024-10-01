@@ -54,7 +54,7 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(resultGUI.w,1),1);
 
 
 %% Physical Dose
-if ~isempty(dij.physicalDose{scenNum})
+if ~isempty(dij.physicalDose{1})
     doseFields = {'physicalDose','doseToWater'};
     doseQuantities = {'','_std','_batchStd'};
     if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1}) && scenNum==1
@@ -108,7 +108,7 @@ end
 %% LET
 % consider LET
 
-if isfield(dij,'mLETDose')
+if isfield(dij,'mLETDose') && ~isempty(dij.mLETDose{1})
     for i = 1:length(beamInfo)
         LETDoseCube                                 = reshape(full(dij.mLETDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
        
@@ -198,16 +198,16 @@ if isfield(dij,'ax') && isfield(dij,'bx')
     else
         % Get Alpha and Beta Values form dij.ax and dij.bx
         for i = 1:length(beamInfo)
-            %         ix = ~isnan(dij.ax{1}./dij.bx{1});
+            %       ix = ~isnan(dij.ax{1}./dij.bx{1});
             if isfield(resultGUI, 'RBExDose')
                 Dose = resultGUI.(['RBExDose', beamInfo(i).suffix]);
             else
 
                 Dose = resultGUI.([pDPrefix, beamInfo(i).suffix]);
             end
-            effect = dij.ax{ctScen}.* Dose + dij.bx{ctScen}.*Dose.^2;
+            effect = dij.ax{ctScen}.* Dose(:) + dij.bx{ctScen}.*Dose(:).^2;
             resultGUI.(['BED', beamInfo(i).suffix]) = zeros(dij.doseGrid.dimensions);
-            resultGUI.(['BED', beamInfo(i).suffix])(ix) = effect(ixWeighted)./alphaX(ixWeighted);
+            resultGUI.(['BED', beamInfo(i).suffix])(ixWeighted) = effect(ixWeighted)./dij.ax{ctScen}(ixWeighted);
             resultGUI.(['BED', beamInfo(i).suffix]) = reshape(resultGUI.(['BED', beamInfo(i).suffix]), dij.doseGrid.dimensions);
         end
         if isfield(resultGUI, 'RBExDose')
