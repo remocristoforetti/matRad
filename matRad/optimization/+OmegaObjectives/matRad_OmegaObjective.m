@@ -9,6 +9,7 @@ classdef (Abstract) matRad_OmegaObjective
 
     properties
         isActive = true;
+        quantity;
     end
     
     methods (Static)
