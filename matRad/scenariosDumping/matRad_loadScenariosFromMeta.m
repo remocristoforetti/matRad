@@ -1,4 +1,4 @@
-function [physicalDose, mAlphaDose, mSqrtBetaDose]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate)
+function [physicalDose, mAlphaDose, mSqrtBetaDose, mLETDose, alphaJ, sqrtBetaJ]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate)
 
     matRad_cfg = MatRad_Config.instance();
 
@@ -14,6 +14,8 @@ function [physicalDose, mAlphaDose, mSqrtBetaDose]  = matRad_loadScenariosFromMe
         end
     end
 
+
+    
     % Get meta info from dij template
     nVoxels = dijTemplate.doseGrid.numOfVoxels;
     nBixels = dijTemplate.totalNumOfBixels;
@@ -23,7 +25,11 @@ function [physicalDose, mAlphaDose, mSqrtBetaDose]  = matRad_loadScenariosFromMe
     physicalDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
     mAlphaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
     mSqrtBetaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
-    
+
+    alphaJ        = cell(nScensToLoad,1);
+    sqrtBetaJ     = cell(nScensToLoad,1);
+    % sqrtBetaJ     = arrayfun(@(scen) spalloc(nBixels,1, nBixels), scenariosMeta, 'UniformOutput',false);
+        
     for scenIdx=1:nScensToLoad
 
         currScenarioMeta = scenariosMeta(scenIdx);
@@ -38,7 +44,16 @@ function [physicalDose, mAlphaDose, mSqrtBetaDose]  = matRad_loadScenariosFromMe
         else
             physicalDose(scenIdx)  = currDijScen.physicalDose;
             mAlphaDose(scenIdx)    = currDijScen.mAlphaDose;
-            mSqrtBetaDose(scenIdx) = currDijScen.mSqrtBetaDose; 
+            mSqrtBetaDose(scenIdx) = currDijScen.mSqrtBetaDose;
+
+            if isfield(currDijScen, 'mLETDose')
+                mLETDose(scenIdx) = currDijScen.mLETDose;
+            end
+            if isfield(currDijScen, 'alphaJ') && isfield(currDijScen, 'sqrtBetaJ')
+
+                alphaJ{scenIdx}    = currDijScen.alphaJ;
+                sqrtBetaJ{scenIdx} = currDijScen.sqrtBetaJ;
+            end
         end
     end
 end
