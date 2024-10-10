@@ -843,10 +843,19 @@ classdef matRad_PlanWidget < matRad_Widget
             end
             
             set(handles.editFraction,'String',num2str(pln.numOfFractions));
-            
-            
+
+            if ~isfield(pln,'bioParam')
+                pln.bioParam = matRad_bioModel(pln.radiationMode,'physicalDose','none');
+            end
+                        
             contentPopUpQuantityOpt = get(handles.popMenuQuantityOpt,'String');
+            
             ix = find(strcmp(pln.bioParam.quantityOpt,contentPopUpQuantityOpt));
+
+            if isempty(ix)
+                ix = 1;
+            end
+
             set(handles.popMenuQuantityOpt,'Value',ix);
             
             contentPopUpBioModel = get(handles.popMenuBioModel,'String');
@@ -871,12 +880,13 @@ classdef matRad_PlanWidget < matRad_Widget
             else
                 set(handles.btnRunSequencing,'Value', 0 );
             end
+
             if isfield (pln.propOpt, 'conf3D')
                 set(handles.radiobutton3Dconf,'Value',pln.propOpt.conf3D);
             end 
 
             if ~isfield(pln,'propDoseCalc') || ~isfield(pln.propDoseCalc,'doseGrid')
-                pln.propDoseCalc.doseGrid.resolution = matRad_cfg.defaults.propDoseCalc.resolution;
+                pln.propDoseCalc.doseGrid.resolution = matRad_cfg.defaults.propDoseCalc.doseGrid.resolution;
             end
 
             set(handles.editDoseX,'String',num2str(pln.propDoseCalc.doseGrid.resolution.x));
@@ -1152,6 +1162,14 @@ classdef matRad_PlanWidget < matRad_Widget
 %% CALLBACKS        
         function popupRadMode_Callback(this, hObject, eventdata)
             handles = this.handles;
+
+            defaultMachines.photons     = 'Generic';
+            defaultMachines.protons     = 'Generic';
+            defaultMachines.helium      = 'Generic';
+            defaultMachines.carbon      = 'Generic';
+            defaultMachines.brachy      = 'HDR';
+            defaultMachines.fallback    = 'Generic';
+            
             contents      = cellstr(get(hObject,'String'));
             RadIdentifier = contents{get(hObject,'Value')};
             contentPopUp  = get(handles.popMenuQuantityOpt,'String');
@@ -1188,7 +1206,15 @@ classdef matRad_PlanWidget < matRad_Widget
                 %Do nothing here
             end
             
-            pln.radiationMode = RadIdentifier;
+            if ~strcmp(pln.radiationMode,RadIdentifier)
+                pln.radiationMode = RadIdentifier;
+                if isfield(defaultMachines,RadIdentifier)
+                    pln.machine = defaultMachines.(RadIdentifier);
+                else
+                    pln.machine = defaultMachines.fallback;
+                end
+            end                
+
             availableEngines = DoseEngines.matRad_DoseEngineBase.getAvailableEngines(pln);
             set(handles.popUpMenuDoseEngine,'String',{availableEngines(:).shortName});
 
