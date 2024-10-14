@@ -324,6 +324,8 @@ if FLAG_PROB_OPT
         end
         voiForOmegaIx = unique(voiForOmegaIx);
     end
+else
+    voiForOmegaIx = [];
 end
 
 % set optimization options
@@ -343,11 +345,6 @@ end
 
 switch pln.bioParam.quantityOpt
     case 'effect'
-        % if isfield(dij, 'mAlphaDoseExp')
-        %     backProjection = matRad_ProbEffectProjection;
-        % else
-        %     backProjection = matRad_EffectProjection;
-        % end
         backProjection = matRad_EffectProjection;
     case 'RBExD'
         %Capture special case of constant RBE

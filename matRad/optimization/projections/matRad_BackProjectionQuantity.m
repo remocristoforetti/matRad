@@ -111,7 +111,7 @@ classdef matRad_BackProjectionQuantity < handle
             availableQuantitiesMeta = this.getAvailableOptimizationQuantities();
 
             if ~all(ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName}))
-                matRad_cfg.dispError('Unrecognized quantity:%s',optimizationQuantities{ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName})});
+                matRad_cfg.dispError('Unrecognized quantity:%s',optimizationQuantities{~ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName})});
             end
 
             subQuantitiesName = {};

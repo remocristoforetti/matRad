@@ -16,7 +16,7 @@ classdef matRad_BackProjection < handle
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
     properties (SetAccess = protected)
- wCache
+        wCache
         wGradCache  %different cache for optimal performance (if multiple evaluations of objective but not gradient are required)
         wGradCacheProb
         d
@@ -32,7 +32,7 @@ classdef matRad_BackProjection < handle
         scenarios    = 1        %Scenario indices to evaluate (used for 4D & robust/stochastic optimization)
         scenarioProb = 1        %Probability associated with scenario (for stochastic optimization)
         nominalCtScenarios = 1; %nominal ct scenario (no shift, no range error) indices to evaluate (used for 4D & robust/stochastic optimization, when at least one cst structure does not have robustness)
-        useStructsForOmega
+        useStructsForOmega = [];
     end
 
     
