@@ -212,7 +212,7 @@ if isa(optiProb.BP,'matRad_DoseProjection')
       if ~isempty(dij.physicalDose{1})
           jacobDose = DoseProjection{scenario}' * dij.physicalDose{scenario};
       else
-          jacob = DoseProjection{scenProb}' * dij.physicalDoseExp{1};
+          jacobDose = DoseProjection{scenario}' * dij.physicalDoseExp{1};
       end
    end
    

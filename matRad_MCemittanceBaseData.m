@@ -612,8 +612,9 @@ classdef matRad_MCemittanceBaseData
                 sigmaAirCorrected_square = sigma^2;
                 matRad_cfg.dispWarning('Spot Size Air Correction failed, too large!',method);
             else
-                sigmaAirCorrected = sigma - sigmaAir;
-                sigmaAirCorrected_square = sqrt(sigma.^2 - sigmaAir.^2);
+                %sigmaAirCorrected = sigma - sigmaAir;
+                %sigmaAirCorrected_square = sqrt(sigma.^2 - sigmaAir.^2);
+                sigmaAirCorrected = sqrt(sigma.^2 - sigmaAir.^2);
             end
 
         end

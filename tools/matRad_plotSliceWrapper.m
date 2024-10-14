@@ -1,5 +1,5 @@
 function [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,thresh,alpha,contourColorMap,...
-                                                                          doseColorMap,doseWindow,doseIsoLevels,voiSelection,colorBarLabel,boolPlotLegend,varargin)
+                                                                          doseColorMap,doseWindow,doseIsoLevels,voiSelection,colorBarLabel,boolPlotLegend,ctCMap, ctWindow,varargin)
 % matRad tool function to directly plot a complete slice of a ct with dose
 % including contours and isolines.
 %
@@ -36,6 +36,9 @@ function [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandl
 %                   all non-ignored contours.
 %   colorBarLabel   string defining the yLabel of the colorBar
 %   boolPlotLegend  boolean if legend should be plottet or not
+%   ctCMap
+%   ctWindow
+%
 %   varargin        additional input parameters that are passed on to
 %                   individual plotting functions (e.g. 'LineWidth',1.5)
 %   
@@ -99,9 +102,17 @@ if ~exist('cst','var') || isempty(cst)
    cst = [];
 end
 
+if ~exist('ctCMap','var') || isempty(ctCMap)
+    ctCMap = [];
+ end
+
+ if ~exist('ctWindow','var') || isempty(ctWindow)
+    ctWindow = [];
+ end
+
 set(axesHandle,'YDir','Reverse');
 % plot ct slice
-hCt = matRad_plotCtSlice(axesHandle,ct.cubeHU,cubeIdx,plane,slice); 
+hCt = matRad_plotCtSlice(axesHandle,ct.cubeHU,cubeIdx,plane,slice,ctCMap,ctWindow); 
 hold on;
 
 % plot dose

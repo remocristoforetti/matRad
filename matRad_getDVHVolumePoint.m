@@ -1,4 +1,4 @@
-function [dPoint,dStd] = matRad_getDVHVolumePoint(dvhs, structIdx, V_point, doseGrid, weights, fractions, upperLimit, lowerLimit)
+function [dPoint,dStd,allPoints, weights] = matRad_getDVHVolumePoint(dvhs, structIdx, V_point, doseGrid, weights, fractions, upperLimit, lowerLimit)
 
     matRad_cfg = MatRad_Config.instance();
     if ~exist('doseGrid', 'var')
@@ -48,4 +48,5 @@ function [dPoint,dStd] = matRad_getDVHVolumePoint(dvhs, structIdx, V_point, dose
 
     dPoint = sum(weights'.*currPoints);
     dStd = std(currPoints,weights');
+    allPoints = currPoints;
 end

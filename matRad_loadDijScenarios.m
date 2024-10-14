@@ -1,4 +1,4 @@
-function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDirectory, loadScenMode, nScensToLoad, verboseLevel)
+function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDirectory, loadScenMode, nScensToLoad, verboseLevel, scenarioCombination, wcSigma)
 %    matRad_loadDijScenarios(ct,saveDirectloadory, loadScenMode, nScensToLoad)
 %
 %   loasScenMode = all, rnd, [1 2 3]   
@@ -12,9 +12,10 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
     loadScenarios = true;
 
     try
-    
         load(fullfile(saveDirectory, 'dijTemplate'));
+
     catch
+
         matRad_cfg.dispError('Unable to load dijTemplate file');
     end
 
@@ -30,6 +31,14 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
 
     if ~exist('loadScenMode', 'var') || isempty(loadScenMode)
          loadScenMode = 'all';
+    end
+
+    if ~exist('scenarioCombination', 'var') || isempty(scenarioCombination)
+         scenarioCombination = 'rnd';
+    end
+
+    if ~exist('wcSigma', 'var') || isempty(wcSigma)
+        wcSigma = 1;
     end
     %nAllScens = sum(arrayfun(@(file) strcmp(file.name(1:8), 'scenario'), dirFiles(3:end)));
     if ischar(loadScenMode)
@@ -94,92 +103,186 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
     relAbsErrorMat = unique(relAbsScenAll, 'rows', 'stable');
     totNumOfRangeShift = size(relAbsErrorMat,1);
     
-    % Valid for random generated scenarios
+    % This is the original multiscenario combination (random or simple worst case for now)
+    switch scenarioCombination
+        case 'rnd'
+            % Valid for random generated scenarios
+            %This is number of error scenarios only (total number of scenarios/nCtScenario)
+            nErrorScenarios = totNumOfShiftScen;
+            if ~exist('nScensToLoad', 'var') || isempty(nScensToLoad)
+                %load all the error scenarios
+                errorsToLoad = [1:nErrorScenarios];
+            else
+                % 
+                % if nScensToLoad <= nErrorScenarios
+                % 
+                %     %Peak randomly which scenarios to keep
+                %     errorsToLoad = sort(randperm(nErrorScenarios,nScensToLoad));
+                % else
+                %     errorsToLoad = [1:nErrorScenarios];
+                % end
+                if ischar(nScensToLoad)
+                    errorsToLoad = [1:nErrorScenarios];
+                else
+                    errorsToLoad = nScensToLoad;
+                end
+            end
+        
+            if nAllScens>1
+                if totNumOfRangeShift>=1
+                    currMultiscen = matRad_multScen(ct, 'rndScen');
+                    currMultiscen.nSamples = numel(errorsToLoad);
+                    currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
+                    currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
+                    currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
+                    currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
+                    currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
+                else            
+                    currMultiscen = matRad_multScen(ct, 'rndScen_shiftOnly');          
+                    currMultiscen.nSamples = numel(errorsToLoad);
+                    currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
+                end
+            else
+                    currMultiscen = matRad_multScen(ct, 'rndScen');
+                    currMultiscen.nSamples = numel(errorsToLoad);
+                    currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
+                    currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
+                    currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
+                    currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
+                    currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
+            end
+            
+            % Keep only the scenarios that have errors equal to the randomly sampled ones 
+            loadScens = ismember(shiftScenAll, currMultiscen.isoShift,'rows') & ismember(relAbsScenAll, [currMultiscen.relRangeShift, currMultiscen.absRangeShift], 'rows');
+            
+            % for random scenarios only
+        
+        case 'wc'
 
-    %This is number of error scenarios only (total number of scenarios/nCtScenario)
-    nErrorScenarios = totNumOfShiftScen;
-    if ~exist('nScensToLoad', 'var') || isempty(nScensToLoad)
-        %load all the error scenarios
-        errorsToLoad = [1:nErrorScenarios];
-    else
-
-        if nScensToLoad <= nErrorScenarios
- 
-            %Peak randomly which scenarios to keep
-            errorsToLoad = sort(randperm(nErrorScenarios,nScensToLoad));
-        else
+            nErrorScenarios = totNumOfShiftScen + totNumOfRangeShift -1; % -1 because nominal scenario is included
+            
+         
+            %load all the error scenarios
             errorsToLoad = [1:nErrorScenarios];
-        end
+     
+            % if numel(errorsToLoad) ~= nErrorScenarios
+            %     matRad_cfg.dispError('For wc scenarios need to pick all scenarios');
+            % end
 
+            currMultiscen = matRad_multScen(ct, 'wcScen');
+            currMultiscen.wcSigma = wcSigma;
+            %currMultiscen.relRangeShift = [scenarios.relRangeSHift]';
+            %currMultiscen.absRangeShift = [scenarios.absRangeShift]';
+            %currMultiscen.maxAbsRangeShift = max([scenarios.absRangeShift]);
+            %currMultiscen.maxRelRangeShift = max([scenarios.relRangeSHift]);
+
+            %for i=1:numel(scenarios)
+            %    currMultiscen.isoShift(i,:) = scenarios(i).isoShift;
+            %end
+
+            loadScens = ones(numel(scenarios),1);
+
+        case 'wc_shift'
+             nErrorScenarios = totNumOfShiftScen + totNumOfRangeShift -1; % -1 because nominal scenario is included
+            
+         
+            %load all the error scenarios
+            errorsToLoad = [1:nErrorScenarios];
+
+
+            currMultiscen = matRad_multScen(ct, 'wcScen');
+            currMultiscen.wcSigma = wcSigma;
+            currMultiscen.combinations = 'shift';
+            currMultiscen.combineRange = true;
+
+            loadScens = ones(numel(scenarios),1);
     end
 
-    if nAllScens >1
-        if totNumOfRangeShift>=1
-            currMultiscen = matRad_multScen(ct, 'rndScen');
-            currMultiscen.nSamples = numel(errorsToLoad);
-            currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
-            currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
-            currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
-            currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
-            currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
-        else            
-            currMultiscen = matRad_multScen(ct, 'rndScen_shiftOnly');          
-            currMultiscen.nSamples = numel(errorsToLoad);
-            currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
-        end
-    else
-            currMultiscen = matRad_multScen(ct, 'rndScen');
-            currMultiscen.nSamples = numel(errorsToLoad);
-            currMultiscen.isoShift = shiftScenMat(errorsToLoad,:);%unique(shiftScenMat, 'rows', 'stable');
-            currMultiscen.relRangeShift = relAbsErrorMat(errorsToLoad,1);
-            currMultiscen.absRangeShift = relAbsErrorMat(errorsToLoad,2);
-            currMultiscen.maxAbsRangeShift = max(relAbsErrorMat(errorsToLoad,2));
-            currMultiscen.maxRelRangeShift = max(relAbsErrorMat(errorsToLoad,1));
-    end
-
-    % Keep only the scenarios that have errors equal to the randomly sampled ones 
-    loadScens = ismember(shiftScenAll, currMultiscen.isoShift,'rows') & ismember(relAbsScenAll, [currMultiscen.relRangeShift, currMultiscen.absRangeShift], 'rows');
     
-    % for random scenarios only
-    numOfShiftScen = currMultiscen.totNumShiftScen;  %numel(errorsToLoad);
-    numOfRangeShift = currMultiscen.totNumRangeScen; %numel(errorsToLoad);
+     numOfShiftScen = currMultiscen.totNumShiftScen;
+     numOfRangeShift = currMultiscen.totNumRangeScen;
+  
 
     %dij.physicalDose = cell(numOfCtScen, numOfShiftScen, numOfRangeShift);
     dij.physicalDose = cell(currMultiscen.numOfCtScen, numOfShiftScen, numOfRangeShift);
     if isnumeric(loadScenMode) && currMultiscen.totNumScen ~= numel(loadScenMode)
-        matRad_cfg.dispWarning('Loading scenarios: %d but inconsistent multipleScenario output provided', loadScenMode);
+        matRad_cfg.dispWarning('Loading scenarios: but inconsistent multipleScenario output provided');
     end
-    
-        %nScens = currMultiscen.totNumScen;
 
-    if loadScenarios    
-        for scenIdx=1:nAllScens
-    
+     %if loadScenarios    
+        for scenIdx=1:nAllScens    
             if loadScens(scenIdx)
                 currCTidx = scenarios(scenIdx).ctScenIdx;
-                currShiftScenIdx = find(ismember(currMultiscen.isoShift,scenarios(scenIdx).isoShift, 'rows'));
+
+                switch scenarioCombination
+                    case 'rnd'
+                        currShiftScenIdx = find(ismember(currMultiscen.isoShift,scenarios(scenIdx).isoShift, 'rows'));
                 
-                if numOfRangeShift>1
-                    currAbsRelShiftdx = find(ismember([currMultiscen.relRangeShift, currMultiscen.absRangeShift], [scenarios(scenIdx).relRangeSHift,scenarios(scenIdx).absRangeShift], 'rows'));
-                else
-                    currAbsRelShiftdx = 1;
-    
+                        if numOfRangeShift>1
+                            currAbsRelShiftdx = find(ismember([currMultiscen.relRangeShift, currMultiscen.absRangeShift], [scenarios(scenIdx).relRangeSHift,scenarios(scenIdx).absRangeShift], 'rows'));
+                        else
+                            currAbsRelShiftdx = 1;
+            
+                        end
+                        
+                        scenarios(scenIdx).scenarioIndexDij = sub2ind([currMultiscen.numOfCtScen, numOfShiftScen, numOfRangeShift], currCTidx, currShiftScenIdx, currAbsRelShiftdx);
+                   
+                        %currMultiscen.scenMask(scenarios(scenIdx).scenarioIndexDij) = true;
+                        linIndex = find(ismember(currMultiscen.linearMask, [currCTidx,currShiftScenIdx,currAbsRelShiftdx], 'rows'));
+                        currMultiscen.scenProb(linIndex) = scenarios(scenIdx).scenProb;
+                        %dij.physicalDose{scenarios(scenIdx).scenarioIndexDij} = spalloc(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels, scenarios(scenIdx).nnzElements);
+
+                    case {'wc', 'wc_shift'}
+
+                        currShiftScen = scenarios(scenIdx).isoShift;
+                        currRelRange  = scenarios(scenIdx).relRangeSHift;
+                        currAbsRange  = scenarios(scenIdx).absRangeShift;
+
+                        if currAbsRange == 0 && currRelRange == 0
+                            % these are shift scenarios
+                            currRangeErrorLinearIdx = 1;
+                            if all(currShiftScen == [0,0,0])
+                                % this is teh nominal scenario
+                                shiftScenLinearIdx = 1;
+                            else
+                                shiftScenLinearIdx = find(ismember(currMultiscen.isoShift, currShiftScen, 'rows'));
+                            end
+                        else
+                            matRad_cfg.dispWarning('!!! This setup only works for 1 single CT scenario');
+                            % These are range error scenarios
+                            shiftScenLinearIdx = 1;
+                            rangeErrorOnlyScenarios = [currMultiscen.relRangeShift,currMultiscen.absRangeShift];
+                            rangeErrorOnlyScenarios(find(ismember(rangeErrorOnlyScenarios, [0,0], 'rows')),:) = [];
+                            currRangeErrorLinearIdx = find(ismember(rangeErrorOnlyScenarios, [currRelRange,currAbsRange], 'rows'));
+                        end
+
+                        scenLinearIdx = find(ismember(currMultiscen.linearMask, [currCTidx, shiftScenLinearIdx, currRangeErrorLinearIdx], 'rows'));
+                      
+                        scenarios(scenIdx).scenarioIndexDij = sub2ind([currMultiscen.numOfCtScen, numOfShiftScen, numOfRangeShift], currMultiscen.linearMask(scenLinearIdx,1), currMultiscen.linearMask(scenLinearIdx,2), currMultiscen.linearMask(scenLinearIdx,3));
+
+                       
+                        linIndex = scenIdx;
+                        currMultiscen.scenProb(linIndex) = scenarios(scenIdx).scenProb;
                 end
-                
-                scenarios(scenIdx).scenarioIndexDij = sub2ind([currMultiscen.numOfCtScen, numOfShiftScen, numOfRangeShift], currCTidx, currShiftScenIdx, currAbsRelShiftdx);
-           
-                %currMultiscen.scenMask(scenarios(scenIdx).scenarioIndexDij) = true;
-                linIndex = find(ismember(currMultiscen.linearMask, [currCTidx,currShiftScenIdx,currAbsRelShiftdx], 'rows'));
-                currMultiscen.scenProb(linIndex) = scenarios(scenIdx).scenProb;
+            end
+        end
+
+        % % This needs to be changed later
+        % (18/9/2024)
+        % if nAllScens == 1
+        %     scenarios(1).scenarioIndexDij = 1;
+        % end
+        
+        if loadScenarios
+            for scenIdx=1:nAllScens
                 dij.physicalDose{scenarios(scenIdx).scenarioIndexDij} = spalloc(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels, scenarios(scenIdx).nnzElements);
             end
-    
         end
 
         % Load the scenarios
         stringLenght = 0;
         scenCounter = 1;
-        %if loadScenarios
+        if loadScenarios
             for scenIdx=1:nAllScens
                 if loadScens(scenIdx)
                     if verboseLevel
@@ -194,7 +297,6 @@ function [dij,currMultiscen,loadedScenarios] = matRad_loadDijScenarios(ct,saveDi
                 end
          
             end
-        %end
-    end
+        end
     loadedScenarios = {scenarios(loadScens).name};
 end

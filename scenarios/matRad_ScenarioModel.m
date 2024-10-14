@@ -27,10 +27,11 @@ classdef matRad_ScenarioModel < handle
     
     properties (AbortSet = true) %We use AbortSet = true here to avoid updates when 
         %Uncertainty model
-        rangeRelSD  = 3.5;                % given in %
-        rangeAbsSD  = 1;                  % given in [mm]
-        shiftSD     = [2.25 2.25 2.25];   % given in [mm]
-        wcSigma     = 1;                  % Multiplier to compute the worst case / maximum shifts    
+        rangeRelSD  = 3.5;%0.1;%3.5;                % given in %
+        rangeAbsSD  = 1;%0.5;%1;                  % given in [mm]
+        shiftSD     = [2.25, 2.25, 2.25];%[0.5,0.5,0.5]; %[2.25 2.25 2.25];   % given in [mm]
+        wcSigma     = 1;                  % Multiplier to compute the worst case / maximum shifts
+
     end
 
     properties (Abstract,SetAccess=protected)
