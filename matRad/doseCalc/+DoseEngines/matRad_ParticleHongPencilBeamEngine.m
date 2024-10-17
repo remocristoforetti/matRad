@@ -74,7 +74,10 @@ classdef matRad_ParticleHongPencilBeamEngine < DoseEngines.matRad_ParticlePencil
                     matRad_cfg.dispError('Invalid Lateral Model');
             end
                         
-            bixel.physicalDose = bixel.baseData.LatCutOff.CompFac * L .* kernels.Z;
+            if length(bixel.baseData.LatCutOff.CompFac) > 1
+                bixel.baseData.LatCutOff.CompFac = matRad_interp1(bixel.baseData.LatCutOff.depths', bixel.baseData.LatCutOff.CompFac', bixel.radDepths);
+            end
+            bixel.physicalDose = bixel.baseData.LatCutOff.CompFac .* L .* kernels.Z;
             
             % check if we have valid dose values
             if any(isnan(bixel.physicalDose)) || any(bixel.physicalDose<0)
@@ -87,10 +90,14 @@ classdef matRad_ParticleHongPencilBeamEngine < DoseEngines.matRad_ParticlePencil
             end
             
             if this.calcBioDose                               
-                [bixelAlpha,bixelBeta] = this.bioParam.calcLQParameterForKernel(bixel,kernels);
+                % This updates the info in bixel adding the necessary
+                % quantities
+                bixel = this.bioModel.calcBiologicalQuantitiesForBixel(bixel,kernels);
 
-                bixel.mAlphaDose = bixel.physicalDose .* bixelAlpha;
-                bixel.mSqrtBetaDose = bixel.physicalDose .* sqrt(bixelBeta);
+                if isa(this.bioModel, 'matRad_LQBasedModel')
+                    bixel.mAlphaDose    = bixel.physicalDose .* bixel.alpha;
+                    bixel.mSqrtBetaDose = bixel.physicalDose .* sqrt(bixel.beta);
+                end
             end  
         end
         
@@ -124,7 +131,10 @@ classdef matRad_ParticleHongPencilBeamEngine < DoseEngines.matRad_ParticlePencil
                 return;
             end
 
-            checkMeta = all(isfield(machine.meta,{'SAD','BAMStoIsoDist','LUT_bxWidthminFWHM','dataType'}));
+            checkMeta = all(isfield(machine.meta,{'SAD','BAMStoIsoDist','dataType'}));
+            
+            %Superseded names from older machine file versions
+            checkMeta = checkMeta && any(isfield(machine.meta,{'LUTspotSize','LUT_bxWidthminFWHM'}));
 
             dataType = machine.meta.dataType;
             if strcmp(dataType,'singleGauss')
