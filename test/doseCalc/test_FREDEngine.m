@@ -22,7 +22,7 @@ function test_propertyAssignmentFromPln
         pln.propDoseCalc.HUclamping               = false;
         pln.propDoseCalc.HUtable                  = 'matRad_default_FRED';
         pln.propDoseCalc.exportCalculation        = true;
-        pln.propDoseCalc.sourceModel              = 'emittance';
+        pln.propDoseCalc.sourceModel              = 'gaussian';
         pln.propDoseCalc.useWSL                   = true;
         pln.propDoseCalc.useGPU                   = false;
         pln.propDoseCalc.roomMaterial             = 'Vacuum';
@@ -44,8 +44,37 @@ function test_propertyAssignmentFromPln
 
 function test_writeFiles
 
-        pln = struct('radiationMode','protons','machine','Generic','propDoseCalc',struct('engine','FRED'));
+        matRad_cfg = MatRad_Config.instance();
+        radModes = DoseEngines.matRad_ParticleFREDEngine.possibleRadiationModes;
 
+        load([radModes{1} '_testData.mat']);
+        pln.radiationMode = radModes{1};
+        pln.machine = 'Generic';
+        pln.propDoseCalc.engine = 'FRED';
+        pln.propDoseCalc.exportCalculation = true;
 
+        w = ones(sum([stf(:).totalNumOfBixels]),1);
 
-    
+        resultGUI = matRad_calcDoseForward(ct,cst,stf,pln,w);
+
+        fredMainDir   = [matRad_cfg.thirdPartyFolder filesep 'FRED'];
+        runFolder     = [fredMainDir filesep 'MCrun'];
+        inputFolder   = [runFolder filesep 'inp'];
+        planFolder    = [inputFolder filesep 'plan'];
+        regionsFolder = [inputFolder filesep 'regions'];
+
+        
+        assertTrue(isfolder(fredMainDir));
+        assertTrue(isfolder(runFolder));
+        assertTrue(isfolder(inputFolder));
+        assertTrue(isfolder(planFolder));
+        assertTrue(isfolder(regionsFolder));        
+        
+        assertTrue(isfile([planFolder filesep 'plan.inp']));
+        assertTrue(isfile([planFolder filesep 'planDelivery.inp']));
+
+        assertTrue(isfile([regionsFolder filesep 'CTpatient.raw']));
+        assertTrue(isfile([regionsFolder filesep 'CTpatient.mhd']));
+        assertTrue(isfile([regionsFolder filesep 'regions.inp']));
+        
+        assertTrue(isfile([runFolder filesep 'fred.inp']));

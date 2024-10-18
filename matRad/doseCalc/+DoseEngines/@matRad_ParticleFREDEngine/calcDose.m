@@ -1,48 +1,47 @@
 function dij = calcDose(this,ct,cst,stf)
-    % matRad FRED monte carlo proton dose calculation wrapper
-    % can be automaticly called through matRad_calcDose or
-    % matRad_calcParticleDoseMC
-    %
-    %
-    % call
-    %   dij = this.calcDose(ct,stf,pln,cst)
-    %
-    % input
-    %   ct:          	matRad ct struct
-    %   cst:            matRad cst struct
-    %   stf:         	atRad steering information struct
-    %   
-    % output
-    %   dij:            matRad dij struct
-    %
-    % References
-    %
-    %
-    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %
-    % Copyright 2019 the matRad development team. 
-    % 
-    % This file is part of the matRad project. It is subject to the license 
-    % terms in the LICENSE file found in the top-level directory of this 
-    % distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
-    % of the matRad project, including this file, may be copied, modified, 
-    % propagated, or distributed except according to the terms contained in the 
-    % LICENSE file.
-    %
-    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Function to forward dose calculation to FRED and inport the results
+% in matRad
+%
+% call
+%   dij = this.calcDose(ct,stf,pln,cst)
+%
+% input
+%   ct:          	matRad ct struct
+%   cst:            matRad cst struct
+%   stf:         	atRad steering information struct
+%   
+% output
+%   dij:            matRad dij struct
+%
+% References
+%
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2019 the matRad development team. 
+% 
+% This file is part of the matRad project. It is subject to the license 
+% terms in the LICENSE file found in the top-level directory of this 
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
+% of the matRad project, including this file, may be copied, modified, 
+% propagated, or distributed except according to the terms contained in the 
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     matRad_cfg = MatRad_Config.instance();
     
     currFolder = pwd;
-
     cd(this.FREDrootFolder);
 
     %Now we can run initDoseCalc as usual
     dij = this.initDoseCalc(ct,cst,stf);
 
+    % Interpolate cube on dose grid
     HUcube{1} =  matRad_interp3(dij.ctGrid.x,  dij.ctGrid.y',  dij.ctGrid.z,ct.cubeHU{1}, ...
                                 dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear');
 
+    % Force HU clamping if values are found outside of available range
      switch this.HUtable
         case 'internal'
             if any(HUcube{1}(:)>this.hLutLimits(2)) || any(HUcube{1}(:)<this.hLutLimits(1))
@@ -53,40 +52,44 @@ function dij = calcDose(this,ct,cst,stf)
             matRad_cfg.dispInfo('Using custom HU table: %s\n', this.HUtable);
      end
      
-    %Write the directory tree necessary for the simulation
+    %Write the directory tree
     this.writeTreeDirectory();
     
     % Write patient
     cd(this.regionsFolder);
-    
-    %%%%%% !!!!!!!!!!!!! mind this flip !!!!!!!!!!!!! %%%%%
-    HUcube{1} = flip(HUcube{1},2);
-    
+
     fileNamePatient = fullfile(this.regionsFolder, this.patientFilename);
     patientMetadata.imageOrigin = [0 0 0];
     patientMetadata.resolution  = [this.doseGrid.resolution.x, this.doseGrid.resolution.y, this.doseGrid.resolution.z];
+
     patientMetadata.datatype = 'int16';
+
+    %%%%%% !!!!!!!!!!!!! mind this flip !!!!!!!!!!!!! %%%%%
+    % Need to permute x and y because of the order data is written in mhd
+    % file
+    patientMetadata.axisPermutation = [2,1,3];
     matRad_writeMHD(fileNamePatient, HUcube{1},patientMetadata);
 
     cd(this.FREDrootFolder);
 
-    getPointAtBAMS = @(target,source,distance,BAMStoIso) (target -source)*(-BAMStoIso)/distance + source;%(target  + source*(BAMStoIso - distance))/distance;
-          
+    % Linear projection of BEV source (x,y) points to plane at BAMStoISO distance 
+    getPointAtBAMS = @(target,source,distance,BAMStoIso) (target -source)*(-BAMStoIso)/distance + source;
+
     % Loop over the stf to rearrange data
     counter = 0;
 
-    % Attention here the field in amchine.meta has been artificially set in
-    % the initDoseCalc
+    % Use the emittance base data class to recover MC information
     emittanceBaseData = matRad_MCemittanceBaseData(this.machine,stf);
-
-    if this.calcDoseDirect
-        cumulativeWeights = 0;
-        for i=1:length(stf)
-            cumulativeWeights = cumulativeWeights + sum([stf(i).ray.weight]);
-        end
     
-    end
+    % if this.calcDoseDirect
+    %     cumulativeWeights = 0;
+    %     for i=1:length(stf)
+    %         cumulativeWeights = cumulativeWeights + sum([stf(i).ray.weight]);
+    %     end
+    % end
     
+    % Loop over fields. FRED performs one single simulation for multiple
+    % fields
     for i = 1:length(stf)
 
         stfFred(i).gantryAngle     = stf(i).gantryAngle;
@@ -94,28 +97,38 @@ function dij = calcDose(this,ct,cst,stf)
         
         % Get dose grid resolution
         doseGridResolution = [this.doseGrid.resolution.x, this.doseGrid.resolution.y, this.doseGrid.resolution.z];
-        
-        % get isocenter coordinates in dose cube coordinate system.
+
+        % get matRad isocenter coordinates in dose cube coordinate system.
+        % -> Dose cube coordinate system places the first coordinate point (aka resolution) in
+        % the center of the first voxel. So the "zero" of the cube
+        % coordinate system is 0.5*resolution outside of the cube surface.
         isoInDoseGridCoord = matRad_world2cubeCoords(stf(i).isoCenter,this.doseGrid);
 
-        % First voxel in dose cube system has center at resolution. Thus
-        % surface is at 1/2 resolution wrt zero of that system
+        % Coordinate of the first voxel in cube system is in the center of the first voxel and is equal to resolution. Thus the zero 
+        % of the cube coordinate system is 0.5*resolution before the surface of
+        % the phantom. The surface thus starts at 1/2 resolution wrt zero of that system
         fredCubeSurfaceInDoseCubeCoords =  0.5*doseGridResolution;
         
         % Get coordinates of pivot point in FRED cube (center of
-        % geometrical cube) in dose cube coordinates.
-        fredPivotInCubeCoordinates = 0.5*this.doseGrid.dimensions.*doseGridResolution + fredCubeSurfaceInDoseCubeCoords;
+        % geometrical cube) in dose cube coordinates. This is the distance
+        % between pivot point and the surface + the position of the
+        % surface in the cube coord. system.
+        fredPivotInCubeCoordinates = 0.5*this.doseGrid.dimensions([2 1 3]).*doseGridResolution + fredCubeSurfaceInDoseCubeCoords;
         
-        % Place isocenter wrt to FRED coordinate system. FRED then:
-        % - place component pivot in te center of FRED coordinate system
-        % - translate the component by ISO coordinartes, so that ISO point
-        %   is at the center of FRED world coordinates.
-        % - apply gantry and couch rotations
+        
+        % Define the FRED isocenter as the distance between the pivot point
+        % and the matRad isocenter in the cube coordinate system.
         stfFred(i).isoCenter = -(fredPivotInCubeCoordinates - isoInDoseGridCoord);
 
         % First coordinate is flipped
         stfFred(i).isoCenter = stfFred(i).isoCenter.*[-1 1 1];
         
+        % NOTE on the coordinate system.
+        % FRED places the pivot point of the component at the center of the
+        % FRED coordinate system, then applies a translation s.t. the FRED
+        % isocenter (defined for each field) is in the center of the FRED
+        % coordinate system. Then applies rotations. This way everything
+        % is defined in BEV reference.
 
         nominalEnergies        = unique([stf(i).ray.energy]);
         [~,nominalEnergiesIdx] = intersect([this.machine.data.energy],nominalEnergies);
@@ -123,9 +136,8 @@ function dij = calcDose(this,ct,cst,stf)
         energyIdxInEmittance   = ismember(emittanceBaseData.energyIndex, nominalEnergiesIdx);
         monteCarloBaseData     = emittanceBaseData.monteCarloData(energyIdxInEmittance);
         
-
         stfFred(i).nominalEnergies = nominalEnergies;
-        stfFred(i).energies        = [monteCarloBaseData.MeanEnergy].*this.numOfNucleons./this.primaryMass;
+        stfFred(i).energies        = [monteCarloBaseData.MeanEnergy].*this.numOfNucleons.*this.primaryMass;        % Note for generic baseData: the kernels were simulated with equivalent of primaryMass = 1
         stfFred(i).energySpread    = [monteCarloBaseData.EnergySpread];
         stfFred(i).energySpreadMeV = [monteCarloBaseData.EnergySpread].*[monteCarloBaseData.MeanEnergy]/100;
         stfFred(i).FWHMs = 2.355*[monteCarloBaseData.SpotSize1x];
@@ -133,8 +145,7 @@ function dij = calcDose(this,ct,cst,stf)
         stfFred(i).energySpreadFWHMMev    = 2.355*stfFred(i).energySpreadMeV;
         stfFred(i).BAMStoIsoDist   = emittanceBaseData.nozzleToIso;
         
-        % This is just used for reference and define the field size
-        %stfFred(i).FWHMs = 2.355*[monteCarloBaseData.SpotSize1x(1)];
+        % Select the parametrs for source model
         switch this.sourceModel
 
             case 'gaussian'
@@ -171,10 +182,11 @@ function dij = calcDose(this,ct,cst,stf)
 
         end
 
-        % allocate empty target point container
+        % Allocate empty layer container
+        % Rearrange info into separate energy layers
         for j = 1:numel(stfFred(i).energies)
 
-            stfFred(i).energyLayer(j).targetPoints   = [];
+            %stfFred(i).energyLayer(j).targetPoints   = [];
             stfFred(i).energyLayer(j).numOfPrimaries = [];
             stfFred(i).energyLayer(j).rayNum         = [];
             stfFred(i).energyLayer(j).bixelNum       = [];
@@ -194,26 +206,18 @@ function dij = calcDose(this,ct,cst,stf)
            
             for k = 1:numel(stfFred(i).energies)
 
-                if any(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k)) %any(stf(i).ray(j).energy == nominalEnergies(k))
+                if any(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k))
                     stfFred(i).energyLayer(k).rayNum   = [stfFred(i).energyLayer(k).rayNum j];
+
+                    stfFred(i).energyLayer(k).bixelNum = [stfFred(i).energyLayer(k).bixelNum ...
+                        find(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k))];
                     
-                    if isfield(stf(i).ray(j), 'energySpread')
-                    %     % If also energy spread is provided, need to
-                    %     % match both energy and energy spread. This is
-                    %     % a special case, different energy spreads are
-                    %     % seen as different energy layers
-                        stfFred(i).energyLayer(k).bixelNum = [stfFred(i).energyLayer(k).bixelNum ...
-                                                              find(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k) & ...
-                                                              stf(i).ray(j).energySpread == stfFred(i).energySpread(k))];
-
-                    else
-
-                        stfFred(i).energyLayer(k).bixelNum = [stfFred(i).energyLayer(k).bixelNum ...
-                            find(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k))];
-                    end
+                    % Get spot position and divergence
                     targetX = stf(i).ray(j).targetPoint_bev(1);
                     targetY = stf(i).ray(j).targetPoint_bev(3);
 
+                    % Stf.ray.rayPos_bev is position of ray at the
+                    % IsoCenter plane.
                     sourceX = stf(i).ray(j).rayPos_bev(1);
                     sourceY = stf(i).ray(j).rayPos_bev(3);
 
@@ -222,8 +226,10 @@ function dij = calcDose(this,ct,cst,stf)
                     divergenceX = (targetX - sourceX)/distance;
                     divergenceY = (targetY - sourceY)/distance;
                     
-                    stfFred(i).energyLayer(k).targetPoints    = [stfFred(i).energyLayer(k).targetPoints; -targetX targetY];
+                    %stfFred(i).energyLayer(k).targetPoints    = [stfFred(i).energyLayer(k).targetPoints; -targetX targetY];
 
+                    % This is position of the spot at -BAMsToIso distance
+                    % (zero is at IsoCenter depth).
                     stfFred(i).energyLayer(k).rayPosX         = [stfFred(i).energyLayer(k).rayPosX, getPointAtBAMS(targetX,sourceX,distance,stfFred(i).BAMStoIsoDist)];
                     stfFred(i).energyLayer(k).rayPosY         = [stfFred(i).energyLayer(k).rayPosY, getPointAtBAMS(targetY,sourceY,distance,stfFred(i).BAMStoIsoDist)];
 
@@ -232,10 +238,10 @@ function dij = calcDose(this,ct,cst,stf)
                     
                     
                     if this.calcDoseDirect
-                            stfFred(i).energyLayer(k).numOfPrimaries = [stfFred(i).energyLayer(k).numOfPrimaries ...
+                        % Set the bixel weight
+                        stfFred(i).energyLayer(k).numOfPrimaries = [stfFred(i).energyLayer(k).numOfPrimaries ...
                                                   stf(i).ray(j).weight(stf(i).ray(j).energy == stfFred(i).nominalEnergies(k))];
                     else
-
                          stfFred(i).energyLayer(k).numOfPrimaries = [stfFred(i).energyLayer(k).numOfPrimaries, 1];
                     end
 
@@ -261,32 +267,31 @@ function dij = calcDose(this,ct,cst,stf)
         for j=1:numel(stfFred(i).nominalEnergies)
            stfFred(i).energyLayer(j).rayPosX      = stfFred(i).energyLayer(j).rayPosX/10;
            stfFred(i).energyLayer(j).rayPosY      = stfFred(i).energyLayer(j).rayPosY/10;
-           stfFred(i).energyLayer(j).targetPoints = stfFred(i).energyLayer(j).targetPoints/10;
+           %stfFred(i).energyLayer(j).targetPoints = stfFred(i).energyLayer(j).targetPoints/10;
            stfFred(i).energyLayer(j).nBixels      = numel(stfFred(i).energyLayer(j).bixelNum);
-           %This is necessary because of the sum(w) at the end of
-           %calcDoseForward
+
            if this.calcDoseDirect
-               stfFred(i).energyLayer(j).numOfPrimaries = this.conversionFactor*stfFred(i).energyLayer(j).numOfPrimaries/cumulativeWeights;
+               stfFred(i).energyLayer(j).numOfPrimaries = this.conversionFactor*stfFred(i).energyLayer(j).numOfPrimaries;
            end
         end
     end
     
     counterFred = 0;
-    FredOrder = NaN * ones(dij.totalNumOfBixels,1);
+    fredOrder = NaN * ones(dij.totalNumOfBixels,1);
     for i = 1:length(stf)
-        for j = 1:numel(stfFred(i).nominalEnergies) %numel(stfFred(i).energies)
+        for j = 1:numel(stfFred(i).nominalEnergies)
             for k = 1:numel(stfFred(i).energyLayer(j).numOfPrimaries)
                 counterFred = counterFred + 1;
                 ix = find(i                               == dij.beamNum & ...
                     stfFred(i).energyLayer(j).rayNum(k)   == dij.rayNum & ...
                     stfFred(i).energyLayer(j).bixelNum(k) == dij.bixelNum);
     
-                FredOrder(ix) = counterFred;
+                fredOrder(ix) = counterFred;
             end
         end
     end
     
-    if any(isnan(FredOrder))
+    if any(isnan(fredOrder))
         matRad_cfg.dispError('Invalid ordering of Beamlets for FRED computation!');
     end
     
@@ -295,7 +300,6 @@ function dij = calcDose(this,ct,cst,stf)
     this.writeFredInputAllFiles(stfFred);
 
     if ~this.exportCalculation
-        %should add checks for installation of fred and so on
 
         % Check consistency of installation
         if this.checkSystemAvailability()
@@ -325,28 +329,31 @@ function dij = calcDose(this,ct,cst,stf)
             matRad_cfg.dispInfo(' done\n');
         end
 
-
        if ~this.calcDoseDirect
 
             doseDijFolder = fullfile(this.MCrunFolder, 'out', 'scoreij');
             doseDijFile = 'Phantom.Dose.bin';
+ 
             dijFileName = fullfile(doseDijFolder,doseDijFile);
-            dijMatrix = this.readSparseDijBin(dijFileName);
+
+            % read dij matrix
+            doseDijMatrix = this.readSparseDijBin(dijFileName);
 
             % Check consistency
-            if isequal(size(dijMatrix), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
+            if isequal(size(doseDijMatrix), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
                 %When scoring dij, FRED internaly normalizes to 1
-                dij.physicalDose{1} = this.conversionFactor*dijMatrix(:,FredOrder);
+                dij.physicalDose{1} = this.conversionFactor*doseDijMatrix(:,fredOrder);
             end
 
             if this.calcLET
                 dijFile = 'Phantom.LETd.bin';
                 dijFileName = fullfile(doseDijFolder,dijFile);
-                dijMatrix = this.readSparseDijBin(dijFileName);
+                mLETDijMatrix = this.readSparseDijBin(dijFileName);
                 
-                if isequal(size(dijMatrix), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
-                    % Need to divide by 10, FRED scores in /cm (?)
-                    dij.mLETd{1} = dijMatrix(:,FredOrder)./10;
+                if isequal(size(mLETDijMatrix), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
+
+                    % Need to divide by 10, FRED scores in MeV * cm^2 / g
+                    dij.mLETd{1} = mLETDijMatrix(:,fredOrder)./10;
                 end
                 
                 dij.mLETDose{1} = sparse(dij.physicalDose{1}.*dij.mLETd{1});
@@ -355,40 +362,35 @@ function dij = calcDose(this,ct,cst,stf)
 
         else
 
-            %if str2num(this.currentVersion(1:find(this.currentVersion == '.',1,'last')-1)) > 3.6
             doseCubeFolder = fullfile(this.MCrunFolder, 'out', 'score');
             doseCubeFile = 'Phantom.Dose.mhd';
-            %else
-            %         doseCubeFolder = fullfile(this.MCrunFolder, 'out');
-            %         doseCubeFile = 'Dose.mhd';
-            %end
             
-            cube = matRad_readMhd(doseCubeFolder, doseCubeFile);
-
-            % readMHD internaly flips dimension 2 of the cube. IDK why this
-            % is done, probably required by MCsquare. But with FRED's
-            % coordinate system there is no need for such a flip, so for the
-            % time being we'll just revert it here
-            cube = flip(cube,2);
+            try
+                cube = matRad_readMHD(fullfile(doseCubeFolder, doseCubeFile));
+            catch
+                matRad_cfg.dispError('unable to load file: %s',fullfile(doseCubeFolder, doseCubeFile));
+            end
 
             dij.physicalDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),cube(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
 
             if this.calcLET
-                cubeLET = matRad_readMhd(fullfile(this.MCrunFolder, 'out', 'score'), 'Phantom.LETd.mhd');
-                
-                % same as cube
-                cubeLET = flip(cubeLET,2);
+                cubeLET = matRad_readMHD(fullfile(this.MCrunFolder, 'out', 'score', 'Phantom.LETd.mhd'));
 
                 dij.mLETd{1}    = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),cubeLET(this.VdoseGrid)./10, dij.doseGrid.numOfVoxels,1);
                 dij.mLETDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),(cubeLET(this.VdoseGrid)./10).*cube(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
 
             end
 
+            % Needed for calcCubes
+            dijFieldsToOverride = {'numOfBeams','beamNum','bixelNum','rayNum','totalNumOfBixels','totalNumOfRays','numOfRaysPerBeam'};
+            
+            for fieldName=dijFieldsToOverride
+                dij.(fieldName{1}) = this.numOfColumnsDij;
+            end
        end
 
        if this.calcBioDose
            % recover alpha and beta maps
-           % radDepths not used by models
            tmpBixel.radDepths = zeros(size(this.VdoseGrid,1),1);
         
            tmpBixel.vAlphaX   = dij.ax{1}(this.VdoseGrid);
@@ -404,7 +406,7 @@ function dij = calcDose(this,ct,cst,stf)
                 tmpBixelBeta(isnan(tmpBixelBeta)) =  0;
 
                 dij.mAlphaDose{1}     = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),tmpBixelAlpha.*dij.physicalDose{1}(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
-                dij.mSqrtBetaDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixelBeta).*dij.physicalDose{1}(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
+                dij.mSqrtBetaDose{1}  = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixelBeta).*dij.physicalDose{1}(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
            else    
                % Loop over all bixels
                for bxlIdx = 1:dij.totalNumOfBixels
@@ -417,17 +419,20 @@ function dij = calcDose(this,ct,cst,stf)
                    tmpBixelBeta(isnan(tmpBixelBeta)) =  0;
                 
                    dij.mAlphaDose{1}(:,bxlIdx)     = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),tmpBixelAlpha.*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), dij.doseGrid.numOfVoxels,1);
-                   dij.mSqrtBetaDose{1}(:,bxlIdx) = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixelBeta).*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), dij.doseGrid.numOfVoxels,1);
+                   dij.mSqrtBetaDose{1}(:,bxlIdx)  = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixelBeta).*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), dij.doseGrid.numOfVoxels,1);
                end
            end
         end 
     else
         matRad_cfg.dispInfo('All files have been generated');
+        dijFieldsToOverride = {'numOfBeams','beamNum','bixelNum','rayNum','totalNumOfBixels','totalNumOfRays','numOfRaysPerBeam'};
+                
+        for fieldName=dijFieldsToOverride
+            dij.(fieldName{1}) = this.numOfColumnsDij;
+        end
     end
-    
+
     dij = this.finalizeDose(dij);
     
-
     cd(currFolder);
-
 end

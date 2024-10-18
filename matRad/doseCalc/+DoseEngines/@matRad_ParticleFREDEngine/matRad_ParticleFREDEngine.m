@@ -1,85 +1,86 @@
 classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
-% Engine for particle dose calculation using monte carlo calculation
-% specificly the FRED MC code ()
+% Engine for particle dose calculation using FRED Monte Carlo algorithm 
 % for more informations see superclass
 % DoseEngines.matRad_MonteCarloEngineAbstract
 %
-% pln.propDoseCalc fields:
-% 
-% HUclamping:            [b] allows for clamping of HU table
-% HUtable:               [s] 'internal', 'matRad_water'
+%
+% The following parameters for the FRED engine can be tuned by the user. In
+% order to do so, specify the desired value in: pln.propDoseCalc.
+% [s]: string/character array
+% [b]: boolean
+% [i]: integer
+% [f]: float/double/any non strictly integer number
+%
+%
+% HUclamping:            [b] allows for clamping of HU table. Default: true
+% HUtable:               [s] HU table name. Example: 'internal', 'matRad_default_FRED'
 % exportCalculation      [b] t: Only write simulation paramter files
 %                            f: run FRED
 % sourceModel            [s] see AvailableSourceModels, {'gaussian', 'emittance', 'sigmaSqrModel'}
-% useWSL                 [b]
-% useGPU                 [b]
-% roomMaterial           [s] vacuum, Air
-% printOutput            [b]
+% useWSL                 [b] for Windows user: use WSL
+% useGPU                 [b] trigger use of GPU (if available)
+% roomMaterial           [s] material of the patient surroundings. Example:
+%                            'vacuum', 'Air'
+% printOutput            [b] 't: FRED output is mirrored to Matlab console, f: no output is printed'
 % numHistoriesDirect     [i]
 % numHistoriesPerBeamlet [i]
-
+% scorers                [c] cell array with specified scorers. Example:
+%                            'Dose', 'LETd'
+% primaryMass            [f] mass of the primary ion (in Da). Default value for
+%                             protons: 1.0727
+% numOfNucleons          [i] number of nucleons. Default for protons: 1   
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2019 the matRad development team.
+% Copyright 2023 the matRad development team.
 %
 % This file is part of the matRad project. It is subject to the license
 % terms in the LICENSE file found in the top-level directory of this
-% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
 % of the matRad project, including this file, may be copied, modified,
 % propagated, or distributed except according to the terms contained in the
 % LICENSE file.
 %
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
     properties (Constant)
-        
         possibleRadiationModes = {'protons'};
-        name = 'FRED';
-        shortName = 'FRED';
+        name                   = 'FRED';
+        shortName              = 'FRED';
     end
 
-    properties (SetAccess = public, GetAccess = public) %(SetAccess = protected, GetAccess = public)
+    properties (SetAccess = protected, GetAccess = public)
         
-        currFolder = pwd; %folder path when set
-
-        noozleToAxis;
-        scorers;
-     
-        HUtable;
-        defaultHUtable = 'matRad_default_FRED';
+        defaultHUtable        = 'matRad_default_FRED';
         AvailableSourceModels = {'gaussian', 'emittance', 'sigmaSqrModel'};
+      
         calcBioDose;
-
-        sourceModel;
-        
-
-        useWaterPhantom;
-        waterPhantomIpot;
-        roomMaterial;
-        useWSL;
-        useGPU;
         currentVersion;
-        availableVersions = {'3.70.0'};
-        fragDataLib;
-        printOutput;
+        availableVersions = {'3.70.0'}; % Interface requires latest FRED version  
         radiationMode;
-        primaryMass;
-        numOfNucleons;
+
     end
 
     properties
-        exportCalculation = false;
+        exportCalculation;
         calcLET;
-        constantRBE = NaN;              % constant RBE value
+        constantRBE;
         HUclamping;
+        scorers;
+        HUtable;
+        sourceModel;
+        roomMaterial;
+        useWSL;
+        useGPU;
+        printOutput;
+        primaryMass;
+        numOfNucleons;
+    end        
 
-    end
 
     properties (SetAccess = private, Hidden)
         patientFilename      = 'CTpatient.mhd';
         runInputFilename     = 'fred.inp';
-        
         regionsFilename      = 'regions.inp';
         funcsFilename        = 'funcs.inp';
         planFilename         = 'plan.inp';
@@ -88,11 +89,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         beamletsFilename     = 'beamlets.inp';
         planDeliveryFilename = 'planDelivery.inp';
 
-
-        hLutLimits = [-1000,1375];
+        hLutLimits = [-1000,1375];  % Default FRED values
         
-        conversionFactor = 1e6;
-        planDeliveryTemplate = 'planDelivery.txt';
+        conversionFactor = 1e6;     % Used to scale the FRED dose to matRad normalization
+%        planDeliveryTemplate = 'planDelivery.txt';
 
         FREDrootFolder;
 
@@ -102,7 +102,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         planFolder;
 
         cmdCall;
-
     end
     
     methods
@@ -113,8 +112,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % call
             %   engine = DoseEngines.matRad_DoseEngineFRED(ct,stf,pln,cst)
             %
-            % input
-            %   pln: matRad plan meta information struct
             
             matRad_cfg = MatRad_Config.instance();
             if nargin < 1
@@ -130,7 +127,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 end
             end
 
-            this.FREDrootFolder = fullfile(matRad_cfg.primaryUserFolder, 'FRED');
+            this.FREDrootFolder = fullfile(matRad_cfg.thirdPartyFolder, 'FRED');
             
             if ~exist(this.FREDrootFolder, 'dir')
                 mkdir(this.FREDrootFolder);
@@ -140,7 +137,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         function set.FREDrootFolder(obj, pathValue)
             obj.FREDrootFolder = pathValue;
-
             obj.updatePaths;
         end
     end
@@ -148,7 +144,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
     methods(Access = protected)
 
         dij = calcDose(this,ct,cst,stf)
-
 
         function dij = initDoseCalc(this,ct,cst,stf)
 
@@ -162,7 +157,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             if dij.numOfScenarios ~= 1
                 matRad_cfg.dispWarning('FRED is only implemented for single scenario use at the moment. Will only use the first Scenario for Monte Carlo calculation!');
             end
-            
 
             % Check for model consistency
             if ~isempty(this.bioParam)
@@ -178,11 +172,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                     case 'protons'
 
-                        dij = this.loadBiologicalBaseData(cst,dij);
+                        dij = this.loadBiologicalData(cst,dij);
                         dij = this.allocateQuantityMatrixContainers(dij,{'mAlphaDose', 'mSqrtBetaDose'});
 
                         % Only considering LET based models 
-                        %dij.calcLET   = true;
                         this.calcLET = true;
                     otherwise
                         matRad_cfg.dispWarning('biological dose calculation not supported for radiation modality: %s', this.radiationMode);
@@ -193,7 +186,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             if strcmp(this.bioParam.model, 'constRBE')
                 dij.RBE = this.bioParam.RBE;
             end
-            
+
             if this.calcLET
                 this.scorers = [this.scorers, {'LETd'}];
                 % Allocate containers for both LET*Dose and dose weighted
@@ -205,31 +198,30 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
        function writeTreeDirectory(this)
 
-            %fred_cfg = MatRad_FREDConfig.instance();
-
             if ~exist(this.MCrunFolder, 'dir')
                 mkdir(this.MCrunFolder);
             end
 
-            %write input folder
+            % write input folder
             if ~exist(this.inputFolder, 'dir')
                 mkdir(this.inputFolder);
             end
 
-            %Build MCrun/inp/regions and
-            %      MCrun/inp/plan
+            % build MCrun/inp/regions
             if ~exist(this.regionsFolder, 'dir')
                 mkdir(this.regionsFolder);
             end
 
+            % build MCrun/inp/plan
             if ~exist(this.planFolder, 'dir')
                 mkdir(this.planFolder);
             end
         end
 
-        writeRunFile(~, fName)
 
         %% Write files functions
+
+        writeRunFile(~, fName)
                 
         writeRegionsFile(this,fName, stf)
 
@@ -239,14 +231,13 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         function writeFredInputAllFiles(this,stf)
     
-            
             %write fred.inp file
             runFilename = fullfile(this.MCrunFolder, this.runInputFilename);
             this.writeRunFile(runFilename);
         
             %write region/region.inp file
             regionFilename = fullfile(this.regionsFolder, this.regionsFilename);
-            this.writeRegionsFile(regionFilename, stf);
+            this.writeRegionsFile(regionFilename);
         
             %write plan file
             planFile = fullfile(this.planFolder, this.planFilename);
@@ -255,10 +246,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %write planDelivery file
 
             planDeliveryFile = fullfile(this.planFolder,this.planDeliveryFilename);
-            this.writePlanDeliveryFile(planDeliveryFile, stf);
+            this.writePlanDeliveryFile(planDeliveryFile);
         end
 
-        function dij = loadBiologicalBaseData(this,cst,dij)
+        function dij = loadBiologicalData(this,cst,dij)
            matRad_cfg = MatRad_Config.instance();
             
             matRad_cfg.dispInfo('Initializing biological dose calculation...\n');
@@ -280,17 +271,15 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         function dij = allocateQuantityMatrixContainers(this,dij,names)
 
-            if this.calcDoseDirect
-                numOfBixelsContainer = 1;
-            else
-                numOfBixelsContainer = dij.totalNumOfBixels;
-            end
+            % if this.calcDoseDirect
+            %     numOfBixelsContainer = 1;
+            % else
+            %     numOfBixelsContainer = dij.totalNumOfBixels;
+            % end
             
             %Loop over all requested quantities
             for n = 1:numel(names)
-                %Create Cell arrays for container and dij
-                szContainer = [numOfBixelsContainer size(this.multScen.scenMask)];
-                %tmpMatrixContainers.(names{n}) = cell(szContainer);
+
                 dij.(names{n}) = cell(size(this.multScen.scenMask));
                 
                 %Now preallocate a matrix in each active scenario using the
@@ -329,8 +318,8 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             this.scorers                = {'Dose'};
             this.primaryMass            = 1.00727;
             this.numOfNucleons          = 1;
-
-
+            this.outputMCvariance       = false;
+            this.constantRBE            = NaN;
 
         end
 
@@ -407,16 +396,36 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             available = preCheck;
         end
 
-        function cube = readSimulationOutput(this,folder,fileName,doseGrid)
-
-            if exist('doseGrid', 'var')
-                resolution = doseGrid;
-            end
-            cube = matRad_readMhd(folder,fileName);
-        end
+        % function cube = readSimulationOutput(this,folder,fileName,doseGrid)
+        % 
+        %     if exist('doseGrid', 'var')
+        %         resolution = doseGrid;
+        %     end
+        %     cube = matRad_readMhd(folder,fileName);
+        % end
 
         function dijMatrix = readSparseDijBin(fName)
-
+        % FRED function to read sparseDij in .bin format
+        % call
+        %   readSparseDijBin(fName)
+        % 
+        % input
+        %   fName: filename to read
+        %
+        % output
+        %   dijMatrix: dij structure
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        % Copyright 2023 the matRad development team.
+        %
+        % This file is part of the matRad project. It is subject to the license
+        % terms in the LICENSE file found in the top-level directory of this
+        % distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+        % of the matRad project, including this file, may be copied, modified,
+        % propagated, or distributed except according to the terms contained in the
+        % LICENSE file.
+        %
+        % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             f = fopen(fName,'r','l');
 
             %Header
@@ -444,7 +453,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 currVoxelIndices = fread(f,numVox,"uint32") + 1;
                 tmpValues = fread(f,numVox*nComponents,"float32");
                 valuesNom = tmpValues(1:nComponents:end);%tmpValues(nComponents:nComponents:end);
-                % values(end+1:end+numVox) = tmpValues(1:nComponents:end);%tmpValues(nComponents:nComponents:end);
+                % values(end+1:end+numVox) = tmpValuess(1:nComponents:end);%tmpValues(nComponents:nComponents:end);
 
                 if nComponents == 2
                     valuesDen = tmpValues(nComponents:nComponents:end);
@@ -452,12 +461,11 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 else
                     values(end+1:end+numVox) = valuesNom;
                 end
-            
-                [indX, indY, indZ] = ind2sub(dims, currVoxelIndices);
 
-%                voxelIndices(end+1:end+numVox) = sub2ind(dims, indY, indX, indZ);
-                voxelIndices(end+1:end+numVox) = sub2ind(dims([2,1,3]), indY, indX, indZ);
+                % x and y components have been permuted in CT
+                [indY, indX, indZ] = ind2sub(dims, currVoxelIndices);
 
+                voxelIndices(end+1:end+numVox) = sub2ind(dims([2,1,3]), indX, indY, indZ);
                 fprintf("\tRead beamlet %d, %d voxels...\n",bixNum,numVox);
             end
             
@@ -482,11 +490,9 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
 
         function calculationAvailable = checkSystemAvailability(this)
+            matRad_cfg = MatRad_Config.instance();
 
             calculationAvailable = true;
-
- 
-            matRad_cfg = MatRad_Config.instance();
 
             % Disabling GPU for WSL
             if this.useWSL
@@ -498,7 +504,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 this.useGPU = false;
             end
 
-            
             switch this.machine.meta.radiationMode
                 case 'protons'
 
@@ -514,22 +519,20 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
 
         function version = getVersion(this)
-
+            % Function to get current default FRED version
             matRad_cfg = MatRad_Config.instance();
 
             [status, cmdOut] = system([this.cmdCall,'fred -vn']);
 
             if status == 0
-                %dotIdx = find('.' == cmdOut, 1,'first')-1;
                 version = cmdOut(1:end-1);
-
             else
                 matRad_dispError('Something wrong occured in checking FRED installation. Please check correct FRED installation');
             end
         end
 
         function availableVersions = getAvailableVersions(this, sist)
-            
+            % Function to get available FRED verions
             
             matRad_cfg = MatRad_Config.instance();
 
@@ -565,6 +568,9 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
 
         function [radiationMode] = updateRadiationMode(this,value)
+            % This function also resets the values for primary mass and numebr
+            % of nucleons. Used for possible future extension to multiple
+            % ion species
             matRad_cfg = MatRad_Config.instance();
             
             if any(strcmp(value, this.possibleRadiationModes))
@@ -577,6 +583,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 case 'protons'
                     this.primaryMass = 1.00727; % Da
                     this.numOfNucleons = 1;
+                    matRad_cfg.dispInfo('Default values for priamry mass and number of nucleons set.');
                 otherwise
                     matRad_cfg.dispError('Only proton dose calculation available with this version of FRED');
 
@@ -588,7 +595,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
      end
 
      
-
      methods
 
          function set.sourceModel(this, value)
@@ -597,13 +603,12 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             valid = ischar(value) && any(strcmp(value, this.AvailableSourceModels));
 
             if valid
-                
                 this.sourceModel = value;
             else
                 matRad_cfg.dispWarning('Unable to set source model:%s, setting default:%s', value, this.AvailableSourceModels{1})
                 this.sourceModel = this.AvailableSourceModels{1};
             end
-               
+
          end
 
          function version = get.currentVersion(this)
@@ -614,11 +619,11 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
              else
                 version = this.currentVersion;
              end
-               
+
          end
 
          function set.useWSL(this,value)
-             
+
              this.useWSL = value;
         
              if value
