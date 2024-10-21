@@ -73,7 +73,7 @@ try
 
         fprintf(fID, '\t#Second rotate the patient according to the gantry and couch angles.\n');
         fprintf(fID, '\t#In this configuration the fileds are always fixed in +SAD in y direction and the patient is rotated accordingly\n');
-        fprintf(fID, '\ttransform: Phantom rotate y ${-1*CA} Room\n');
+        fprintf(fID, '\ttransform: Phantom rotate y ${CA} Room\n');
         fprintf(fID, '\ttransform: Phantom rotate z ${GA} Room\n');
         fprintf(fID, '\n');
 
@@ -150,7 +150,7 @@ try
 
         fprintf(fID, '\t#Restore the patient to original position\n');
         fprintf(fID, '\ttransform: Phantom rotate z ${-1*GA} Room\n');
-        fprintf(fID, '\ttransform: Phantom rotate y ${CA} Room\n');
+        fprintf(fID, '\ttransform: Phantom rotate y ${-1*CA} Room\n');
         fprintf(fID, '\ttransform: Phantom move_to 0 0 0 Room\n');
 
         fprintf(fID, 'for>\n\n');
