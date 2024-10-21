@@ -186,6 +186,45 @@ for i = 1:nIter
     facetErrors = zeros(size(facetMods,1),1);
     normals = zeros(size(facetMods));
 
+
+    try
+        figure;
+        switch size(fVals,2)
+            case 2
+                plot(fVals(:,1), fVals(:,2), 'o');
+                hold on;
+                plot(fValsMod(:,1), fValsMod(:,2), '*');
+                grid on;
+                for plotIdx=relFacetidxs
+                    fidx = kmod(plotIdx,:);
+                    plot(fValsMod(fidx,1),fValsMod(fidx,2), '-');
+                end
+            
+                xlabel(optiProb.objectives{1}.name);
+                ylabel(optiProb.objectives{2}.name)
+            
+                title(['Iteration ', num2str(i)]); 
+            case 3
+                plot3(fVals(:,1), fVals(:,2),fVals(:,3), 'o');
+                hold on;
+                plot3(fValsMod(:,1), fValsMod(:,2),fValsMod(:,3), '*');
+                grid on;
+                for plotIdx=relFacetidxs
+                    fidx = kmod(plotIdx,:);
+                    plot3(fValsMod(fidx,1),fValsMod(fidx,2),fValsMod(fidx,3), '-');
+                end
+            
+                xlabel(optiProb.objectives{1}.name);
+                ylabel(optiProb.objectives{2}.name);
+                zlabel(optiProb.objectives{3}.name);
+            
+                title(['Iteration ', num2str(i)]); 
+
+        end
+    catch
+
+    end
+
     %Loop over facets and calculate error
     for j = 1:size(relFacetidxs,2)
         [facetPoints,refPoint,normal] = matRad_normalFromFacet(fValsMod,facetMods,j);
