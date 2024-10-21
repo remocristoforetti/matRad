@@ -449,12 +449,17 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             
             fprintf("Reading %d number of beamlets in %d voxels (%dx%dx%d)\n",numberOfBixels,prod(dims),dims(1),dims(2),dims(3));
         
+            bixelCounter = 0;
             for i = 1:numberOfBixels
                 %Read Beamlet
                 bixNum = fread(f,1,"int32");
                 numVox  = fread(f,1,"int32");
                 
-                colIndices(end+1:end+numVox) = bixNum + 1;
+                bixelCounter = bixelCounter +1;
+                % FRED adds 1000000 when new field is added
+                %bixNum = bixNum - (10^6*(i-1));
+
+                colIndices(end+1:end+numVox) = bixelCounter; %bixNum + 1;
                 currVoxelIndices = fread(f,numVox,"uint32") + 1;
                 tmpValues = fread(f,numVox*nComponents,"float32");
                 valuesNom = tmpValues(1:nComponents:end);%tmpValues(nComponents:nComponents:end);
