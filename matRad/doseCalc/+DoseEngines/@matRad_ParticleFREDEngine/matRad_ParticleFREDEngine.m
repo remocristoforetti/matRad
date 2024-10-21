@@ -401,12 +401,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             available = preCheck;
         end
 
-        % function cube = readSimulationOutput(this,folder,fileName,doseGrid)
-        % 
-        %     if exist('doseGrid', 'var')
-        %         resolution = doseGrid;
-        %     end
-        %     cube = matRad_readMhd(folder,fileName);
         % end
 
         function dijMatrix = readSparseDijBin(fName)
@@ -485,6 +479,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         end
 
+        [doseCubeV, letdCubeV] = readSimulationOutput(runFolder,calcDoseDirect, calcLET);
 
     end
 
