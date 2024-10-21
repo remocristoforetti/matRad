@@ -32,8 +32,7 @@ function fIndv = matRad_objectiveFunctions(optiProb,w,dij,cst)
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    matRad_cfg = MatRad_Config.instance();
+matRad_cfg = MatRad_Config.instance();
 
     % get current dose / effect / RBExDose vector
     optiProb.BP.compute(dij,w);
@@ -46,8 +45,13 @@ function fIndv = matRad_objectiveFunctions(optiProb,w,dij,cst)
     useScen  = optiProb.BP.scenarios;
     scenProb = optiProb.BP.scenarioProb;
     useNominalCtScen = optiProb.BP.nominalCtScenarios;
-
-    % retrieve matching 4D scenarios
+    
+    if ~isempty(dExp)
+        nonEmptyExp = find(~cellfun(@isempty, dExp))';
+    else
+        nonEmptyExp =  [];
+    end    % retrieve matching 4D scenarios
+    
     fullScen = cell(ndims(d),1);
     [fullScen{:}] = ind2sub(size(d),useScen);
     contourScen = fullScen{1};
@@ -59,15 +63,14 @@ function fIndv = matRad_objectiveFunctions(optiProb,w,dij,cst)
     %individual objective functions
     for i = 1:size(optiProb.objIdx,1) %loop over objectives
 
+
         objective = optiProb.objectives{i}; 
         curObjIdx = optiProb.objIdx(i,1);
 
         %calculation differs based on robustness
         
         robustness = objective.robustness;
-        
-        objective = optiProb.BP.setBiologicalDosePrescriptions(objective, cst{curObjIdx,5}.alphaX, cst{curObjIdx,5}.betaX);
-        
+       
         if isa(objective,'DoseObjectives.matRad_DoseObjective')
             switch robustness
                 case 'none' % if conventional opt: just sum objectives of nominal dose
@@ -94,7 +97,7 @@ function fIndv = matRad_objectiveFunctions(optiProb,w,dij,cst)
                 case 'PROB' % if prob opt: sum up expectation value of objectives TODO: CHECK FOR VALUE TO APPEND
                     if ~exist('dExp','var')
                         optiProb.BP.compute(dij,w);
-                        [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                        [dExp,~,vTot] = optiProb.BP.GetResultProb();
                     end
         
                     if ~isequal(nonEmptyExp,useNominalCtScen)
@@ -109,13 +112,13 @@ function fIndv = matRad_objectiveFunctions(optiProb,w,dij,cst)
                     for s=nonEmptyExp
                         d_i = dExp{s}(newIdx{s});
                     
-                        f_objective = f_objective + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                        f_objective = f_objective + objective.computeDoseObjectiveFunction(d_i);
                     end
       
-                    singleObjective = [singleObjective,f_objective];
+                   % singleObjective = [singleObjective,f_objective];
     
                     %if objective.isActive
-                    fIndv = f_objective;
+                    fIndv(i,1) = f_objective;
                     %end
                     
                 case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
@@ -234,17 +237,17 @@ function fIndv = matRad_objectiveFunctions(optiProb,w,dij,cst)
 
                     f_objective = 0;
                     for s=nonEmptyExp%useNominalCtScen
-                        f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, numel(newIdx{s}));
+                        f_objective = f_objective + objective.computeTotalVarianceObjective(vTot{curObjIdx,s}, numel(newIdx{s}));
 
                     end
 
-                    singleObjective = [singleObjective,f_objective];
+                    %singleObjective = [singleObjective,f_objective];
 
-                    if objective.isActive
+                    %if objective.isActive
 
-                        f = f + f_objective;
+                        fIndv(i,1) = f_objective;
 
-                    end
+                    %end
             end
         end
     end

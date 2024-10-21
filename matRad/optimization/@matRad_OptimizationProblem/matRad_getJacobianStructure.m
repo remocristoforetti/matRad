@@ -41,6 +41,13 @@ for i = 1:size(optiProb.constrIdx,1)
    % get the jacobian structure depending on dose	
    jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
    nRows = size(jacobDoseStruct,2);	
-   jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:))),nRows,1)];	
-      
+   switch obj.robustness
+        case 'PROB'
+            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        otherwise
+
+            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+
+    end
+   %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:))),nRows,1)];	  
 end

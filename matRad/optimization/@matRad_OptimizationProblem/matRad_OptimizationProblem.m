@@ -155,12 +155,12 @@ classdef matRad_OptimizationProblem < handle
                         if isstruct(cst{i,6}{j})
                             obj =  matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
                         end
-                        if contains(class(obj),'DoseObjectives')
+                        if contains(class(obj),{'DoseObjectives', 'OmegaObjectives'})
                             optiProb.objIdx = [optiProb.objIdx;i,j];
                             obj = optiProb.BP.setBiologicalDosePrescriptions(obj,cst{i,5}.alphaX,cst{i,5}.betaX);
                             optiProb.objectives(end+1) = {obj};
 
-                        elseif contains(class(obj),'DoseConstraints')
+                        elseif contains(class(obj),{'DoseConstraints', 'OmegaConstraints'})
                             optiProb.constrIdx = [optiProb.constrIdx;i,j];
                             obj = optiProb.BP.setBiologicalDosePrescriptions(obj,cst{i,5}.alphaX,cst{i,5}.betaX);
                             optiProb.constraints(end+1) = {obj};

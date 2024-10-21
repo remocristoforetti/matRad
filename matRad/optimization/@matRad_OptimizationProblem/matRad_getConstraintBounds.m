@@ -38,10 +38,12 @@ for i = 1:size(optiProb.constrIdx,1)
     obj = optiProb.constraints{i};
     curConIdx = optiProb.constrIdx(i,1);
 
-    cl = [cl;obj.lowerBounds(numel(cst{curConIdx,4}{1}))];
-    cu = [cu;obj.upperBounds(numel(cst{curConIdx,4}{1}))];
-        
+    if isa(obj,'DoseConstraints.matRad_DoseConstraint')
+        cl = [cl;obj.lowerBounds(numel(cst{curConIdx,4}{1}))];
+        cu = [cu;obj.upperBounds(numel(cst{curConIdx,4}{1}))];
+    elseif isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
+        cl = [cl;optiFunc.lowerBounds];
+
+        cu = [cu;optiFunc.upperBounds];
+    end     
 end
-
-    
-

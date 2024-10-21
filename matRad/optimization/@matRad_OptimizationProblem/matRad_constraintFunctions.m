@@ -35,6 +35,7 @@ function c = matRad_constraintFunctions(optiProb,w,dij,cst)
 % get current dose / effect / RBExDose vector
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
+[dExp,~, vTot] = optiProb.BP.GetResultProb();
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
@@ -55,70 +56,76 @@ for  i = 1:size(optiProb.constrIdx,1)
       curConIdx = optiProb.constrIdx(i,1);
       
       robustness = constraint.robustness;
-         
-      switch robustness
-         case 'none' % if conventional opt: just sum objectives of nominal dose
-            d_i = d{1}(cst{curConIdx,4}{1});
-            c = [c; constraint.computeDoseConstraintFunction(d_i)];
-            
-         case 'PROB' % if prob opt: sum up expectation value of objectives
-            
-            d_i = dExp{1}(cst{curConIdx,4}{1});
-            c = [c; constraint.computeDoseConstraintFunction(d_i)];
-            
-         case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
-            contourIx = unique(contourScen);
-            if ~isscalar(contourIx)
-                  % voxels need to be tracked through the 4D CT,
-                  % not yet implemented
-                  matRad_cfg.dispError('4D VWWC optimization is currently not supported');
-            end
-            
-            % prepare min/max dose vector
-            if ~exist('d_tmp','var')
-                  d_tmp = [d{useScen}];
-            end
-            
-            d_Scen = d_tmp(cst{curConIdx,4}{contourIx},:);
-            
-            d_max = max(d_Scen,[],2);
-            d_min = min(d_Scen,[],2);
-            
-            if isequal(cst{curConIdx,3},'OAR')
-                  d_i = d_max;
-            elseif isequal(cst{curConIdx,3},'TARGET')
-                  d_i = d_min;
-            end
-            
-            c = [c; constraint.computeDoseConstraintFunction(d_i)];
-            
-         case 'VWWC_INV'  %inverse voxel-wise conformitiy - takes maximum dose in TARGET and minimum in OAR
-            contourIx = unique(contourScen);
-            if ~isscalar(contourIx)
-                  % voxels need to be tracked through the 4D CT,
-                  % not yet implemented
-                  matRad_cfg.dispError('4D inverted VWWC optimization is currently not supported');
-            end
-            
-            % prepare min/max dose vector
-            if ~exist('d_tmp','var')
-                  d_tmp = [d{:}];
-            end
-            
-            d_Scen = d_tmp(cst{curConIdx,4}{contourIx},:);
-            d_max = max(d_Scen,[],2);
-            d_min = min(d_Scen,[],2);
-            
-            if isequal(cst{curConIdx,3},'OAR')
-                  d_i = d_min;
-            elseif isequal(cst{curConIdx,3},'TARGET')
-                  d_i = d_max;
-            end
-            
-            c = [c; constraint.computeDoseConstraintFunction(d_i)];   
-         otherwise
-            matRad_cfg.dispError('Robustness setting %s not yet supported!',constraint.robustness);
-      end 
+      
+      if isa(constraint, 'DoseConstraints.matRad_DoseConstraint')
+          switch robustness
+             case 'none' % if conventional opt: just sum objectives of nominal dose
+                d_i = d{1}(cst{curConIdx,4}{1});
+                c = [c; constraint.computeDoseConstraintFunction(d_i)];
+                
+             case 'PROB' % if prob opt: sum up expectation value of objectives
+                
+                d_i = dExp{1}(cst{curConIdx,4}{1});
+                c = [c; constraint.computeDoseConstraintFunction(d_i)];
+                
+             case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
+                contourIx = unique(contourScen);
+                if ~isscalar(contourIx)
+                      % voxels need to be tracked through the 4D CT,
+                      % not yet implemented
+                      matRad_cfg.dispError('4D VWWC optimization is currently not supported');
+                end
+                
+                % prepare min/max dose vector
+                if ~exist('d_tmp','var')
+                      d_tmp = [d{useScen}];
+                end
+                
+                d_Scen = d_tmp(cst{curConIdx,4}{contourIx},:);
+                
+                d_max = max(d_Scen,[],2);
+                d_min = min(d_Scen,[],2);
+                
+                if isequal(cst{curConIdx,3},'OAR')
+                      d_i = d_max;
+                elseif isequal(cst{curConIdx,3},'TARGET')
+                      d_i = d_min;
+                end
+                
+                c = [c; constraint.computeDoseConstraintFunction(d_i)];
+                
+             case 'VWWC_INV'  %inverse voxel-wise conformitiy - takes maximum dose in TARGET and minimum in OAR
+                contourIx = unique(contourScen);
+                if ~isscalar(contourIx)
+                      % voxels need to be tracked through the 4D CT,
+                      % not yet implemented
+                      matRad_cfg.dispError('4D inverted VWWC optimization is currently not supported');
+                end
+                
+                % prepare min/max dose vector
+                if ~exist('d_tmp','var')
+                      d_tmp = [d{:}];
+                end
+                
+                d_Scen = d_tmp(cst{curConIdx,4}{contourIx},:);
+                d_max = max(d_Scen,[],2);
+                d_min = min(d_Scen,[],2);
+                
+                if isequal(cst{curConIdx,3},'OAR')
+                      d_i = d_min;
+                elseif isequal(cst{curConIdx,3},'TARGET')
+                      d_i = d_max;
+                end
+                
+                c = [c; constraint.computeDoseConstraintFunction(d_i)];   
+             otherwise
+                matRad_cfg.dispError('Robustness setting %s not yet supported!',constraint.robustness);
+          end
+      elseif isa(constraint, 'OmegaConstraint.matRad_VarianceConstraint')
+         allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
+         nVoxel = numel(unique([allVoxels{:}]));
+         c = [c; constraint.computeVarianceConstraintFunction(vTot{curConIdx},nVoxel)];
+      end
          
 end % if we are a constraint
 end
