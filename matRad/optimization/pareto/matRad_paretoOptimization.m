@@ -1,4 +1,5 @@
 function [resultGUI,returnStruct] = matRad_paretoOptimization(dij,cst,pln,nIter,wInit)
+function [resultGUI,returnStruct] = matRad_paretoOptimization(dij,cst,pln,nIter,wInit, anchorPointperturbation)
 % matRad inverse pareto planning wrapper function
 % 
 % call
@@ -67,6 +68,7 @@ objcount = numel(optiProb.objectives);
 
 %% generaete Anchor Points for optimization
 penGrid = matRad_generateParetoAnchorPoints(objcount);
+penGrid = matRad_generateParetoAnchorPoints(objcount, anchorPointperturbation);
 
 %initialize matrices for weight vectors and associated objective function values
 weights = zeros(numel(wInit),size(penGrid,1));
