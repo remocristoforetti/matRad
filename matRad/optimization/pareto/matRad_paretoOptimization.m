@@ -1,4 +1,3 @@
-function [resultGUI,returnStruct] = matRad_paretoOptimization(dij,cst,pln,nIter,wInit)
 function [resultGUI,returnStruct] = matRad_paretoOptimization(dij,cst,pln,nIter,wInit, anchorPointperturbation)
 % matRad inverse pareto planning wrapper function
 % 
@@ -66,7 +65,6 @@ if optimizer.options.acceptable_obj_change_tol > 1e-5
     warning(['Pareto Optimization requires more accurate results and therefore small objective change tolerance!']);
 end
 %get number of objectives at the start
-
 objcount = numel(optiProb.objectives);
 
 %% generaete Anchor Points for optimization
@@ -349,10 +347,6 @@ for i = 1:nIter
     OPSb = [OPSb;-fIndv*newPen'];
 
 end
-
-
-
-
 
 %defining a structure that contains all relevant information
 returnStruct.OPSA = OPSA;
