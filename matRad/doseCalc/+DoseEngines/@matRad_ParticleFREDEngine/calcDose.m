@@ -42,16 +42,22 @@ function dij = calcDose(this,ct,cst,stf)
                                 dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'linear');
 
     % Force HU clamping if values are found outside of available range
-     switch this.HUtable
-        case 'internal'
-            if any(HUcube{1}(:)>this.hLutLimits(2)) || any(HUcube{1}(:)<this.hLutLimits(1))
-                matRad_cfg.dispWarning('HU outside of boundaries');
-                this.HUclamping = true;
-            end
-        otherwise
-            matRad_cfg.dispInfo('Using custom HU table: %s\n', this.HUtable);
-     end
-     
+    switch this.HUtable
+       case 'internal'
+           if any(HUcube{1}(:)>this.hLutLimits(2)) || any(HUcube{1}(:)<this.hLutLimits(1))
+               matRad_cfg.dispWarning('HU outside of boundaries');
+               this.HUclamping = true;
+           end
+       otherwise
+           matRad_cfg.dispInfo('Using custom HU table: %s\n', this.HUtable);
+    end
+    
+    if this.ignoreOutsideDensities
+        eraseCtDensMask = ones(prod(ct.cubeDim),1);
+        eraseCtDensMask(this.VctGrid) = 0;
+        HUcube{1}(eraseCtDensMask == 1) = this.hLutLimits(1);
+    end
+
     %Write the directory tree
     this.writeTreeDirectory();
     

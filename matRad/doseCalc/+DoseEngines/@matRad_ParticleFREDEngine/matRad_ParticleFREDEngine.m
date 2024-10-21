@@ -75,6 +75,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         printOutput;
         primaryMass;
         numOfNucleons;
+        ignoreOutsideDensities;
     end        
 
 
@@ -321,6 +322,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             this.numOfNucleons          = 1;
             this.outputMCvariance       = false;
             this.constantRBE            = NaN;
+            this.ignoreOutsideDensities = false;
 
         end
 
