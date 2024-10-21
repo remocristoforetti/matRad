@@ -140,7 +140,7 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
             numOfObjectives = 0;
             for i = 1:size(cst,1)
                 for j = 1:numel(cst{i,6})
-                    if isa(cst{i,6}{j},'DoseObjectives.matRad_DoseObjective')
+                    if isa(cst{i,6}{j},'DoseObjectives.matRad_DoseObjective') || isa(cst{i,6}{j},'OmegaObjectives.matRad_OmegaObjective')
                         numOfObjectives = numOfObjectives + 1;
                     end
                 end
@@ -228,7 +228,7 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
                         obj = cst{i,6}{j};
                         
                         %Convert to class if not
-                        if ~isa(obj,'matRad_DoseOptimizationFunction')
+                        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
                             try
                                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
                             catch ME
@@ -237,7 +237,7 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
                             end
                         end
                         
-                        if isa(obj,'DoseObjectives.matRad_DoseObjective')
+                        if isa(obj,'DoseObjectives.matRad_DoseObjective') || isa(obj,'OmegaObjectives.matRad_OmegaObjective')
                             xPos = 0.01;
                             h = uicontrol(SliderPanel','Style','edit', ...
                                 'String',cst{i,2}, ...

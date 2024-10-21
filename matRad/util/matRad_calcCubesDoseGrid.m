@@ -52,8 +52,18 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(resultGUI.w,1),1);
 
 
 %% Physical Dose
-doseFields = {'physicalDose','doseToWater'};
-doseQuantities = {'','_std','_batchStd'};
+if ~isempty(dij.physicalDose{scenNum})
+    doseFields = {'physicalDose','doseToWater'};
+    doseQuantities = {'','_std','_batchStd'};
+    if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1}) && scenNum==1
+        doseFields = [doseFields, {'physicalDoseExp'}];
+    end
+else
+    doseFields = {'physicalDoseExp'};
+    doseQuantities = {'','_std','_batchStd'};
+
+end
+
 % compute physical dose for all beams individually and together
 for j = 1:length(doseFields)
     for k = 1:length(doseQuantities)
@@ -92,7 +102,7 @@ end
 % consider RBE for protons and skip varRBE calculation
 if isfield(dij,'RBE') && isscalar(dij.RBE)
     for i = 1:length(beamInfo)
-        resultGUI.(['RBExD', beamInfo(i).suffix]) = resultGUI.(['physicalDose', beamInfo(i).suffix]) * dij.RBE;
+        resultGUI.(['RBExD', beamInfo(i).suffix]) = resultGUI.([doseFields{1}, beamInfo(i).suffix]) * dij.RBE;
     end
 elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr),'alpha')), fieldnames(dij)))
     % Load RBE models if MonteCarlo was calculated for multiple models

@@ -58,8 +58,11 @@ classdef matRad_ParetoDVHWidget < matRad_Widget
             ParetoHelperObject = evalin('base','ParetoHelperObject');
             %Shows the DVH for the current plan
             resultGUI = matRad_calcCubes(ParetoHelperObject.currentWeights,evalin('base','dij'));
-            dvh = matRad_calcDVH(evalin('base','cst'),resultGUI.physicalDose,'cum');
-    
+            if isfield(resultGUI, 'physicalDose')
+                dvh = matRad_calcDVH(evalin('base','cst'),resultGUI.physicalDose,'cum');
+            else
+                dvh = matRad_calcDVH(evalin('base','cst'),resultGUI.physicalDoseExp,'cum');    
+            end
             matRad_showDVH(this.DVHPlotAxes,...
                 dvh,evalin('base','cst'),evalin('base','pln'),ParetoHelperObject.linestyle);
             if ParetoHelperObject.linestyle < 4

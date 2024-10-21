@@ -29,7 +29,11 @@ function cubes = matRad_calcFastCubes(w,dij,pln)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     switch pln.bioParam.quantityOpt
         case 'physicalDose'
-            cubes = reshape(dij.physicalDose{1}*w,dij.doseGrid.dimensions);
+            if ~isempty(dij.physicalDose{1})
+                cubes = reshape(dij.physicalDose{1}*w,dij.doseGrid.dimensions);
+            else
+                cubes = reshape(dij.physicalDoseExp{1}*w,dij.doseGrid.dimensions);
+            end
         case 'RBExD'
             if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
                 %TODO                
