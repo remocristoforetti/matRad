@@ -78,3 +78,24 @@ function test_writeFiles
         assertTrue(isfile([regionsFolder filesep 'regions.inp']));
         
         assertTrue(isfile([runFolder filesep 'fred.inp']));
+
+function test_loadDij
+
+        matRad_cfg = MatRad_Config.instance();
+        load(['protons_testData.mat']);
+        pln.machine = 'Generic';
+        pln.propDoseCalc.engine = 'FRED';
+
+        eng = DoseEngines.matRad_ParticleFREDEngine.getEngineFromPln(pln);
+
+        dijFile = 'Fred.sparseDij.bin';
+
+        dijFredLoad = eng.readSparseDijBin(dijFile);
+
+        nBixels = sum([stf(:).totalNumOfBixels]);
+        nVoxles = prod(ct.cubeDim);
+
+        % Assert basic parameters
+        assertTrue(isequal(size(dijFredLoad),[nVoxles, nBixels]));
+
+
