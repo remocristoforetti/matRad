@@ -33,10 +33,10 @@ function [resultGUI,returnStruct] = matRad_paretoOptimization(dij,cst,pln,nIter,
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 matRad_cfg = MatRad_Config.instance();
-if exist('wInit','var')
 if ~exist('anchorPointperturbation', 'var') || isempty(anchorPointperturbation)
     anchorPointperturbation = 0;
 end
+if exist('wInit','var') && ~isempty(wInit)
     [dij,cst,pln,wInit,optiProb,FLAG_ROB_OPT] = matRad_initOptimization(dij,cst,pln,wInit);
 else
     [dij,cst,pln,wInit,optiProb,FLAG_ROB_OPT] = matRad_initOptimization(dij,cst,pln);
