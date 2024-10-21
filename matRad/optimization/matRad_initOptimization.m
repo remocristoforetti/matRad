@@ -49,17 +49,18 @@ for i = 1:size(cst,1)
         %In case it is a default saved struct, convert to object
         %Also intrinsically checks that we have a valid optimization
         %objective or constraint function in the end
-        if ~isa(obj,'matRad_DoseOptimizationFunction')
+        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective') && ~isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
             try
                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
             catch
                 matRad_cfg.dispError('cst{%d,6}{%d} is not a valid Objective/constraint! Remove or Replace and try again!',i,j);
             end
         end
-        
-        obj = obj.setDoseParameters(obj.getDoseParameters()/pln.numOfFractions);
 
-        cst{i,6}{j} = obj;
+       if isa(obj, 'matRad_DoseOptimizationFunction')
+            obj = obj.setDoseParameters(obj.getDoseParameters()/pln.numOfFractions);
+       end
+       cst{i,6}{j} = obj;
     end
 end
 
@@ -133,7 +134,12 @@ elseif strcmp(pln.bioParam.model,'constRBE') && strcmp(pln.radiationMode,'proton
         dij.RBE = 1.1;
     end
 
-    doseTmp = dij.physicalDose{1}*wOnes;
+
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/(dij.RBE * mean(doseTmp(V)));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -194,7 +200,11 @@ elseif pln.bioParam.bioOpt
 
     matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
 else
-    doseTmp = dij.physicalDose{1}*wOnes;
+    if ~isempty(dij.physicalDose{1})
+        doseTmp = dij.physicalDose{1}*wOnes;
+    else
+        doseTmp = dij.physicalDoseExp{1}*wOnes;
+    end
     bixelWeight =  (doseTarget)/mean(doseTmp(V));
     wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
@@ -215,10 +225,17 @@ if isequal(scen4D,'all')
     scen4D = 1:size(dij.physicalDose,1);
 end
 
-linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
+if ~isempty(dij.physicalDose{:})
+    linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 
-%Only select the indexes of the nominal ct Scenarios
-linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+    %Only select the indexes of the nominal ct Scenarios
+    linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+
+else
+    linIxDIJ = [];
+    linIxDIJ_nominalCT = scen4D;
+
+end
 
 FLAG_CALC_PROB = false;
 FLAG_ROB_OPT   = false;
@@ -235,13 +252,25 @@ for i = 1:size(cst,1)
     end
 end
 
-if FLAG_CALC_PROB
+if FLAG_CALC_PROB && ~isfield(dij, 'physicalDoseExp') && ~isfield(dij, 'physicalDoseOmega')
     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+
 end
 
+voiForOmegaIx = [];
+if isfield(dij, 'physicalDoseOmega') && ~isempty(dij.physicalDoseOmega)
+    for i = 1:size(cst,1)
+        for j=1:size(cst{i,6},2)
+            if isa(cst{i,6}{j},'OmegaObjectives.matRad_TotalVariance') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+                voiForOmegaIx = [voiForOmegaIx i];
+            end
+        end
+    end
+    voiForOmegaIx = unique(voiForOmegaIx);
+end
 
 % set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
+if ~isempty(dij.physicalDose{:}) && ~FLAG_ROB_OPT || FLAG_CALC_PROB    % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
     ixForOpt = scen4D;
 else
     ixForOpt = linIxDIJ;
@@ -265,9 +294,12 @@ switch pln.bioParam.quantityOpt
 end
 
 %Give scenarios used for optimization
+
 backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenProb;
+backProjection.scenarioProb = pln.multScen.scenWeight;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
+backProjection.useStructsForOmega = voiForOmegaIx;
+
 
 optiProb = matRad_OptimizationProblem(backProjection,cst);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
