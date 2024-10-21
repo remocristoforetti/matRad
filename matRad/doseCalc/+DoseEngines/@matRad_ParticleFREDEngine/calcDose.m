@@ -296,7 +296,6 @@ function dij = calcDose(this,ct,cst,stf)
     end
     
     % %% MC computation and dij filling
-
     this.writeFredInputAllFiles(stfFred);
 
     if ~this.exportCalculation
@@ -329,66 +328,55 @@ function dij = calcDose(this,ct,cst,stf)
             matRad_cfg.dispInfo(' done\n');
         end
 
-       if ~this.calcDoseDirect
-
-            doseDijFolder = fullfile(this.MCrunFolder, 'out', 'scoreij');
-            doseDijFile = 'Phantom.Dose.bin';
- 
-            dijFileName = fullfile(doseDijFolder,doseDijFile);
-
-            % read dij matrix
-            doseDijMatrix = this.readSparseDijBin(dijFileName);
-
-            % Check consistency
-            if isequal(size(doseDijMatrix), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
-                %When scoring dij, FRED internaly normalizes to 1
-                dij.physicalDose{1}(this.VdoseGrid,:) = this.conversionFactor*doseDijMatrix(this.VdoseGrid,fredOrder);
+        % read simulation output
+        [doseCube, letdCube] = this.readSimulationOutput(this.MCrunFolder,this.calcDoseDirect, logical(this.calcLET));
+    
+        % Fill dij
+        if this.calcDoseDirect
+            % Dose cube
+            if isequal(size(doseCube), this.doseGrid.dimensions)
+                dij.physicalDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),doseCube(this.VdoseGrid), this.doseGrid.numOfVoxels,1);
             end
 
+            % LETd cube
             if this.calcLET
-                dijFile = 'Phantom.LETd.bin';
-                dijFileName = fullfile(doseDijFolder,dijFile);
-                mLETDijMatrix = this.readSparseDijBin(dijFileName);
-                
-                if isequal(size(mLETDijMatrix), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
-                    % Need to divide by 10, FRED scores in MeV * cm^2 / g
-                    dij.mLETd{1}(this.VdoseGrid,:) = mLETDijMatrix(this.VdoseGrid,fredOrder)./10;
+                if isequal(size(letdCube), this.doseGrid.dimensions)
+                    dij.mLETd{1}    = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),letdCube(this.VdoseGrid)./10, this.doseGrid.numOfVoxels,1);
+
+                    % We need LETd * dose as well
+                    dij.mLETDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),(letdCube(this.VdoseGrid)./10).*doseCube(this.VdoseGrid), this.doseGrid.numOfVoxels,1);
                 end
-                
-                dij.mLETDose{1} = sparse(dij.physicalDose{1}.*dij.mLETd{1});
-
-            end
-
-        else
-
-            doseCubeFolder = fullfile(this.MCrunFolder, 'out', 'score');
-            doseCubeFile = 'Phantom.Dose.mhd';
-            
-            try
-                cube = matRad_readMHD(fullfile(doseCubeFolder, doseCubeFile));
-            catch
-                matRad_cfg.dispError('unable to load file: %s',fullfile(doseCubeFolder, doseCubeFile));
-            end
-
-            dij.physicalDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),cube(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
-
-            if this.calcLET
-                cubeLET = matRad_readMHD(fullfile(this.MCrunFolder, 'out', 'score', 'Phantom.LETd.mhd'));
-
-                dij.mLETd{1}    = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),cubeLET(this.VdoseGrid)./10, dij.doseGrid.numOfVoxels,1);
-                dij.mLETDose{1} = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),(cubeLET(this.VdoseGrid)./10).*cube(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
-
             end
 
             % Needed for calcCubes
             dijFieldsToOverride = {'numOfBeams','beamNum','bixelNum','rayNum','totalNumOfBixels','totalNumOfRays','numOfRaysPerBeam'};
             
             for fieldName=dijFieldsToOverride
-                dij.(fieldName{1}) = this.numOfColumnsDij;
+                dij.(fieldName{1}) = 1;
             end
-       end
 
-       if this.calcBioDose
+        else
+            % Dose cube
+            if isequal(size(doseCube), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
+                %When scoring dij, FRED internaly normalizes to 1
+                dij.physicalDose{1}(this.VdoseGrid,:) = this.conversionFactor*doseCube(this.VdoseGrid,fredOrder);
+            end
+
+            % LET cube
+            if this.calcLET
+                if isequal(size(letdCube), [dij.doseGrid.numOfVoxels,dij.totalNumOfBixels])
+                    % Need to divide by 10, FRED scores in MeV * cm^2 / g
+                    dij.mLETd{1}(this.VdoseGrid,:) = letdCube(this.VdoseGrid,fredOrder)./10;
+                end
+
+                % We need LETd * dose as well
+                dij.mLETDose{1} = sparse(dij.physicalDose{1}.*dij.mLETd{1});
+            end
+        end
+
+
+        % Calc Biological quantities
+        if this.calcBioDose
            % recover alpha and beta maps
            tmpBixel.radDepths = zeros(size(this.VdoseGrid,1),1);
         
@@ -404,8 +392,8 @@ function dij = calcDose(this,ct,cst,stf)
                 tmpBixel.alpha(isnan(tmpBixel.alpha)) = 0;
                 tmpBixel.beta(isnan(tmpBixel.beta)) =  0;
 
-                dij.mAlphaDose{1}     = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),tmpBixel.alpha.*dij.physicalDose{1}(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
-                dij.mSqrtBetaDose{1}  = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixel.beta).*dij.physicalDose{1}(this.VdoseGrid), dij.doseGrid.numOfVoxels,1);
+                dij.mAlphaDose{1}     = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),tmpBixel.alpha.*dij.physicalDose{1}(this.VdoseGrid), this.doseGrid.numOfVoxels,1);
+                dij.mSqrtBetaDose{1}  = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixel.beta).*dij.physicalDose{1}(this.VdoseGrid), this.doseGrid.numOfVoxels,1);
            else    
                % Loop over all bixels
                for bxlIdx = 1:dij.totalNumOfBixels
@@ -417,11 +405,13 @@ function dij = calcDose(this,ct,cst,stf)
                    tmpBixel.alpha(isnan(tmpBixel.alpha)) = 0;
                    tmpBixel.beta(isnan(tmpBixel.beta)) =  0;
                 
-                   dij.mAlphaDose{1}(:,bxlIdx)     = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),tmpBixel.alpha.*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), dij.doseGrid.numOfVoxels,1);
-                   dij.mSqrtBetaDose{1}(:,bxlIdx)  = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixel.beta).*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), dij.doseGrid.numOfVoxels,1);
+                   dij.mAlphaDose{1}(:,bxlIdx)     = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),tmpBixel.alpha.*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), this.doseGrid.numOfVoxels,1);
+                   dij.mSqrtBetaDose{1}(:,bxlIdx)  = sparse(this.VdoseGrid, ones(numel(this.VdoseGrid),1),sqrt(tmpBixel.beta).*dij.physicalDose{1}(this.VdoseGrid,bxlIdx), this.doseGrid.numOfVoxels,1);
                end
            end
         end 
+
+
     else
         matRad_cfg.dispInfo('All files have been generated');
         dijFieldsToOverride = {'numOfBeams','beamNum','bixelNum','rayNum','totalNumOfBixels','totalNumOfRays','numOfRaysPerBeam'};
