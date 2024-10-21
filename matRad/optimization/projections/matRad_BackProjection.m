@@ -16,7 +16,7 @@ classdef matRad_BackProjection < handle
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
     properties (SetAccess = protected)
- wCache
+        wCache
         wGradCache  %different cache for optimal performance (if multiple evaluations of objective but not gradient are required)
         wGradCacheProb
         d
