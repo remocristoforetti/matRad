@@ -70,7 +70,6 @@ end
 objcount = numel(optiProb.objectives);
 
 %% generaete Anchor Points for optimization
-penGrid = matRad_generateParetoAnchorPoints(objcount);
 penGrid = matRad_generateParetoAnchorPoints(objcount, anchorPointperturbation);
 
 %initialize matrices for weight vectors and associated objective function values
@@ -94,7 +93,7 @@ for i = 1:size(penGrid,1)
     %optimizer.optionsWarmStart.zl       = info.zl;
     %optimizer.optionsWarmStart.zu       = info.zu;
     %optimizer.optionsWarmStart.lambda   = info.lambda;
-    fInd(i,:) = matRad_objectiveFunctions(optiProb,wOpt,dij,cst)';
+    fIndOriginal(i,:) = matRad_objectiveFunctions(optiProb,wOpt,dij,cst)';
     objectiveFunctionVals(end + 1) = {optimizer.allObjectiveFunctionValues};
     
 end
@@ -104,10 +103,10 @@ end
 %%normalize objectives
 
 optiProb.normalizationScheme.name = 'UL';
-optiProb.normalizationScheme.U = max(fInd,[],1);
-optiProb.normalizationScheme.L = min(fInd,[],1);
+optiProb.normalizationScheme.U = max(fIndOriginal,[],1);
+optiProb.normalizationScheme.L = min(fIndOriginal,[],1);
 
-fInd = (fInd-optiProb.normalizationScheme.L)./(optiProb.normalizationScheme.U-optiProb.normalizationScheme.L);
+fInd = (fIndOriginal-optiProb.normalizationScheme.L)./(optiProb.normalizationScheme.U-optiProb.normalizationScheme.L);
 
 
 %% Maybe: Grouping based on correlation of objectives
