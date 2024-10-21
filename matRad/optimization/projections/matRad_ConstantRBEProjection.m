@@ -30,7 +30,7 @@ classdef matRad_ConstantRBEProjection < matRad_BackProjection
             end 
         end
         
-        function [dExp,dOmegaV] = computeSingleScenarioProb(~,dij,scen,w)
+        function [dExp,dOmegaV,vTot] = computeSingleScenarioProb(obj,dij,scen,w)
             if ~isempty(dij.physicalDoseExp{scen})
                 dExp = dij.physicalDoseExp{scen}*(dij.RBE * w);
                 
