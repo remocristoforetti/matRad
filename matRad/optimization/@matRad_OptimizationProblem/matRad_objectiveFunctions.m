@@ -36,22 +36,15 @@ matRad_cfg = MatRad_Config.instance();
 
     % get current dose / effect / RBExDose vector
     optiProb.BP.compute(dij,w);
-    d = optiProb.BP.GetResult();
-
-    % get probabilistic quantities (nearly no overhead if empty)
-    [dExp,dOmega] = optiProb.BP.GetResultProb();
+    d = optiProb.BP.d;
 
     % get the used scenarios
     useScen  = optiProb.BP.scenarios;
     scenProb = optiProb.BP.scenarioProb;
     useNominalCtScen = optiProb.BP.nominalCtScenarios;
     
-    if ~isempty(dExp)
-        nonEmptyExp = find(~cellfun(@isempty, dExp))';
-    else
-        nonEmptyExp =  [];
-    end    % retrieve matching 4D scenarios
-    
+
+    % retrieve matching 4D scenarios
     fullScen = cell(ndims(d),1);
     [fullScen{:}] = ind2sub(size(d),useScen);
     contourScen = fullScen{1};
@@ -72,11 +65,14 @@ matRad_cfg = MatRad_Config.instance();
         robustness = objective.robustness;
        
         if isa(objective,'DoseObjectives.matRad_DoseObjective')
+            quantityOptimized = objective.quantity;
+            quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+            quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimized,quantityNames)};
             switch robustness
                 case 'none' % if conventional opt: just sum objectives of nominal dose
     
                     for ixScen = useNominalCtScen
-                        d_i = d{ixScen}(cst{curObjIdx,4}{useScen(1)});
+                        d_i = d.(quantityOptimized){ixScen}(cst{curObjIdx,4}{useScen(ixScen)});
                         fInd = objective.computeDoseObjectiveFunction(d_i);
                         fIndv(i,ixScen) = fInd;
                     end
@@ -87,7 +83,7 @@ matRad_cfg = MatRad_Config.instance();
                         ixScen = useScen(s);
                         ixContour = contourScen(s);
                         
-                        d_i = d{ixScen}(cst{curObjIdx,4}{ixContour});
+                        d_i = d.(quantityOptimized){ixScen}(cst{i,4}{ixContour});
                         
                         fInd =  scenProb(s) * objective.computeDoseObjectiveFunction(d_i);
                         fIndv(i,s) = fInd;
@@ -218,34 +214,41 @@ matRad_cfg = MatRad_Config.instance();
 
 
         elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+                %This is just for temporary compatibility
+                % for optQt=optiProb.BP.optimizationQuantities
+                %     if any(strcmp(optQt, {'meanVariance','vTotApprox', 'vAlpha','vBeta', 'MeanAverageEffectVariance', 'AlphaOnlyVariance','SqrtBetaOnlyVariance'}))
+                %         quantityOptimizedVariance = optQt{1};
+                %     end
+                % end
+                quantityOptimizedVariance = objective.quantity;
+                quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+                quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimizedVariance,quantityNames)};
+                % rescale dose parameters to biological optimization quantity if required
+                %objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+
+                nPhasesOmega = size(d.(quantityOptimizedVariance),2);
 
             switch robustness
                 case 'PROB'
 
-                    if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
-                        optiProb.BP.compute(dij,w);
-                        [dExp,~,vTot] = optiProb.BP.GetResultProb();
-                    end
-                    
-                    if ~isequal(nonEmptyExp,useNominalCtScen)
-                        totIdx = cat(1,cst{curObjIdx,4}{useNominalCtScen});
-                        
-                        newIdx{1} = unique(totIdx);
+                    if nPhasesOmega==1
+                        structIdxs = cat(1,cst{i,4}{useNominalCtScen});
+                        structIdxs = {unique(structIdxs)};
                     else
-                        newIdx = cst{curObjIdx,4}(useNominalCtScen);
+                        structIdxs = cst{i,4}(useNominalCtScen);
                     end
 
                     f_objective = 0;
-                    for s=nonEmptyExp%useNominalCtScen
-                        f_objective = f_objective + objective.computeTotalVarianceObjective(vTot{curObjIdx,s}, numel(newIdx{s}));
-
+                    for phaseIdx = 1:nPhasesOmega
+                        vTot = d.(quantityOptimizedVariance){i, phaseIdx};
+                        f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot,structIdxs{phaseIdx});
                     end
 
                     %singleObjective = [singleObjective,f_objective];
 
                     %if objective.isActive
 
-                        fIndv(i,1) = f_objective;
+                    fIndv(i,1) = f_objective;
 
                     %end
             end

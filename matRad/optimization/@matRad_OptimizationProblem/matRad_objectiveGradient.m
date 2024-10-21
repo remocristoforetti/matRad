@@ -33,11 +33,13 @@ function weightGradient = matRad_objectiveGradient(optiProb,w,dij,cst)
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 matRad_cfg = MatRad_Config.instance();
 
 % get current dose / effect / RBExDose vector
 optiProb.BP.compute(dij,w);
-d = optiProb.BP.GetResult();
+d = optiProb.BP.d;
+%d = optiProb.BP.GetResult();
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
@@ -52,18 +54,12 @@ contourScen   = fullScen{1};
 doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
-[dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
-
-%For probabilistic optimization
-vOmega = {0};
+%[dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
 
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
 
-
-
 % compute objective function for every VOI.
-
 for  i = 1:size(optiProb.objIdx,1)
     objective = optiProb.objectives{i};
     curObjIdx = optiProb.objIdx(i,1);
@@ -71,17 +67,32 @@ for  i = 1:size(optiProb.objIdx,1)
     % retrieve the robustness type
     robustness = objective.robustness;
 
-    if isa(objective, 'DoseObjectives.matRad_DoseObjective')
+    if isa(objective,'DoseObjectives.matRad_DoseObjective')
+        quantityOptimized = objective.quantity;
+        quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+        quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimized,quantityNames)};
+        % rescale dose parameters to biological optimization quantity if required
+        %objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+                
+        if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimized)
+            if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
+                gGrad.(quantityOptimized)          = cell(size(d.(quantityOptimized)));
+                gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+            elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
+                gGrad.(quantityOptimized)                                       = cell(size(d.(quantityOptimized)));
+                gGrad.(quantityOptimized)(optiProb.BP.structsForScalarQuantity) = {0};           
+            end
+        end
 
         switch robustness
-            case 'none' % if conventional opt: just sum objectives of nominal dose
-                for s = 1:numel(useScen)
+            case 'none' % if conventional opt: just sum objectiveectives of nominal dose
+                for s = useNominalCtScen
                     ixScen = useScen(s);
                     ixContour = contourScen(s);
-                    d_i = d{ixScen}(cst{curObjIdx,4}{ixContour});
+                    d_i = d.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour});
                     %add to dose gradient
-                    doseGradient{ixScen}(cst{curObjIdx,4}{ixContour}) = doseGradient{ixScen}(cst{curObjIdx,4}{ixContour}) + objective.penalty * optiProb.normalizeGradient(objective.computeDoseObjectiveGradient(d_i),i);
-                 end
+                    gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) + objective.penalty * optiProb.normalizeGradient(objective.computeDoseObjectiveGradient(d_i),i);
+                end
             case 'STOCH' % perform stochastic optimization with weighted / random scenarios
                 for s = 1:numel(useScen)
                     ixScen = useScen(s);
@@ -276,27 +287,50 @@ for  i = 1:size(optiProb.objIdx,1)
         end %empty check
 
     elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+        quantityOptimizedVariance = objective.quantity;
+        quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+        quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimizedVariance,quantityNames)};
+        % rescale dose parameters to biological optimization quantity if required
+        %objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+
+
+        if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimizedVariance)
+            gGrad.(quantityOptimizedVariance)          = cell(size(d.(quantityOptimizedVariance)));
+            gGrad.(quantityOptimizedVariance)(optiProb.BP.structsForScalarQuantity) = {0};
+
+        end
+
+        nPhasesOmega = size(d.(quantityOptimizedVariance),2);
+
         switch robustness
             case 'PROB'
-                if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
-                    optiProb.BP.compute(dij,w);
-                    [doseGradientExp(:)] = {zeros(dij.totalNumOfBixels,1)};
-                    [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
-                end
+                %if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
+                %    optiProb.BP.compute(dij,w);
+                %    [doseGradientExp(:)] = {zeros(dij.totalNumOfBixels,1)};
+                %    [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                %end
                 
-                nonEmptyExp = find(~cellfun(@isempty, dExp))';
+                %nonEmptyExp = find(~cellfun(@isempty, dExp))';
     
-                if ~isequal(nonEmptyExp,useNominalCtScen)
-                    totIdx = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                %if ~isequal(nonEmptyExp,useNominalCtScen)
+                %    totIdx = cat(1,cst{curObjIdx,4}{useNominalCtScen});
                     
-                    newIdx{1} = unique(totIdx);
+                %    newIdx{1} = unique(totIdx);
+                %else
+                %    newIdx = cst{curObjIdx,4}(useNominalCtScen);
+                %end
+                if nPhasesOmega==1
+                    structIdxs = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                    structIdxs = {unique(structIdxs)};
                 else
-                    newIdx = cst{curObjIdx,4}(useNominalCtScen);
+                    structIdxs = cst{curObjIdx,4}(useNominalCtScen);
                 end
-                for s=nonEmptyExp
+                for phaseIdx = 1:nPhasesOmega
                     %vOmega here is sum over all structures
-                    tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{curObjIdx,s}, numel(newIdx{s}));
-                    vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{curObjIdx,s};
+                    %tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{curObjIdx,s}, numel(newIdx{s}));
+                    %vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{curObjIdx,s};
+                    vTot = d.(quantityOptimizedVariance){curObjIdx, phaseIdx};
+                    gGrad.(quantityOptimizedVariance){curObjIdx, phaseIdx} = gGrad.(quantityOptimizedVariance){curObjIdx,phaseIdx} + objective.penalty * optiProb.normalizeGradient(objective.computeTotalVarianceGradient(vTot,structIdxs{phaseIdx}),i);
                 end
         end
 
@@ -331,42 +365,57 @@ end
 
 weightGradient = zeros(dij.totalNumOfBixels,1);
 
-optiProb.BP.computeGradient(dij,doseGradient,w);
-g = optiProb.BP.GetGradient();
+%optiProb.BP.computeGradient(dij,doseGradient,w);
+%g = optiProb.BP.GetGradient();
 
-for s = 1:numel(useScen)
-    weightGradient = weightGradient + g{useScen(s)};
-end
+%for s = 1:numel(useScen)
+ %   weightGradient = weightGradient + g{useScen(s)};
+%end
 
-if exist('doseGradientExp', 'var')
-    optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
-    gProb = optiProb.BP.GetGradientProb();
+%if exist('doseGradientExp', 'var')
+%    optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
+%    gProb = optiProb.BP.GetGradientProb();
     
     %Only implemented for first scenario now
-    for s=nonEmptyExp
-        weightGradient = weightGradient + gProb{s};
+%    for s=nonEmptyExp
+%        weightGradient = weightGradient + gProb{s};
+%    end
+%end
+optiProb.BP.computeGradient(dij,gGrad,w);
+g = optiProb.BP.wGrad;
+
+% for s = 1:numel(useScen)
+%     % This could be moved to BP
+%     for quantityIdx=optiProb.BP.optimizationQuantities
+%         weightGradient = weightGradient + g.(quantityIdx{1}){useScen(s)};
+%     end
+% end
+for qtIdx=optiProb.BP.optimizationQuantities
+    nScensOrStructs   = find(cellfun(@(x) ~isempty(x), g.(qtIdx{1})))';
+    for elementIdx=nScensOrStructs
+        weightGradient = weightGradient + g.(qtIdx{1}){elementIdx};
     end
 end
 
 % if optiProb.objectives{3}.penalty > 0
-    gradientChecker = 0;
-    if gradientChecker == 1
-        f =  matRad_objectiveFunction(optiProb,w,dij,cst);
-        epsilon = 1e-6;
+gradientChecker = 0;
+if gradientChecker == 1
+    f =  matRad_objectiveFunction(optiProb,w,dij,cst);
+    epsilon = 1e-6;
 
 
-        ix = unique(randi([dij.totalNumOfBixels],1,5));
+    ix = unique(randi([dij.totalNumOfBixels],1,5));
 
-        for i=ix
+    for i=ix
 
-            wInit = w;
-            wInit(i) = wInit(i) + epsilon;
-            fDel= matRad_objectiveFunction(optiProb,wInit,dij,cst);
-            numGrad = (fDel - f)/epsilon;
-            diff = (numGrad/weightGradient(i) - 1)*100;
-            fprintf(['grad val #' num2str(i) '- rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
-            %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
-        end
+        wInit = w;
+        wInit(i) = wInit(i) + epsilon;
+        fDel= matRad_objectiveFunction(optiProb,wInit,dij,cst);
+        numGrad = (fDel - f)/epsilon;
+        diff = (numGrad/weightGradient(i) - 1)*100;
+        fprintf(['grad val #' num2str(i) '- rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
+        %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
     end
+end
 % end
 end

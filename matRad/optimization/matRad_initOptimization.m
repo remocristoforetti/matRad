@@ -71,7 +71,7 @@ cst = matRad_resizeCstToGrid(cst,dij.ctGrid.x,  dij.ctGrid.y,  dij.ctGrid.z,...
     dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z);
 
 % Get rid of voxels that are not interesting for the optimization problem
-if ~isfield(pln.propOpt, 'clearUnusedVoxels')
+if ~isfield(pln,'propOpt') || ~isfield(pln.propOpt, 'clearUnusedVoxels')
     pln.propOpt.clearUnusedVoxels = matRad_cfg.propOpt.defaultClearUnusedVoxels;
 end
 
@@ -100,6 +100,11 @@ for i = 1:size(cst,1)
             fDoses = [fDoses dParams];
         end
 
+        %%%
+        if isempty(fDoses)
+            fDoses = 2;
+        end
+        %%%
         doseTarget = [doseTarget fDoses];
         ixTarget   = [ixTarget i*ones(1,length(fDoses))];
     end
@@ -168,10 +173,16 @@ elseif pln.bioParam.bioOpt
     if isequal(pln.bioParam.quantityOpt,'effect')
 
         effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
+        if ~isempty(dij.mAlphaDose{1})
         aTmp = dij.mAlphaDose{1}*wOnes;
         bTmp = dij.mSqrtBetaDose{1} * wOnes;
-        p = sum(aTmp(V)) / sum(bTmp(V).^2);
-        q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
+            bTmp = bTmp(V);
+        else
+            aTmp = dij.mAlphaDoseExp{1}*wOnes;
+            bTmp = wOnes' * dij.mSqrtBetaDoseOmega{find(strcmp(cst(:,3), 'TARGET'),1,'first')} * wOnes;
+        end
+        p = sum(aTmp(V)) / sum(bTmp.^2);
+        q = -(effectTarget * length(V)) / sum(bTmp.^2);
 
         wInit        = -(p/2) + sqrt((p^2)/4 -q) * wOnes;
 
@@ -185,9 +196,21 @@ elseif pln.bioParam.bioOpt
 
 
         % calculate current effect in target
+        % aTmp = dij.mAlphaDose{1}*wOnes;
+        % bTmp = dij.mSqrtBetaDose{1} * wOnes;
+        if ~isempty(dij.mAlphaDose{1})
         aTmp = dij.mAlphaDose{1}*wOnes;
         bTmp = dij.mSqrtBetaDose{1} * wOnes;
-        doseTmp = dij.physicalDose{1}*wOnes;
+        else
+            aTmp = dij.mAlphaDoseExp{1}*wOnes;
+            bTmp = wOnes' * dij.omegaBeta{find(strcmp(cst(:,3), 'TARGET'),1,'first')} * wOnes;
+        end
+
+        if ~isempty(dij.physicalDose{1})
+            doseTmp = dij.physicalDose{1}*wOnes;
+        else
+            doseTmp = dij.physicalDoseExp{1}*wOnes;
+        end
 
         CurrEffectTarget = aTmp(V) + bTmp(V).^2;
         % ensure a underestimated biological effective dose
@@ -222,7 +245,11 @@ end
 
 %If "all" provided, use all scenarios
 if isequal(scen4D,'all')
-    scen4D = 1:size(dij.physicalDose,1);
+    if ~isempty(dij.physicalDose{1})
+        scen4D = 1:size(dij.physicalDose,1);
+    else
+        scen4D = 1:size(dij.physicalDoseExp,1);
+    end
 end
 
 if ~isempty(dij.physicalDose{:})
@@ -276,29 +303,39 @@ else
     ixForOpt = linIxDIJ;
 end
 
-switch pln.bioParam.quantityOpt
-    case 'effect'
-        backProjection = matRad_EffectProjection;
-    case 'RBExD'
-        %Capture special case of constant RBE
-        if strcmp(pln.bioParam.model,'constRBE')
-            backProjection = matRad_ConstantRBEProjection;
-        else
-            backProjection = matRad_VariableRBEProjection;
+backProjection = matRad_BackProjectionQuantity();
+
+% For the time being
+useStructsForOmega = [];
+omegaQuantity = [];
+quantitiesFromCst = [];
+for i=1:size(cst,1)
+    for j=1:numel(cst{i,6})
+        if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect'}))
+            omegaQuantity = cst{i,6}{j}.quantity;
+            useStructsForOmega = [useStructsForOmega,i];
+             
+        elseif isa(cst{i,6}{j}, 'DoseObjective.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
+            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
         end
-    case 'physicalDose'
-        backProjection = matRad_DoseProjection;
-    otherwise
-        warning(['Did not recognize bioloigcal setting ''' pln.probOpt.bioOptimization '''!\nUsing physical dose optimization!']);
-        backProjection = matRad_DoseProjection;
+        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
+    end
 end
+
+quantitiesFromCst = unique(quantitiesFromCst);
+optQuantities = [quantitiesFromCst, {omegaQuantity}];
+optQuantities(cellfun(@isempty,optQuantities)) = [];
+optQuantities = unique(optQuantities);
+
+
+backProjection.instantiateQuatities(optQuantities,dij,cst);
 
 %Give scenarios used for optimization
 
 backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenWeight;
+backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-backProjection.useStructsForOmega = voiForOmegaIx;
+backProjection.structsForScalarQuantity = unique(useStructsForOmega);
 
 
 optiProb = matRad_OptimizationProblem(backProjection,cst);
