@@ -21,7 +21,7 @@ classdef matRad_VoxelVarianceSqrtBeta < matRad_ScalarQuantity
 
         function quantityOutput = computeQuantity(this, dij, struct,w)
             
-            MeanSqrtBetaSubQuantity     = this.getSubQuantity('MeanSqrtBeta');
+            MeanSqrtBetaSubQuantity = this.getSubQuantity('MeanSqrtBeta');
             BetaOmegaSubQuantity    = this.getSubQuantity('vBeta');
 
             meanSqrtBeta  = MeanSqrtBetaSubQuantity.getResult(dij,w);

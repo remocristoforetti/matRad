@@ -57,6 +57,17 @@ classdef matRad_Effect < matRad_DistributionQuantity
             gradientProjectionOutput = (vBias + mPsi)';
 
         end
+
+        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+            
+            alphaSubQuantity    = this.getSubQuantity('AlphaDose');
+            sqrtBetaSubQuantity = this.getSubQuantity('SqrtBetaDose');
+            
+            alphaJacob    = alphaSubQuantity.projectConstraintJacobian(dij,fJacob);
+            sqrtBetaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacob);
+            
+            constJacobianOutput = alphaJacob + 2 * sqrtBetaJacob;
+        end
     
     end
 

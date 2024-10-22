@@ -29,14 +29,12 @@ classdef matRad_AlphaDose < matRad_DistributionQuantity
                 % sum over all the voxels for example.              
                 gradientProjectionOutput = fGrad{scen}' * dij.mAlphaDose{scen};
 
-            %end
         end
 
-        % function gradientOutput = computeQuantityGradient(this,dij,scen,~)
-        %     % This is used for computing the quantity-specific (i-j)
-        %     % gradient part, this is called by the higher level quantity if
-        %     % needed to compute the gradient there
-        %     gradientOutput = dij.mAlphaDose{scen};
-        % end
+        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+            constJacobianOutput = fJacob{1}' * dij.mAlphaDose{1};
+        end
+
+
     end
 end
