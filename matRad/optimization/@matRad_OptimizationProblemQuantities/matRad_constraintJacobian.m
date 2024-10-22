@@ -40,23 +40,23 @@ optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 
 % initialize jacobian (only single scenario supported in optimization)
-jacob = sparse([]);
-
-% initialize projection matrices and id containers
-DoseProjection{1}          = sparse([]);
-mAlphaDoseProjection{1}    = sparse([]);
-mSqrtBetaDoseProjection{1} = sparse([]);
-voxelID                     = [];
-constraintID                = [];
-
-% get the used scenarios
-useScen  = optiProb.BP.scenarios;
-scenProb = optiProb.BP.scenarioProb;
+% jacob = sparse([]);
+% 
+% % initialize projection matrices and id containers
+% DoseProjection{1}          = sparse([]);
+% mAlphaDoseProjection{1}    = sparse([]);
+% mSqrtBetaDoseProjection{1} = sparse([]);
+% voxelID                     = [];
+% constraintID                = [];
+% 
+% % get the used scenarios
+% useScen  = optiProb.BP.scenarios;
+% scenProb = optiProb.BP.scenarioProb;
 
 % retrieve matching 4D scenarios
-fullScen      = cell(ndims(d),1);
-[fullScen{:}] = ind2sub(size(d),useScen);
-contourScen   = fullScen{1};
+% fullScen      = cell(ndims(d),1);
+% [fullScen{:}] = ind2sub(size(d),useScen);
+% contourScen   = fullScen{1};
 
 % compute objective function for every VOI.
 for i = 1:size(cst,1)
@@ -71,6 +71,13 @@ for i = 1:size(cst,1)
          
          % only perform computations for constraints
          if isa(constraint,'DoseConstraints.matRad_DoseConstraint')
+    
+             quantityConstrained = constraint.quantity;
+
+             quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+             quantityConstrainedInstance = optiProb.BP.quantities{strcmp(quantityConstrained,quantityNames)};
+             % rescale dose parameters to biological optimization quantity if required
+             constraint = quantityConstrainedInstance.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
             
             % retrieve the robustness type
             robustness = constraint.robustness;
@@ -78,11 +85,22 @@ for i = 1:size(cst,1)
             % rescale dose parameters to biological optimization quantity if required
             constraint = optiProb.BP.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
             
+            if ~exist('fJacob', 'var') || ~isfield(fJacob,quantityConstrained)
+                if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                    fJacob.(quantityConstrained) = cell(1);%cell(size(d.(quantityConstrained)));
+                    %fJacob.(quantityConstrained) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                    fJacob.(quantityConstrained)                                       = cell(1);
+                    fJacob.(quantityConstrained)(optiProb.BP.structsForScalarQuantity) = {0};           
+                end
+            
+            end
+            
             switch robustness
                
                case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                     d_i = d{1}(cst{i,4}{1});
-                     jacobSub = constraint.computeDoseConstraintJacobian(d_i);
+                  d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                  jacobSub = constraint.computeDoseConstraintJacobian(d_i);
                   
                case 'PROB' % if prob opt: sum up expectation value of objectives
                   
@@ -144,46 +162,50 @@ for i = 1:size(cst,1)
             end
             
             nConst = size(jacobSub,2);
-            
-            %Iterate through columns of the sub-jacobian
-            if isa(optiProb.BP,'matRad_DoseProjection') && ~isempty(jacobSub) || isa(optiProb.BP,'matRad_ConstantRBEProjection')
-               
-               startIx = size(DoseProjection{1},2) + 1;
-               %First append the Projection matrix with sparse zeros
-               DoseProjection{1}          = [DoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];
-               
-               %Now directly write the jacobian in there
-               DoseProjection{1}(cst{i,4}{1},startIx:end) = jacobSub;
-               
-            elseif isa(optiProb.BP,'matRad_EffectProjection') && ~isempty(jacobSub)
-               
-               if isa(optiProb.BP,'matRad_VariableRBEProjection')
-                  scaledEffect = (dij.gamma(cst{i,4}{1}) + d_i);
-                  jacobSub     = jacobSub./(2*dij.bx(cst{i,4}{1}) .* scaledEffect);
-               end
-               
-               startIx = size(mAlphaDoseProjection{1},2) + 1;
-               
-               %First append the alphaDose matrix with sparse
-               %zeros then insert
-               mAlphaDoseProjection{1}    = [mAlphaDoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];
-               mAlphaDoseProjection{1}(cst{i,4}{1},startIx:end) = jacobSub;
-               
-               %The betadose has a different structure due to the
-               %quadratic transformation, but in principle the
-               %same as above
-               mSqrtBetaDoseProjection{1} =  [mSqrtBetaDoseProjection{1}, sparse(repmat(cst{i,4}{1},nConst,1),repmat(1:numel(cst{i,4}{1}),1,nConst),2*reshape(jacobSub',[],1),dij.doseGrid.numOfVoxels,nConst*numel(cst{i,4}{1}))];
-               
-               if isempty(constraintID)
-                  newID = 1;
-               else
-                  newID = constraintID(end)+1;
-               end
-               
-               voxelID = [voxelID;repmat(cst{i,4}{1},nConst,1)];                         %Keep track of voxels for organizing the sqrt(beta)Dose projection later
-               constraintID = [constraintID, ...
-                  reshape(ones(numel(cst{i,4}{1}),1)*[newID:newID+nConst-1],[1 nConst*numel(cst{i,4}{1})])];  %Keep track of constraints for organizing the sqrt(beta)Dose projection later
-            end
+
+
+            startIx = size(fJacob.(quantityConstrained){1},2) + 1;
+            fJacob.(quantityConstrained) = {[fJacob.(quantityConstrained){1},sparse(dij.doseGrid.numOfVoxels,nConst)]};
+            fJacob.(quantityConstrained){1}(cst{i,4}{1},startIx:end) = jacobSub;
+            % %Iterate through columns of the sub-jacobian
+            % if isa(optiProb.BP,'matRad_DoseProjection') && ~isempty(jacobSub) || isa(optiProb.BP,'matRad_ConstantRBEProjection')
+            % 
+            %    startIx = size(DoseProjection{1},2) + 1;
+            %    %First append the Projection matrix with sparse zeros
+            %    DoseProjection{1}          = [DoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];
+            % 
+            %    %Now directly write the jacobian in there
+            %    DoseProjection{1}(cst{i,4}{1},startIx:end) = jacobSub;
+            % 
+            % elseif isa(optiProb.BP,'matRad_EffectProjection') && ~isempty(jacobSub)
+            % 
+            %    if isa(optiProb.BP,'matRad_VariableRBEProjection')
+            %       scaledEffect = (dij.gamma(cst{i,4}{1}) + d_i);
+            %       jacobSub     = jacobSub./(2*dij.bx(cst{i,4}{1}) .* scaledEffect);
+            %    end
+            % 
+            %    startIx = size(mAlphaDoseProjection{1},2) + 1;
+            % 
+            %    %First append the alphaDose matrix with sparse
+            %    %zeros then insert
+            %    mAlphaDoseProjection{1}    = [mAlphaDoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];
+            %    mAlphaDoseProjection{1}(cst{i,4}{1},startIx:end) = jacobSub;
+            % 
+            %    %The betadose has a different structure due to the
+            %    %quadratic transformation, but in principle the
+            %    %same as above
+            %    mSqrtBetaDoseProjection{1} =  [mSqrtBetaDoseProjection{1}, sparse(repmat(cst{i,4}{1},nConst,1),repmat(1:numel(cst{i,4}{1}),1,nConst),2*reshape(jacobSub',[],1),dij.doseGrid.numOfVoxels,nConst*numel(cst{i,4}{1}))];
+            % 
+            %    if isempty(constraintID)
+            %       newID = 1;
+            %    else
+            %       newID = constraintID(end)+1;
+            %    end
+            % 
+            %    voxelID = [voxelID;repmat(cst{i,4}{1},nConst,1)];                         %Keep track of voxels for organizing the sqrt(beta)Dose projection later
+            %    constraintID = [constraintID, ...
+            %       reshape(ones(numel(cst{i,4}{1}),1)*[newID:newID+nConst-1],[1 nConst*numel(cst{i,4}{1})])];  %Keep track of constraints for organizing the sqrt(beta)Dose projection later
+            % end
             
         
          end
@@ -195,30 +217,40 @@ for i = 1:size(cst,1)
 end
 
 
-scenario = 1;
-% enter if statement also for protons using a constant RBE
-if isa(optiProb.BP,'matRad_DoseProjection')
-   
-   if ~isempty(DoseProjection{scenario})
-      jacob = DoseProjection{scenario}' * dij.physicalDose{scenario};
-   end
-   
-elseif isa(optiProb.BP,'matRad_ConstantRBEProjection')
-   
-   if ~isempty(DoseProjection{scenario})
-      jacob = DoseProjection{scenario}' * dij.RBE * dij.physicalDose{scenario};
-   end
-   
-elseif isa(optiProb.BP,'matRad_EffectProjection')
-   
-   if ~isempty(mSqrtBetaDoseProjection{scenario}) && ~isempty(mAlphaDoseProjection{scenario})
-      mSqrtBetaDoseProjection{scenario} = mSqrtBetaDoseProjection{scenario}' * dij.mSqrtBetaDose{scenario} * w;
-      mSqrtBetaDoseProjection{scenario} = sparse(voxelID,constraintID,mSqrtBetaDoseProjection{scenario},...
-         size(mAlphaDoseProjection{scenario},1),size(mAlphaDoseProjection{scenario},2));
-      
-      jacob   = mAlphaDoseProjection{scenario}' * dij.mAlphaDose{scenario} +...
-         mSqrtBetaDoseProjection{scenario}' * dij.mSqrtBetaDose{scenario};
-      
-   end
+optiProb.BP.computeConstraintJacobian(dij,fJacob,w);
+j = optiProb.BP.wJacob;
+
+jacob = sparse([]);
+for qtIdx=optiProb.BP.optimizationQuantities
+    %nScensOrStructs   = find(cellfun(@(x) ~isempty(x), j.(qtIdx{1})))';
+    %for elementIdx=nScensOrStructs
+        jacob = [jacob; j.(qtIdx{1})];
+    %end
+end
+% scenario = 1;
+% % enter if statement also for protons using a constant RBE
+% if isa(optiProb.BP,'matRad_DoseProjection')
+% 
+%    if ~isempty(DoseProjection{scenario})
+%       jacob = DoseProjection{scenario}' * dij.physicalDose{scenario};
+%    end
+% 
+% elseif isa(optiProb.BP,'matRad_ConstantRBEProjection')
+% 
+%    if ~isempty(DoseProjection{scenario})
+%       jacob = DoseProjection{scenario}' * dij.RBE * dij.physicalDose{scenario};
+%    end
+% 
+% elseif isa(optiProb.BP,'matRad_EffectProjection')
+% 
+%    if ~isempty(mSqrtBetaDoseProjection{scenario}) && ~isempty(mAlphaDoseProjection{scenario})
+%       mSqrtBetaDoseProjection{scenario} = mSqrtBetaDoseProjection{scenario}' * dij.mSqrtBetaDose{scenario} * w;
+%       mSqrtBetaDoseProjection{scenario} = sparse(voxelID,constraintID,mSqrtBetaDoseProjection{scenario},...
+%          size(mAlphaDoseProjection{scenario},1),size(mAlphaDoseProjection{scenario},2));
+% 
+%       jacob   = mAlphaDoseProjection{scenario}' * dij.mAlphaDose{scenario} +...
+%          mSqrtBetaDoseProjection{scenario}' * dij.mSqrtBetaDose{scenario};
+% 
+%    end
 end
 

@@ -62,16 +62,19 @@ for  i = 1:size(cst,1)
          
          % only perform computations for constraints
          if isa(constraint,'DoseConstraints.matRad_DoseConstraint')
-            
+            quantityConstrained = constraint.quantity;
+
+            quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+            quantityConstrainedInstance = optiProb.BP.quantities{strcmp(quantityConstrained,quantityNames)};
             % rescale dose parameters to biological optimization quantity if required
-            constraint = optiProb.BP.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
+            constraint = quantityConstrainedInstance.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
             
             % retrieve the robustness type
             robustness = constraint.robustness;
             
             switch robustness
                case 'none' % if conventional opt: just sum objectives of nominal dose
-                   d_i = d{1}(cst{i,4}{1});
+                   d_i = d.(quantityConstrained){1}(cst{i,4}{1});
                    c = [c; constraint.computeDoseConstraintFunction(d_i)];
                   
                case 'PROB' % if prob opt: sum up expectation value of objectives
