@@ -11,6 +11,10 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
         wGrad;
         wCache;
         wGradCache;
+        %c;
+        wJacob;
+        %wConstraintCache;
+        wConstJacobianCache;
     end
 
     methods
@@ -18,6 +22,7 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
 
         end
 
+        % Implemented by distibution/scalar quantities
         function output = getResult(~)
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispError('Function needs to be implemented by subclass');
@@ -31,6 +36,19 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
             output = [];
         end
 
+        % function output = getConstraintResult(~)
+        %     matRad_cfg = MatRad_Config.instance();
+        %     matRad_cfg.dispError('Function needs to be implemented by subclass');
+        %     output = [];
+        % end
+
+        function output = getProjectedJacobian(~)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError('Function needs to be implemented by subclass');
+            output = [];
+        end
+
+        % Implemented by specific subclass
         function output = computeQuantity(~)
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispError('Function needs to be implemented by subclass');
@@ -42,6 +60,20 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
             matRad_cfg.dispError('Function needs to be implemented by subclass');
             output = [];
          end
+
+         % function output = computeConstraint(~)
+         %    matRad_cfg = MatRad_Config.instance();
+         %    matRad_cfg.dispError('Function needs to be implemented by subclass');
+         %    output = [];
+         % end
+
+         function output = projectConstraintJacobian(~)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError('Function needs to be implemented by subclass');
+            output = [];
+         end
+
+
 
          function subQuantityInstance = getSubQuantity(this, name)
             subQuantityInstance = this.subQuantities{cellfun(@(x) strcmp(x.quantityName, name), this.subQuantities)};

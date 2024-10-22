@@ -18,8 +18,12 @@ classdef matRad_BackProjectionQuantity < handle
     properties (SetAccess = protected)
         wCache
         wGradCache  %different cache for optimal performance (if multiple evaluations of objective but not gradient are required)
+        %wConstraintCache
+        wConstJacobianCache
         d
         wGrad
+        %c
+        wJacob
         optimizationQuantitiesIdx;
     end
     
@@ -41,6 +45,10 @@ classdef matRad_BackProjectionQuantity < handle
             obj.d = [];
             obj.wGrad = [];
             obj.quantities = {};
+            %obj.c = [];
+            obj.wJacob = [];
+            %obj.wConstraintCache = [];
+            obj.wConstJacobianCache = [];
         end       
         
         function obj = compute(obj,dij,w)
@@ -57,21 +65,23 @@ classdef matRad_BackProjectionQuantity < handle
             end
         end
         
-        % function obj = computeGradientProb(obj,dij,doseGrad,vOmegaGrad,w)
-        %     if ~isequal(obj.wGradCacheProb,w)
-        %         obj.wGradProb = obj.projectGradientProb(dij,doseGrad,vOmegaGrad,w);
-        %         obj.wGradCacheProb = w;
+        % function obj = computeConstraint(obj,dij,w)
+        %     if ~isequal(obj.wConstraintCache,w)
+        %         obj.computeConstraintResult(dij,w);
+        %         obj.wConstraintCache = w;
         %     end
         % end
+
+        function obj = computeConstraintJacobian(obj,dij,fJacob, w)
+            if ~isequal(obj.wConstJacobianCache,w)
+                obj.projectConstraintJacobian(dij,fJacob,w);
+                obj.wConstJacobianCache = w;
+            end
+        end
         
         function d = GetResult(obj)
             d = obj.d;
         end
-        
-        % function [dExp,dOmegaV] = GetResultProb(obj)
-        %     dExp = obj.dExp;
-        %     dOmegaV = obj.dOmegaV;
-        % end
 
         function wGrad = GetGradient(obj)
             wGrad = obj.wGrad;
@@ -95,6 +105,28 @@ classdef matRad_BackProjectionQuantity < handle
                 tmpGradient.(quantity.quantityName) = quantity.getProjectedGradient(dij,fGrad.(quantity.quantityName),w);
             end
             obj.wGrad = tmpGradient;
+        end
+
+
+        % function computeConstraintResult(obj,dij,w)
+        %     tmpQuantitiesOutput = [];
+        % 
+        %     for quantityIdx=obj.optimizationQuantitiesIdx'
+        %         quantity = obj.quantities{quantityIdx};
+        %         tmpQuantitiesOutput.(quantity.quantityName) = quantity.getConstraintResult(dij,w);
+        %     end
+        %     obj.c = tmpQuantitiesOutput;
+        % end
+
+        function projectConstraintJacobian(obj,dij,fJacob,w)
+
+            tmpGradient = [];
+            for quantityIdx=obj.optimizationQuantitiesIdx'
+                quantity = obj.quantities{quantityIdx};
+                tmpGradient.(quantity.quantityName) = quantity.getProjectedJacobian(dij,fJacob.(quantity.quantityName),w);
+            end
+            obj.wJacob = tmpGradient;
+
         end
       
         function instantiateQuatities(this, optimizationQuantities, dij,cst)

@@ -29,6 +29,22 @@ classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
             gradOutput = this.wGrad;
         end
 
+        % function constraintOutput = getConstraintResult(this,dij,w)
+        %     if ~isequal(this.wConstraintCache,w)
+        %         this.c = this.computeConstraint(dij,w);
+        %         this.wConstraintCache = w;
+        %     end
+        %     constraintOutput = this.c;
+        % end
+
+        function constJacobianOutput = getProjectedJacobian(this,dij,fJacob,w)
+            if ~isequal(this.wConstJacobianCache,w)
+                this.wJacob = this.projectConstraintJacobian(dij,fJacob,w);
+                this.wGradCache = w;
+            end
+            constJacobianOutput = this.wJacob;
+        end
+
         function initializeProperties(this,dij)
             
             % This is quite a mess
