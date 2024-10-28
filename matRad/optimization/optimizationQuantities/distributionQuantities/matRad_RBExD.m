@@ -42,5 +42,22 @@ classdef matRad_RBExD < matRad_DistributionQuantity
             
             gradientOutput = this.subQuantities{1}.projectGradient(dij,scen,fGradRBE,w);
         end
+
+        function constJacobianOutput = projectConstraintJacobian(this,dij,fJacob,w)
+            
+            effectSubQuantity = this.getSubQuantity('effect');
+
+            currRBEvalue = this.getResult(dij,w);
+
+            [ctScen,~] = ind2sub(size(dij.physicalDose),1);
+ 
+            scaledEffect = currRBEvalue{1} + dij.gamma{ctScen};
+
+            nConst = size(fJacob{1},2);
+            fJacobTemp = sparse(zeros(dij.doseGrid.numOfVoxels,nConst));
+            fJacobTemp(dij.ixDose{ctScen},:) = fJacob{1}(dij.ixDose{ctScen},:) ./ (2*dij.bx{ctScen}(dij.ixDose{ctScen}).*scaledEffect(dij.ixDose{ctScen}));
+
+            constJacobianOutput = effectSubQuantity.projectConstraintJacobian(dij,{fJacobTemp},w);
+        end
     end
 end

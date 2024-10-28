@@ -40,6 +40,10 @@ classdef matRad_ExpectedPhysicalDose < matRad_DistributionQuantity
                 matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
             end
         end
+
+        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+            constJacobianOutput = fJacob{1}' * dij.physicalDoseExp{1};
+        end
     end
 
 end

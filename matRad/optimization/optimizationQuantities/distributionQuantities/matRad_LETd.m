@@ -29,5 +29,10 @@ classdef matRad_LETd < matRad_DistributionQuantity
                 % sum over all the voxels for example.              
                 gradientProjectionOutput = (fGrad{scen}' * dij.mLETDose{scen})';
         end
+
+        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+            constJacobianOutput = fJacob{1}' * dij.mLETDose{1};
+        end
+
     end
 end

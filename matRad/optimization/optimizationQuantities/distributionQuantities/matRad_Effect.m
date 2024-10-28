@@ -58,15 +58,19 @@ classdef matRad_Effect < matRad_DistributionQuantity
 
         end
 
-        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+        function constJacobianOutput = projectConstraintJacobian(this,dij,fJacob,w)
             
             alphaSubQuantity    = this.getSubQuantity('AlphaDose');
             sqrtBetaSubQuantity = this.getSubQuantity('SqrtBetaDose');
             
             alphaJacob    = alphaSubQuantity.projectConstraintJacobian(dij,fJacob);
             sqrtBetaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacob);
+            sqrtBetaDose  = sqrtBetaSubQuantity.getResult(dij,w);
+
+            fJacobBeta = {2 * sqrtBetaDose{1} .* fJacob{1}};
+            betaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacobBeta);
             
-            constJacobianOutput = alphaJacob + 2 * sqrtBetaJacob;
+            constJacobianOutput = alphaJacob + betaJacob;
         end
     
     end

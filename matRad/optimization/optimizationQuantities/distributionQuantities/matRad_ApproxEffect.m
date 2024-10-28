@@ -48,8 +48,23 @@ classdef matRad_ApproxEffect < matRad_DistributionQuantity
             mPsi  = betaGrad;
 
             gradientProjectionOutput = (vBias + mPsi)';
-
         end
+
+        function constJacobianOutput = projectConstraintJacobian(this,dij,fJacob,w)
+            
+            alphaSubQuantity    = this.getSubQuantity('AlphaDoseExp');
+            sqrtBetaSubQuantity = this.getSubQuantity('SqrtBetaDoseExp');
+            
+            alphaJacob    = alphaSubQuantity.projectConstraintJacobian(dij,fJacob);
+            sqrtBetaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacob);
+            sqrtBetaDose  = sqrtBetaSubQuantity.getResult(dij,w);
+
+            fJacobBeta = {2 * sqrtBetaDose{1} .* fJacob{1}};
+            betaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacobBeta);
+            
+            constJacobianOutput = alphaJacob + betaJacob;
+        end
+
     
     end
 

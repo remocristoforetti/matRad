@@ -24,10 +24,13 @@ classdef matRad_SqrtBetaDoseExp < matRad_DistributionQuantity
         
         end
 
-
         function  gradientProjectionOutput = projectGradient(this, dij,scen,fGrad,~)
             %quantityGradient = this.getQuantityGradient(dij,w);
             gradientProjectionOutput = fGrad{scen}' * dij.mSqrtBetaDoseExp{scen};
+        end
+
+        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+            constJacobianOutput = fJacob{1}' * dij.mSqrtBetaDoseExp{1};
         end
 
     end

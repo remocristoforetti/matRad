@@ -28,8 +28,10 @@ classdef matRad_AlphaDoseExp < matRad_DistributionQuantity
                 % This is used to project the gradient and use the fGrad to
                 % sum over all the voxels for example.              
                 gradientProjectionOutput = fGrad{scen}' * dij.mAlphaDoseExp{scen};
-
         end
 
+        function constJacobianOutput = projectConstraintJacobian(~,dij,fJacob,~)
+            constJacobianOutput = fJacob{1}' * dij.mAlphaDoseExp{1};
+        end
     end
 end

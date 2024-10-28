@@ -27,7 +27,13 @@ classdef matRad_TotalVarianceQ < matRad_ScalarQuantity
 
         function gradientOutput = projectGradient(this,dij,struct,fGrad,w)
             dOmega = this.subQuantities{1}.getResult(dij,w);
-            gradientOutput = fGrad * dOmega{struct}; %cellfun(@(structdOmega) fGrad * structdOmega, dOmega, 'UniformOutput', false);
+            gradientOutput = fGrad{struct} * dOmega{struct}; %cellfun(@(structdOmega) fGrad * structdOmega, dOmega, 'UniformOutput', false);
+        end
+
+        function constJacobianOutput = projectConstraintJacobian(this,dij,struct,fJacob,w)
+            dOmega = this.subQuantities{1}.getResult(dij,w);
+
+            constJacobianOutput = (dOmega{struct} * fJacob{struct})';
         end
     end
 end
