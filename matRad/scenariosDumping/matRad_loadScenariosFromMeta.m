@@ -1,4 +1,4 @@
-function [physicalDose, mAlphaDose, mSqrtBetaDose, mLETDose, alphaJ, sqrtBetaJ]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate)
+function [physicalDose,physicalDoseOmegaReduced, mAlphaDose, mSqrtBetaDose, mLETDose,mLETdJ, alphaJ, sqrtBetaJ,physicalDoseJ]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate)
 
     matRad_cfg = MatRad_Config.instance();
 
@@ -54,6 +54,20 @@ function [physicalDose, mAlphaDose, mSqrtBetaDose, mLETDose, alphaJ, sqrtBetaJ] 
                 alphaJ{scenIdx}    = currDijScen.alphaJ;
                 sqrtBetaJ{scenIdx} = currDijScen.sqrtBetaJ;
             end
+            
+            if isfield(currDijScen, 'physicalDoseOmegaReduced')
+                physicalDoseOmegaReduced{scenIdx} = currDijScen.physicalDoseOmegaReduced;
+            end
+
+            if isfield(currDijScen, 'mLETdJ')
+                mLETdJ{scenIdx} = currDijScen.mLETdJ;
+            end
+
+            
+            if isfield(currDijScen, 'mLETdJ')
+                physicalDoseJ{scenIdx} = currDijScen.physicalDoseJ;
+            end
+
         end
     end
 end

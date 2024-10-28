@@ -159,8 +159,17 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
             % only voxels within the structure in this ct scenario.
             % Beore I was considering dose to structure in all ct
             % scenarios
-            currStructVoxels = cst{structIdx,4}{currMeta.ctScenIdx};
+            scenariosMetaInPhase = scenariosMeta(ctAccumIx{phaseIdx}(:,4));
+            nScenariosInPhase = numel(scenariosMetaInPhase);
 
+            % Accumulate quantities
+            currStructVoxels = [];
+            for scenIdx=1:nScenariosInPhase
+               currMeta = scenariosMetaInPhase(scenIdx);
+               currStructVoxels = [currStructVoxels, cst{structIdx,4}{currMeta.ctScenIdx}];
+            end
+            currStructVoxels = unique(currStructVoxels);
+            
             currExpDist = expDist{phaseIdx}(currStructVoxels,:);
             currStructOmega = currPhaseOmega{structIdx};
 
