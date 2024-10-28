@@ -59,6 +59,10 @@ classdef (Abstract) matRad_VarianceConstraint < handle
 
         end
         
+        function d = getDoseParameters(obj)
+           d = []; 
+        end
+
         function jStruct = getVarianceConstraintJacobianStructure(this,n)
         %return the structure of the (dose-dependent) constraint function 
         %jacobian for a given length n of the dose vector. Returns a

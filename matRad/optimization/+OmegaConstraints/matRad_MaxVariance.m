@@ -27,6 +27,7 @@ classdef matRad_MaxVariance < OmegaConstraints.matRad_VarianceConstraint
     properties
         parameters = {30};
         robustness;
+        quantity;
     end
     
     methods
@@ -50,75 +51,28 @@ classdef matRad_MaxVariance < OmegaConstraints.matRad_VarianceConstraint
  
         
         %% Calculates the Constraint Function value
-        function cMeanVariance = computeVarianceConstraintFunction(~,vTot, nVoxels)
-            cMeanVariance = vTot/nVoxels;
+        function cMeanVariance = computeVarianceConstraintFunction(~,vTot, ~)
+            cMeanVariance = vTot;
         end
         
         %% Calculates the Constraint jacobian
-        function cVarainceJacob  = computeVarianceConstraintJacobian(~,dOmega, nVoxels)
-            cVarainceJacob = (2/nVoxels) * dOmega;
+        function cVarianceJacob  = computeVarianceConstraintJacobian(~,dOmega, ~)
+            if ~isscalar(dOmega)
+                % For older code compatibility
+                cVarianceJacob = dOmega;
+            else
+                cVarianceJacob = 1;
+            end
         end
 
         %% Get bounds
-        function cl = lowerBounds(~)
+        function cl = lowerBounds(~,~)
             cl = 0;
         end
     
-        function cu = upperBounds(this)
+        function cu = upperBounds(this,~)
             cu = this.parameters{1};
         end
     
     end
-    
-    methods (Access = private)
-        % LogSumExp Approximation
-        function cDose = computeDoseConstraintFunctionLogSumExp(this,dose)
-            dose_min = min(dose);
-            dose_max = max(dose);
-            
-            %Validate parameters
-            if this.parameters{1} <= 0 && isinf(this.parameters{2}) %Constraint doesn't make sense (min = 0 & max = Inf)
-                cDose = [];
-            elseif this.parameters{2} == Inf %Only min dose
-                cDose = dose_min - this.epsilon * log( sum(exp((dose_min - dose)/this.epsilon)));
-            elseif this.parameters{1} <= 0 %Only max dose
-                cDose = dose_max + this.epsilon * log( sum(exp((dose - dose_max)/this.epsilon)));
-            else %both are set sensible
-                cDose(2,1) = dose_max + this.epsilon * log( sum(exp((dose - dose_max)/this.epsilon)));
-                cDose(1,1) = dose_min - this.epsilon * log( sum(exp((dose_min - dose)/this.epsilon)));
-            end
-            
-        end
-        function cDoseJacob  = computeDoseConstraintJacobianLogSumExp(this,dose)
-            %Validate parameters
-            if this.parameters{1} <= 0 && isinf(this.parameters{2}) %Constraint doesn't make sense (min = 0 & max = Inf)
-                cDoseJacob = [];
-            elseif this.parameters{2} == Inf %Only min dose
-                cDoseJacob(:,1) = exp( (min(dose)-dose)/this.epsilon );
-                cDoseJacob(:,1) = cDoseJacob(:,1)/sum(cDoseJacob(:,1));
-            elseif this.parameters{1} <= 0 %Only max dose
-                cDoseJacob(:,1) = exp( (dose-max(dose))/this.epsilon );
-                cDoseJacob(:,1) = cDoseJacob(:,1)/sum(cDoseJacob(:,1));
-            else %both are set sensible
-                cDoseJacob(:,1) = exp( (min(dose)-dose)/this.epsilon );
-                cDoseJacob(:,1) = cDoseJacob(:,1)/sum(cDoseJacob(:,1));
-                
-                cDoseJacob(:,2) = exp( (dose-max(dose))/this.epsilon );
-                cDoseJacob(:,2) = cDoseJacob(:,2)/sum(cDoseJacob(:,2));
-            end
-            
-            
-        end
-        
-        %Exact voxel-wise
-        function cDose = computeDoseConstraintFunctionVoxelwise(this,dose)
-            cDose = dose;
-        end
-        function cDoseJacob  = computeDoseConstraintJacobianVoxelwise(this,dose)
-            cDoseJacob = speye(numel(dose),numel(dose));
-        end
-    end
-    
 end
-
-
