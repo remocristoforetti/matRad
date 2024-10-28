@@ -110,16 +110,22 @@ for  i = 1:size(cst,1)
 
 
                 switch robustness
-                    case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                        for s = useNominalCtScen
-                            ixScen = useScen(s);
-                            ixContour = contourScen(s);
-                            d_i = d.(quantityOptimized){ixScen}(cst{i,4}{ixContour});
+                    case 'none' % if conventional opt: just sum objectiveectives of nominal dose 
+                        if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
+                            for s = useNominalCtScen
+                                ixScen = useScen(s);
+                                ixContour = contourScen(s);
+                                d_i = d.(quantityOptimized){ixScen}(cst{i,4}{ixContour});
+                                gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                            end
+                        elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
+                            % Add later the phases
+                            d_i = d.(quantityOptimized){i};
+                            gGrad.(quantityOptimized){i} = gGrad.(quantityOptimized){i} + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                         end
                             %add to dose gradient
                             %mean(objective.penalty*objective.computeDoseObjectiveGradient(d_i))
-                            gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                             %doseGradient{ixScen}(cst{i,4}{ixContour}) = gGrad.physicalDose{ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
-                        end
                     case 'STOCH' % perform stochastic optimization with weighted / random scenarios
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
@@ -419,7 +425,7 @@ end
 gradientChecker = 0;
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
-    epsilon = 1e-7;
+    epsilon = 1e-5;
 
 
     ix = unique(randi([dij.totalNumOfBixels],1,5));

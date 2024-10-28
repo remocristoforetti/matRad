@@ -102,13 +102,20 @@ for  i = 1:size(cst,1)
     
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
-                        for ixScen = useNominalCtScen
-                            d_i = d.(quantityOptimized){ixScen}(cst{i,4}{useScen(ixScen)});
-                            f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
-                            %disp(['mean d = ',num2str(sum(d.(quantityOptimized){1}),10)]);
+                        if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
+                            for ixScen = useNominalCtScen
+                                d_i = d.(quantityOptimized){ixScen}(cst{i,4}{useScen(ixScen)});
+                                f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                            end
+                        elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
+                            for ixScen = useNominalCtScen
+                                d_i = d.(quantityOptimized){i};
+                                f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                            end
                         end
 
                     case 'STOCH' % if prob opt: sum up expectation value of objectives
+
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
@@ -276,7 +283,7 @@ for  i = 1:size(cst,1)
                  end
 
              end
-        end %objective loop       
+        end %objective loop
     end %empty check
 end %cst structure loop
 

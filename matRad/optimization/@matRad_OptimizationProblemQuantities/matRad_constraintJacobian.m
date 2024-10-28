@@ -69,6 +69,9 @@ for i = 1:size(cst,1)
          
          constraint = cst{i,6}{j}; %Get the Optimization Object
          
+         % retrieve the robustness type
+         robustness = constraint.robustness;
+        
          % only perform computations for constraints
          if isa(constraint,'DoseConstraints.matRad_DoseConstraint')
     
@@ -79,11 +82,9 @@ for i = 1:size(cst,1)
              % rescale dose parameters to biological optimization quantity if required
              constraint = quantityConstrainedInstance.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
             
-            % retrieve the robustness type
-            robustness = constraint.robustness;
             
             % rescale dose parameters to biological optimization quantity if required
-            constraint = optiProb.BP.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
+            % constraint = optiProb.BP.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
             
             if ~exist('fJacob', 'var') || ~isfield(fJacob,quantityConstrained)
                 if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
@@ -103,8 +104,8 @@ for i = 1:size(cst,1)
                   jacobSub = constraint.computeDoseConstraintJacobian(d_i);
                   
                case 'PROB' % if prob opt: sum up expectation value of objectives
-                  
-                  d_i = dExp{1}(cst{i,4}{1});
+
+                  d_i = d.(quantityConstrained){1}(cst{i,4}{1});
                   jacobSub = constraint.computeDoseConstraintJacobian(d_i);
                   
                case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
@@ -208,6 +209,38 @@ for i = 1:size(cst,1)
             % end
             
         
+         elseif isa(constraint, 'OmegaConstraints.matRad_VarianceConstraint')
+            quantityConstrained = constraint.quantity;
+            quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+            quantityConstrainedInstance = optiProb.BP.quantities{strcmp(quantityConstrained,quantityNames)};
+            % rescale dose parameters to biological optimization quantity if required
+            constraint = quantityConstrainedInstance.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
+            
+            if ~exist('fJacob', 'var') || ~isfield(fJacob,quantityConstrained)
+                if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                    fJacob.(quantityConstrained) = cell(1);
+                elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                    fJacob.(quantityConstrained) = cell(1);
+                    fJacob.(quantityConstrained) = cell(size(cst,1),1);           
+                end
+            
+            end
+
+
+            allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{i,4}, 'UniformOutput',false);
+            nVoxels = numel(unique([allVoxels{:}]));
+
+            switch robustness
+
+                case 'PROB'
+                  d_i = d.(quantityConstrained){i};
+                  jacobSub = constraint.computeVarianceConstraintJacobian(d_i, nVoxels);    
+            end
+
+            nConst = size(jacobSub,2);
+
+            startIx = size(fJacob.(quantityConstrained){1},2) + 1;
+            fJacob.(quantityConstrained){i} = [fJacob.(quantityConstrained){i},jacobSub];
          end
          
       end
@@ -221,11 +254,11 @@ optiProb.BP.computeConstraintJacobian(dij,fJacob,w);
 j = optiProb.BP.wJacob;
 
 jacob = sparse([]);
-for qtIdx=optiProb.BP.optimizationQuantities
-    %nScensOrStructs   = find(cellfun(@(x) ~isempty(x), j.(qtIdx{1})))';
-    %for elementIdx=nScensOrStructs
-        jacob = [jacob; j.(qtIdx{1})];
-    %end
+for qtIdx=optiProb.BP.constrainedQuantities
+    nScensOrStructs   = find(cellfun(@(x) ~isempty(x), j.(qtIdx{1})))';
+    for elementIdx=nScensOrStructs
+        jacob = [jacob; j.(qtIdx{1}){elementIdx}];
+    end
 end
 % scenario = 1;
 % % enter if statement also for protons using a constant RBE
@@ -252,5 +285,27 @@ end
 %          mSqrtBetaDoseProjection{scenario}' * dij.mSqrtBetaDose{scenario};
 % 
 %    end
+
+gradientChecker = 0;
+if gradientChecker == 1
+    f =  matRad_constraintFunctions(optiProb,w,dij,cst);
+    epsilon = 1e-5;
+
+
+    ix = unique(randi([dij.totalNumOfBixels],numel(f),5));
+
+    for jIx=1:numel(f)
+        for i=ix(jIx,:)
+    
+            wInit = w;
+            wInit(i) = wInit(i) + epsilon;
+            fDel = matRad_constraintFunctions(optiProb,wInit,dij,cst);
+            numGrad = (fDel(jIx) - f)/epsilon;
+            diff = (numGrad/jacob(jIx,i) - 1)*100;
+            fprintf(['grad val #' num2str(i) '- rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
+            %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
+        end
+    end
 end
 
+end
