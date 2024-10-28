@@ -1,7 +1,7 @@
 classdef matRad_MeanLETd < matRad_ScalarQuantity
 
     properties (Constant)
-        quantityName = 'MeanLETd';
+        quantityName = 'meanLETd';
         requiredSubquantities = {};
 
     end
