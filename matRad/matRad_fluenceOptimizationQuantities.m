@@ -92,11 +92,13 @@ for i = 1:size(cst,1)
         %Iterate through objectives/constraints
         fDoses = [];
         for fObjCell = cst{i,6}
-            dParams = fObjCell{1}.getDoseParameters();
-            %Don't care for Inf constraints
-            dParams = dParams(isfinite(dParams));
-            %Add do dose list
-            fDoses = [fDoses dParams];
+            if isa(fObjCell, 'DoseObjectives.matRad_DoseObjectives') || isa(fObjCell, 'DoseConstraints.matRad_DoseConstraint')
+                dParams = fObjCell{1}.getDoseParameters();
+                %Don't care for Inf constraints
+                dParams = dParams(isfinite(dParams));
+                %Add do dose list
+                fDoses = [fDoses dParams];
+            end
         end
 
         %%%
@@ -327,18 +329,26 @@ backProjection = matRad_BackProjectionQuantity();
 
 % For the time being
 useStructsForOmega = [];
+useStructsForConstraintOmega = [];
 omegaQuantity = [];
 quantitiesFromCst = [];
+constraintQuantities = {};
 for i=1:size(cst,1)
     for j=1:numel(cst{i,6})
-        if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect'}))
-            omegaQuantity = cst{i,6}{j}.quantity;
-            useStructsForOmega = [useStructsForOmega,i];
-             
-        elseif isa(cst{i,6}{j}, 'DoseObjective.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
-            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
+        if isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') || isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective')
+            if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect', 'meanLETd', 'meanPhysicalDose'}))
+                omegaQuantity = cst{i,6}{j}.quantity;
+                useStructsForOmega = [useStructsForOmega,i];
+            elseif isa(cst{i,6}{j}, 'DoseObjective.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
+                cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
+            end
+            quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
+        elseif isa(cst{i,6}{j}, 'DoseConstraints.matRad_DoseConstraint') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+            constraintQuantities = [constraintQuantities, {cst{i,6}{j}.quantity}];
+            if isa(cst{i,6}{j}, 'OmegaConstraint.matRad_VarianceConstraint')
+                useStructsForOmega = [useStructsForOmega,i];
+            end
         end
-        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
     end
 end
 
@@ -347,14 +357,39 @@ optQuantities = [quantitiesFromCst, {omegaQuantity}];
 optQuantities(cellfun(@isempty,optQuantities)) = [];
 optQuantities = unique(optQuantities);
 
+constraintQuantities(cellfun(@isempty,constraintQuantities)) = [];
+constraintQuantities = unique(constraintQuantities);
 
-backProjection.instantiateQuatities(optQuantities,dij,cst);
+backProjection.instantiateQuatities(optQuantities,constraintQuantities,dij,cst);
+
+%Dummy
+tmpRBExDCheck = cellfun(@(quantity) isa(quantity,'matRad_RBExD'), backProjection.quantities, 'UniformOutput',false);
+
+if any([tmpRBExDCheck{:}])
+    
+    for s = 1:numel(dij.bx)
+        dij.ixDose{s}  = dij.bx{s}~=0;
+    end
+
+    for s = 1:numel(dij.ixDose)
+        dij.gamma{s}             = zeros(dij.doseGrid.numOfVoxels,dij.numOfScenarios);
+        dij.gamma{s}(dij.ixDose{s}) = dij.ax{s}(dij.ixDose{s})./(2*dij.bx{s}(dij.ixDose{s}));
+    end
+end
+
+%Dummy
+tmpConstRBExDCheck = cellfun(@(quantity) isa(quantity,'matRad_ConstantRBExD'), backProjection.quantities, 'UniformOutput',false);
+if ~isfield(dij,'RBE')
+    dij.RBE = 1.1;
+end
+
 
 %Give scenarios used for optimization
 backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 backProjection.structsForScalarQuantity = unique(useStructsForOmega);
+%backProjection.structsForConstrainedScalarQuantities = unique(useStructsForConstraintOmega);
 
 
 optiProb = matRad_OptimizationProblemQuantities(backProjection);
@@ -413,7 +448,11 @@ optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
 wOpt = optimizer.wResult;
 info = optimizer.resultInfo;
 
-resultGUI = matRad_calcCubes(wOpt,dij);
+try
+    resultGUI = matRad_calcCubes(wOpt,dij);
+catch
+    matRad_cfg.dispWarning('Unable to compue calcCubes');
+end
 resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
@@ -432,16 +471,20 @@ if ~exist('computeScenarios', 'var') || isempty(computeScenarios)
 end
 
 %Robust quantities
-if computeScenarios
-    if FLAG_ROB_OPT
-        if pln.multScen.totNumScen > 1
-            for i = 1:pln.multScen.totNumScen
-                scenSubIx = pln.multScen.linearMask(i,:);
-                resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
-                resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
+try
+    if computeScenarios
+        if FLAG_ROB_OPT
+            if pln.multScen.totNumScen > 1
+                for i = 1:pln.multScen.totNumScen
+                    scenSubIx = pln.multScen.linearMask(i,:);
+                    resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
+                    resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
+                end
             end
         end
     end
+catch
+    matRad_cfg.dispWarning('Unable to compute calcCubes');
 end
 % unblock mex files
 clear mex
