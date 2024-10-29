@@ -210,13 +210,13 @@ classdef matRad_BackProjectionQuantity < handle
             for i=1:size(cst,1)
                 for j=1:size(cst{i,6},2)
                     obj = cst{i,6}{j};
-                    if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
-                        qtIdx = find(arrayfun(@(qtMeta) strcmp(qtMeta.quantityName, obj.quantity), selectedQuantitiesMeta));
-                        this.quantities{qtIdx}.useStructsOptimization = [this.quantities{qtIdx}.useStructsOptimization,i];
-                    elseif isa(obj, 'DoseConstraints.matRad_DoseConstraints') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
-                        qtIdx = find(arrayfun(@(qtMeta) strcmp(qtMeta.quantityName, obj.quantity), selectedQuantitiesMeta));
-
-                        this.quantities{qtIdx}.useStructsConstraint = [this.quantities{qtIdx}.useStructsConstraint,i];
+                    qtIdx = find(arrayfun(@(qtMeta) strcmp(qtMeta.quantityName, obj.quantity), selectedQuantitiesMeta));
+                    if isa(this.quantities{qtIdx}, 'matRad_ScalarQuantity')
+                        if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
+                            this.quantities{qtIdx}.useStructsOptimization = [this.quantities{qtIdx}.useStructsOptimization,i];
+                        elseif isa(obj, 'DoseConstraints.matRad_DoseConstraints') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+                            this.quantities{qtIdx}.useStructsConstraint = [this.quantities{qtIdx}.useStructsConstraint,i];
+                        end
                     end
                 end
             end

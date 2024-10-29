@@ -67,14 +67,18 @@ classdef (Abstract) matRad_ScalarQuantity < matRad_OptimizationQuantity
         function updateSubquantityOptimization(this,structsOptimization)
  
             for subQt=this.subQuantities'
-                subQt{1}.useStructsOptimization = structsOptimization;
+                if isa(subQt{1},'matRad_ScalarQuantity')
+                    subQt{1}.useStructsOptimization = structsOptimization;
+                end
             end
         end
 
         function updateSubquantityConstraints(this,structsConstraint)
  
             for subQt=this.subQuantities'
-                subQt{1}.useStructsConstraint = structsConstraint;
+                if isa(subQt{1},'matRad_ScalarQuantity')
+                    subQt{1}.useStructsConstraint = structsConstraint;
+                end
             end
         end
 
