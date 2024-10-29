@@ -292,7 +292,7 @@ if gradientChecker == 1
     epsilon = 1e-5;
 
 
-    ix = unique(randi([dij.totalNumOfBixels],numel(f),5));
+    ix = randi([dij.totalNumOfBixels],numel(f),5);
 
     for jIx=1:numel(f)
         for i=ix(jIx,:)
@@ -300,7 +300,7 @@ if gradientChecker == 1
             wInit = w;
             wInit(i) = wInit(i) + epsilon;
             fDel = matRad_constraintFunctions(optiProb,wInit,dij,cst);
-            numGrad = (fDel(jIx) - f)/epsilon;
+            numGrad = (fDel(jIx) - f(jIx))/epsilon;
             diff = (numGrad/jacob(jIx,i) - 1)*100;
             fprintf(['grad val #' num2str(i) '- rel diff numerical and analytical gradient = ' num2str(diff) '\n']);
             %fprintf([' any nan or zero for photons' num2str(sum(isnan(glog{1}))) ',' num2str(sum(~logical(glog{1}))) ' for protons: ' num2str(sum(isnan(glog{2}))) ',' num2str(sum(~logical(glog{2}))) '\n']);
