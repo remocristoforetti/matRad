@@ -41,7 +41,7 @@ matRad_cfg = MatRad_Config.instance();
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.d;
 %d = optiProb.BP.GetResult();
-
+gGrad = [];
 
 
 % get the used scenarios
