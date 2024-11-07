@@ -47,12 +47,28 @@ if fid <= 0
 end
 
 %We perform the permutation
-if isfield(metadata,'axisPermutation')
-    cube = permute(cube,metadata.axisPermutation);
-    dimensions = size(cube);
+% if isfield(metadata,'axisPermutation')
+%     cube = permute(cube,metadata.axisPermutation);
+% end
+
+if ~isfield(metadata, 'axisPermutation')
+    % Matlab convention. This is only used for determination of the
+    % transformation matrix T
+    metadata.axisPermutation = [2,1,3];
+else
+    if (metadata.axisPermutation ~= [2,1,3])
+        matRad_cfg.dispWarning('Permutation of the axis: [%u,%u,%u]  is applied', metadata.axisPermutation(1),metadata.axisPermutation(2),metadata.axisPermutation(3));
+    end
 end
+
+% Get transformation
+T=zeros(3);
+
+ixOnes = sub2ind([3 3],metadata.axisPermutation,[1 2 3]);
+T(ixOnes) = 1;
+
 %The transformation matrix is now the unit matrix
-transformMatrix = diag(ones(1,numel(dimensions)));
+transformMatrix = T;
 tmString = sprintf(' %d',transformMatrix(:));
 
 %Determine the endian

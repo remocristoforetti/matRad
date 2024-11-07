@@ -48,15 +48,22 @@ end
 %cleaner = onCleanup(@() fclose(fid));
 
 %We perform the permutation
-if isfield(metadata,'axisPermutation')
-    cube = permute(cube,metadata.axisPermutation);
+% if isfield(metadata,'axisPermutation')
+%     cube = permute(cube,metadata.axisPermutation);
+%     dimensions = size(cube);
+% end
+if ~isfield(metadata, 'axisPermutation')
+    % Matlab convention. This is only used for determination of the
+    % transformation matrix T
+    metadata.axisPermutation = [2,1,3];
+else
+    matRad_cfg.dispWarning('Permutation of the axis: [%u,%u,%u]  is applied', metadata.axisPermutation(1),metadata.axisPermutation(2),metadata.axisPermutation(3));
 end
 
 %Set up Transform Matrix
-T=zeros(4);
-ixOnes = sub2ind([4 4],metadata.axisPermutation,[1 2 3]);
+T=zeros(3);
+ixOnes = sub2ind([3 3],metadata.axisPermutation,[1 2 3]);
 T(ixOnes) = 1;
-T(4,4) = 1;
 
 %Correct for coordinate system
 switch metadata.coordinateSystem

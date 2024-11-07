@@ -72,8 +72,7 @@ function dij = calcDose(this,ct,cst,stf)
 
     %%%%%% !!!!!!!!!!!!! mind this flip !!!!!!!!!!!!! %%%%%
     % Need to permute x and y because of the order data is written in mhd
-    % file
-    patientMetadata.axisPermutation = [2,1,3];
+    HUcube{1} = permute(HUcube{1}, [2,1,3]);
     matRad_writeMHD(fileNamePatient, HUcube{1},patientMetadata);
 
     cd(this.FREDrootFolder);
