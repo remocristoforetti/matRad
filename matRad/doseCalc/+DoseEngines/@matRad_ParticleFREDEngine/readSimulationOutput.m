@@ -48,9 +48,6 @@ else
     
     try
         doseCube = matRad_readMHD(fullfile(doseCubeFolder, doseCubeFileName));
-
-        % Just for testing
-        %doseCube = permute(doseCube, [2,1,3]);
     catch
         matRad_cfg.dispError('unable to load file: %s',fullfile(doseCubeFolder, doseCubeFileName));
     end

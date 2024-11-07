@@ -47,28 +47,27 @@ if fid <= 0
 end
 
 %We perform the permutation
-% if isfield(metadata,'axisPermutation')
-%     cube = permute(cube,metadata.axisPermutation);
-% end
-
 if ~isfield(metadata, 'axisPermutation')
-    % Matlab convention. This is only used for determination of the
-    % transformation matrix T
-    metadata.axisPermutation = [2,1,3];
-else
-    if (metadata.axisPermutation ~= [2,1,3])
-        matRad_cfg.dispWarning('Permutation of the axis: [%u,%u,%u]  is applied', metadata.axisPermutation(1),metadata.axisPermutation(2),metadata.axisPermutation(3));
-    end
+    % This reverts the matRlab conventianl indexing
+    axisPermutation = [2,1,3];
+elseif ~isequal(metadata.axisPermutation, [2,1,3])
+    matRad_cfg.dispWarning('Unconventianal permutation of patient indexing, this might cause inconsistency');
+    axisPermutation = metadata.axisPermutation;
 end
 
-% Get transformation
-T=zeros(3);
+% Force the permutation here according to the axis permutation
+cube = permute(cube, axisPermutation);
 
-ixOnes = sub2ind([3 3],metadata.axisPermutation,[1 2 3]);
-T(ixOnes) = 1;
+% Need to permute the dimensions as well
+dimensions = size(cube);
+
+% Note in the cube permutation:
+% Permutation of the cube is enforced here to standdard indexing so that
+% reconstruction of the cube for further use does not rely on the use of 
+% a transformation matrix, which is now only the identity matrix.
 
 %The transformation matrix is now the unit matrix
-transformMatrix = T;
+transformMatrix = diag(ones(1,numel(dimensions)));
 tmString = sprintf(' %d',transformMatrix(:));
 
 %Determine the endian
