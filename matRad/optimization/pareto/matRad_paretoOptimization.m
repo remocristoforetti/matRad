@@ -59,7 +59,6 @@ if ~optimizer.IsAvailable()
     matRad_cfg.dispError(['Optimizer ''' pln.propOpt.optimizer ''' not available!']);
 end
 
-
 % PARETO PART
 if optimizer.options.acceptable_obj_change_tol > 1e-5
     warning(['Pareto Optimization requires more accurate results and therefore small objective change tolerance!']);
@@ -75,7 +74,7 @@ weights = zeros(numel(wInit),size(penGrid,1));
 fInd = zeros(size(penGrid,1),objcount);
 objectiveFunctionVals = {};
 % loop over all anchor points
-
+info = [];
 for i = 1:size(penGrid,1)
     
     optiProb.updatePenalties(penGrid(i,:));
@@ -83,7 +82,7 @@ for i = 1:size(penGrid,1)
     
     optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
     wOpt = optimizer.wResult;
-    info = optimizer.resultInfo;
+    info = [info, optimizer.resultInfo];
     weights(:,i) = wOpt;
 
     %set values for warm start
@@ -167,9 +166,13 @@ for i = 1:nIter
     fVals = fInd;
 
     fValsMod = matRad_generateParetoDummyPoints(fVals,U); %generate dummy points
-    %
-    [kmod,vol] = convhulln(fValsMod);
-    %[kred,vol] = convhulln(fVals);
+    
+    try
+        [kmod,vol] = convhulln(fValsMod);
+    catch
+        matRad_cfg.dispWarning('Optimization terminated because convhull failed');
+        continue;
+    end
 
     %check for relevant facets (those that contain points of the original
     %fVals set)
@@ -186,9 +189,9 @@ for i = 1:nIter
 
 
     try
-        figure;
         switch size(fVals,2)
             case 2
+                figure;
                 plot(fVals(:,1), fVals(:,2), 'o');
                 hold on;
                 plot(fValsMod(:,1), fValsMod(:,2), '*');
@@ -203,6 +206,7 @@ for i = 1:nIter
             
                 title(['Iteration ', num2str(i)]); 
             case 3
+                figure;
                 plot3(fVals(:,1), fVals(:,2),fVals(:,3), 'o');
                 hold on;
                 plot3(fValsMod(:,1), fValsMod(:,2),fValsMod(:,3), '*');
@@ -236,15 +240,21 @@ for i = 1:nIter
         %now check for OPS point for facet
         lb = min(fVals,[],1);
         ub = max(fVals,[],1);
-        z = linprog(normal,OPSA,OPSb,[],[],lb,ub); 
-        
-        %hyperplane distance
-        b = refPoint*normal;
-
-        %calculate error for each facet
-        
-        facetErrors(j) = (b-z'*normal)/(eps*normal); 
-        normals(j,:) = normal;
+        try
+            z = linprog(normal,OPSA,OPSb,[],[],lb,ub); 
+       
+            %hyperplane distance
+            b = refPoint*normal;
+    
+            %calculate error for each facet
+            
+            facetErrors(j) = (b-z'*normal)/(eps*normal); 
+            normals(j,:) = normal;
+        catch
+            facetErrors(j) = Inf;
+            matRad_cfg.dispWarning('Lin prog failed');
+            continue;
+        end
 
     end
     allErrors(end+1) = {facetErrors};
@@ -329,7 +339,7 @@ for i = 1:nIter
             errors = [errors,facetErrors(idx)];
             newPen = norm;
             %awInit = wOpt;
-            info = optimizer.resultInfo;
+            info = [info, optimizer.resultInfo];
             weights = [weights,wOpt];
             penGrid = [penGrid;newPen];
 
@@ -366,11 +376,12 @@ returnStruct.optiProb = optiProb;
 returnStruct.allObj = objectiveFunctionVals;
 returnStruct.modcst = cst;
 
+returnStruct.info = info;
 %calculate a single plan
 resultGUI = matRad_calcCubes(wOpt,dij);
 resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
-resultGUI.info = info;
+resultGUI.info = info(end);
 resultGUI.optiProb = optiProb;
 
 
