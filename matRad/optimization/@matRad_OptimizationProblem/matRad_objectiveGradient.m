@@ -55,7 +55,7 @@ doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
 %[dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
-
+gGrad =[];
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
 
@@ -80,19 +80,32 @@ for  i = 1:size(optiProb.objIdx,1)
                 gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
             elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
                 gGrad.(quantityOptimized)                                       = cell(size(d.(quantityOptimized)));
-                gGrad.(quantityOptimized)(optiProb.BP.structsForScalarQuantity) = {0};           
+                gGrad.(quantityOptimized)(:) = {0};           
             end
         end
 
         switch robustness
             case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                for s = useNominalCtScen
-                    ixScen = useScen(s);
-                    ixContour = contourScen(s);
-                    d_i = d.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour});
-                    %add to dose gradient
-                    gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) + objective.penalty * optiProb.normalizeGradient(objective.computeDoseObjectiveGradient(d_i),i);
-                end
+                % for s = useNominalCtScen
+                %     ixScen = useScen(s);
+                %     ixContour = contourScen(s);
+                %     d_i = d.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour});
+                %     %add to dose gradient
+                %     gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) + objective.penalty * optiProb.normalizeGradient(objective.computeDoseObjectiveGradient(d_i),i);
+                % end
+                if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
+                    for s = useNominalCtScen
+                        ixScen = useScen(s);
+                        ixContour = contourScen(s);
+                        d_i = d.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour});
+                        %add to dose gradient
+                        gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) = gGrad.(quantityOptimized){ixScen}(cst{curObjIdx,4}{ixContour}) + objective.penalty * optiProb.normalizeGradient(objective.computeDoseObjectiveGradient(d_i),i);
+                    end
+                elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
+                    % Add later the phases
+                    d_i = d.(quantityOptimized){curObjIdx};
+                    gGrad.(quantityOptimized){curObjIdx} = gGrad.(quantityOptimized){curObjIdx} + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                 end
             case 'STOCH' % perform stochastic optimization with weighted / random scenarios
                 for s = 1:numel(useScen)
                     ixScen = useScen(s);
@@ -106,33 +119,56 @@ for  i = 1:size(optiProb.objIdx,1)
                 end
                 
             case 'PROB' % use the expectation value and the integral variance influence matrix
-                if ~exist('doseGradientExp','var')
-                    optiProb.BP.compute(dij,w);
-        
-                    [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                % if ~exist('doseGradientExp','var')
+                %     optiProb.BP.compute(dij,w);
+                % 
+                %     [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                % 
+                %     nonEmptyExp = find(~cellfun(@isempty, dExp))';
+                % 
+                %     for s=nonEmptyExp
+                %         [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
+                %     end
+                % end
+                % 
+                % nonEmptyExp = find(~cellfun(@isempty, dExp))';
+                % 
+                % if ~isequal(nonEmptyExp,useNominalCtScen)
+                %     totIdx = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                % 
+                %     newIdx{1} = unique(totIdx);
+                % else
+                %     newIdx = cst{curObjIdx,4}(useNominalCtScen);
+                % end
+                % 
+                % for s=nonEmptyExp
+                %     d_i = dExp{s}(newIdx{s});
+                %     doseGradientExp{s}(newIdx{s}) = doseGradientExp{s}(newIdx{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                % end
+                nPhases = size(d.(quantityOptimized),2);
+
+                if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
                     
-                    nonEmptyExp = find(~cellfun(@isempty, dExp))';
-        
-                    for s=nonEmptyExp
-                        [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
+                    if nPhases==1
+                        structIdxs = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                        structIdxs = {unique(structIdxs)};
+                    else
+                        structIdxs = cst{curObjIdx,4}(useNominalCtScen);
+                    end
+                
+                    for phaseIdx=1:nPhases
+
+                        d_i = d.(quantityOptimized){1,phaseIdx}(structIdxs{phaseIdx});
+
+                        gGrad.(quantityOptimized){phaseIdx}(cst{curObjIdx,4}{phaseIdx}) = gGrad.(quantityOptimized){phaseIdx}(cst{curObjIdx,4}{phaseIdx}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                    end
+                
+                else
+                    for phaseIdx=1:nPhases
+                       d_i = d.(quantityOptimized){curObjIdx};
+                       gGrad.(quantityOptimized){curObjIdx,phaseIdx} = gGrad.(quantityOptimized){curObjIdx, phaseIdx} + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                     end
                 end
-        
-                nonEmptyExp = find(~cellfun(@isempty, dExp))';
-        
-                if ~isequal(nonEmptyExp,useNominalCtScen)
-                    totIdx = cat(1,cst{curObjIdx,4}{useNominalCtScen});
-                    
-                    newIdx{1} = unique(totIdx);
-                else
-                    newIdx = cst{curObjIdx,4}(useNominalCtScen);
-                end
-        
-                for s=nonEmptyExp
-                    d_i = dExp{s}(newIdx{s});
-                    doseGradientExp{s}(newIdx{s}) = doseGradientExp{s}(newIdx{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
-                end
-    
     
             case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                 contourIx = unique(contourScen);
@@ -287,6 +323,7 @@ for  i = 1:size(optiProb.objIdx,1)
         end %empty check
 
     elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+        
         quantityOptimizedVariance = objective.quantity;
         quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
         quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimizedVariance,quantityNames)};
@@ -296,7 +333,7 @@ for  i = 1:size(optiProb.objIdx,1)
 
         if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimizedVariance)
             gGrad.(quantityOptimizedVariance)          = cell(size(d.(quantityOptimizedVariance)));
-            gGrad.(quantityOptimizedVariance)(optiProb.BP.structsForScalarQuantity) = {0};
+            gGrad.(quantityOptimizedVariance)(:) = {0};
 
         end
 
@@ -304,21 +341,7 @@ for  i = 1:size(optiProb.objIdx,1)
 
         switch robustness
             case 'PROB'
-                %if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
-                %    optiProb.BP.compute(dij,w);
-                %    [doseGradientExp(:)] = {zeros(dij.totalNumOfBixels,1)};
-                %    [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
-                %end
-                
-                %nonEmptyExp = find(~cellfun(@isempty, dExp))';
-    
-                %if ~isequal(nonEmptyExp,useNominalCtScen)
-                %    totIdx = cat(1,cst{curObjIdx,4}{useNominalCtScen});
-                    
-                %    newIdx{1} = unique(totIdx);
-                %else
-                %    newIdx = cst{curObjIdx,4}(useNominalCtScen);
-                %end
+
                 if nPhasesOmega==1
                     structIdxs = cat(1,cst{curObjIdx,4}{useNominalCtScen});
                     structIdxs = {unique(structIdxs)};
@@ -330,7 +353,7 @@ for  i = 1:size(optiProb.objIdx,1)
                     %tvGrad = objective.penalty * objective.computeTotalVarianceGradient(vTot{curObjIdx,s}, numel(newIdx{s}));
                     %vOmega{s,1} = vOmega{s,1} + tvGrad*dOmega{curObjIdx,s};
                     vTot = d.(quantityOptimizedVariance){curObjIdx, phaseIdx};
-                    gGrad.(quantityOptimizedVariance){curObjIdx, phaseIdx} = gGrad.(quantityOptimizedVariance){curObjIdx,phaseIdx} + objective.penalty * optiProb.normalizeGradient(objective.computeTotalVarianceGradient(vTot,structIdxs{phaseIdx}),i);
+                    gGrad.(quantityOptimizedVariance){curObjIdx, phaseIdx} = gGrad.(quantityOptimizedVariance){curObjIdx,phaseIdx} + objective.penalty * optiProb.normalizeGradient(objective.computeTotalVarianceGradient(vTot,numel(structIdxs{phaseIdx})),i);
                 end
         end
 
