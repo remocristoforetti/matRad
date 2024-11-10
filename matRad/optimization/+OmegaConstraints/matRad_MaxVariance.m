@@ -27,6 +27,7 @@ classdef matRad_MaxVariance < OmegaConstraints.matRad_VarianceConstraint
     properties
         parameters = {30};
         robustness;
+        quantity;
     end
     
     methods
@@ -39,8 +40,7 @@ classdef matRad_MaxVariance < OmegaConstraints.matRad_VarianceConstraint
         %Overloads the struct function to add constraint specific
         %parameters
         function s = struct(this)
- %           s = struct@DoseConstraints.matRad_DoseConstraint(this);
-             s = struct@OmegaConstraints.matRad_VarianceConstraint(this);
+            s = struct@DoseConstraints.matRad_DoseConstraint(this);
         end
 
         function jstruct = getDoseConstraintJacobianStructure(~, n)
@@ -51,21 +51,26 @@ classdef matRad_MaxVariance < OmegaConstraints.matRad_VarianceConstraint
  
         
         %% Calculates the Constraint Function value
-        function cMeanVariance = computeVarianceConstraintFunction(~,vTot, nVoxels)
-            cMeanVariance = vTot/nVoxels;
+        function cMeanVariance = computeVarianceConstraintFunction(~,vTot, ~)
+            cMeanVariance = vTot;
         end
         
         %% Calculates the Constraint jacobian
-        function cVarainceJacob  = computeVarianceConstraintJacobian(~,dOmega, nVoxels)
-            cVarainceJacob = (2/nVoxels) * dOmega;
+        function cVarianceJacob  = computeVarianceConstraintJacobian(~,dOmega, ~)
+            if ~isscalar(dOmega)
+                % For older code compatibility
+                cVarianceJacob = dOmega;
+            else
+                cVarianceJacob = 1;
+            end
         end
 
         %% Get bounds
-        function cl = lowerBounds(~)
+        function cl = lowerBounds(~,~)
             cl = 0;
         end
     
-        function cu = upperBounds(this)
+        function cu = upperBounds(this,~)
             cu = this.parameters{1};
         end
     
