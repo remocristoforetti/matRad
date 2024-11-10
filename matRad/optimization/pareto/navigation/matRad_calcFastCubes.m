@@ -43,7 +43,12 @@ function cubes = matRad_calcFastCubes(w,dij,pln)
                 cubes(ix) = (sqrt(dij.ax{1}(ix).^2 + 4 .* dij.bx{1}(ix).* effect(ix)) - dij.ax{1}(ix))./(2.*dij.bx{1}(ix));
 
             else
-                cubes = reshape(dij.physicalDose{1}*w,dij.doseGrid.dimensions)*dij.RBE;
+
+                if ~isempty(dij.physicalDose{1})
+                    cubes = reshape(dij.physicalDose{1}*w,dij.doseGrid.dimensions)*dij.RBE;
+                else
+                    cubes = reshape(dij.physicalDoseExp{1}*w,dij.doseGrid.dimensions)*dij.RBE;
+                end
             end
         case 'effect'
             cubes = reshape(full(dij.mAlphaDose{1} * w + (dij.mSqrtBetaDose{1} * w).^2),dij.doseGrid.dimensions);
