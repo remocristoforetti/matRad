@@ -38,12 +38,21 @@ for i = 1:size(optiProb.constrIdx,1)
     obj = optiProb.constraints{i};
     curConIdx = optiProb.constrIdx(i,1);
 
-    if isa(obj,'DoseConstraints.matRad_DoseConstraint')
+    if isa(obj,'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+        quantityConstrained = obj.quantity;
+        quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+        quantityConstrainedInstance = optiProb.BP.quantities{strcmp(quantityConstrained,quantityNames)};
+
         cl = [cl;obj.lowerBounds(numel(cst{curConIdx,4}{1}))];
         cu = [cu;obj.upperBounds(numel(cst{curConIdx,4}{1}))];
-    elseif isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
-        cl = [cl;optiFunc.lowerBounds];
+    end
 
-        cu = [cu;optiFunc.upperBounds];
-    end     
+    % if isa(obj,'DoseConstraints.matRad_DoseConstraint')
+    %     cl = [cl;obj.lowerBounds(numel(cst{curConIdx,4}{1}))];
+    %     cu = [cu;obj.upperBounds(numel(cst{curConIdx,4}{1}))];
+    % elseif isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
+    %     cl = [cl;optiFunc.lowerBounds];
+    % 
+    %     cu = [cu;optiFunc.upperBounds];
+    % end     
 end

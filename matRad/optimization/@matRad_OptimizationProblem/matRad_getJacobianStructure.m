@@ -38,16 +38,34 @@ for i = 1:size(optiProb.constrIdx,1)
    obj = optiProb.constraints{i};
    curConIdx = optiProb.constrIdx(i,1);
 
-   % get the jacobian structure depending on dose	
-   jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
-   nRows = size(jacobDoseStruct,2);	
-   switch obj.robustness
-        case 'PROB'
-            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
-        otherwise
-
+   if isa(obj,'DoseConstraints.matRad_DoseConstraint')
+        jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
+        nRows = size(jacobDoseStruct,2);
+        if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
             jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
-
+        else
+            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        end
+    elseif isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+        jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
+        nRows = size(jacobDoseStruct,2);
+        if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        else
+            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        end
     end
+   
+      % % get the jacobian structure depending on dose	
+   % jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
+   % nRows = size(jacobDoseStruct,2);	
+   % switch obj.robustness
+   %      case 'PROB'
+   %          jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+   %      otherwise
+   % 
+   %          jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+   % 
+   %  end
    %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:))),nRows,1)];	  
 end
