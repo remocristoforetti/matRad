@@ -25,7 +25,7 @@ classdef matRad_ParetoSliceWidget < matRad_Widget
     methods
         function this = matRad_ParetoSliceWidget(handleParent)
             this = this@matRad_Widget(handleParent);
-            this.DosePlotAxes = axes(this.widgetHandle,'Position',[0 0 1 1]);
+            this.DosePlotAxes = axes(this.widgetHandle,'Position',[0 0 0.7 1]);
         end
         
         function this = initialize(this)

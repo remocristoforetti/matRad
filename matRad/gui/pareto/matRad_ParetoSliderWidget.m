@@ -20,6 +20,8 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
 
     properties
         paretoSliceWidgetHandle
+        paretoProjectionVisualizationWidgetHandler
+        pareto
         objectiveSliders
         fixationButtons
         helperObject
@@ -27,12 +29,13 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
     end
     
     methods
-        function this = matRad_ParetoSliderWidget(handleParent,paretoSliceWidgetHandle)
+        function this = matRad_ParetoSliderWidget(handleParent,paretoSliceWidgetHandle, paretoProjectionVisualizationWidgetHandler)
 
             matRad_cfg = MatRad_Config.instance();
             this = this@matRad_Widget(handleParent);
 
             this.paretoSliceWidgetHandle = paretoSliceWidgetHandle;
+            this.paretoProjectionVisualizationWidgetHandler = paretoProjectionVisualizationWidgetHandler;   
             this.objectiveSliders = {};
             %TODO: Best way to pass objective function values?
             %fAll = evalin('base','retStruct.finds');
@@ -41,6 +44,7 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
             %this.helperObject = matRad_ParetoData(fAll,wAll);
             this.initialize();
             this.plotSlice(evalin('base','ParetoHelperObject.currentWeights'));
+            this.updateParetoProjectionVisualization(evalin('base','ParetoHelperObject.currentWeights'))
         end
                               
     end
@@ -214,6 +218,22 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
 
             tmp_pos = get(h8,'Position');
             xPos = xPos + tmp_pos(3) + fieldSep;
+
+
+            % Additional field
+            h9 = uicontrol(SliderPanel,'Style','text', ...
+                'String','Quantity', ...
+                'Units','normalized', ...
+                'Position',[xPos ypos(cnt) paramTitleW objHeight], ...
+                'FontSize',matRad_cfg.gui.fontSize, ...
+                'Tooltip','Optimization quantity', ...
+                'HorizontalAlignment','left', ...
+                'BackgroundColor',matRad_cfg.gui.backgroundColor, ...
+                'ForegroundColor',matRad_cfg.gui.textColor);
+
+            tmp_pos = get(h9,'Position');
+            xPos = xPos + tmp_pos(3) + fieldSep;
+
             cnt = cnt + 1;
             %}
             %Create Objectives / Constraints controls
@@ -226,9 +246,8 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
                     for j=1:numel(cst{i,6})
                         %TODO: Add check if constraint or objective
                         obj = cst{i,6}{j};
-                        
                         %Convert to class if not
-                        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
+                        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj, 'OmegaObjectives.matRad_OmegaObjective') && ~isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
                             try
                                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
                             catch ME
@@ -358,6 +377,21 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
                                 xPos = xPos + tmp_pos(3) + fieldSep;
                             end
 
+                            % fill quantity field
+                            h = uicontrol(SliderPanel,'Style','text', ...
+                                'String',obj.quantity, ...
+                                'Units','normalized', ...
+                                'Position',[xPos ypos(cnt) functionW objHeight], ...
+                                'FontSize',matRad_cfg.gui.fontSize, ...
+                                'FontName',matRad_cfg.gui.fontName, ...
+                                'FontWeight',matRad_cfg.gui.fontWeight, ...
+                                'BackgroundColor',matRad_cfg.gui.elementColor, ...
+                                'ForegroundColor',matRad_cfg.gui.textColor, ...
+                                'Tooltip','OPtimization quantitiy',...
+                                'UserData',{[i,j],classNames(1,:)});
+    
+                            tmp_pos = get(h,'Position');
+                            xPos = xPos + tmp_pos(3) + fieldSep;
 
                             cnt = cnt +1;
                         end     
@@ -415,6 +449,7 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
                 end
                 
                 this.plotSlice(wNew);
+                this.updateParetoProjectionVisualization(wNew)
             end
         end
 
@@ -425,6 +460,9 @@ classdef matRad_ParetoSliderWidget < matRad_Widget
             matRad_plotSliceWrapper(this.paretoSliceWidgetHandle.DosePlotAxes,evalin('base','ct'),evalin('base','cst'),1,cubes,3,slice,[],[],[],[],[],[],[],[],[],'LineWidth',2);
         end
 
+        function updateParetoProjectionVisualization(this,w)
+            %this.
+        end
         function FixButton_callback(this,~,~,idx)
             
             ParetoHelperObject = evalin('base','ParetoHelperObject');
