@@ -18,9 +18,14 @@ classdef matRad_BackProjectionQuantity < handle
     properties (SetAccess = protected)
         wCache
         wGradCache  %different cache for optimal performance (if multiple evaluations of objective but not gradient are required)
+        %wConstraintCache
+        wConstJacobianCache
         d
         wGrad
+        %c
+        wJacob
         optimizationQuantitiesIdx;
+        constrainedQuantitiesIdx;
     end
     
     properties 
@@ -30,7 +35,8 @@ classdef matRad_BackProjectionQuantity < handle
         nominalCtScenarios = 1; %nominal ct scenario (no shift, no range error) indices to evaluate (used for 4D & robust/stochastic optimization, when at least one cst structure does not have robustness)
         quantities;             % Quantities that need to be evaluated (includes subquantities)
         optimizationQuantities; % Quantities on which an objective function is defined
-        structsForScalarQuantity;
+        constrainedQuantities;
+        %structsForScalarQuantity;
     end
 
     
@@ -41,6 +47,8 @@ classdef matRad_BackProjectionQuantity < handle
             obj.d = [];
             obj.wGrad = [];
             obj.quantities = {};
+            obj.wJacob = [];
+            obj.wConstJacobianCache = [];
         end       
         
         function obj = compute(obj,dij,w)
@@ -63,6 +71,13 @@ classdef matRad_BackProjectionQuantity < handle
         %         obj.wGradCacheProb = w;
         %     end
         % end
+
+        function obj = computeConstraintJacobian(obj,dij,fJacob, w)
+            if ~isequal(obj.wConstJacobianCache,w)
+                obj.projectConstraintJacobian(dij,fJacob,w);
+                obj.wConstJacobianCache = w;
+            end
+        end
         
         function d = GetResult(obj)
             d = obj.d;
@@ -80,7 +95,8 @@ classdef matRad_BackProjectionQuantity < handle
         function computeResult(obj,dij,w)
             tmpQuantitiesOutput = [];
             
-            for quantityIdx=obj.optimizationQuantitiesIdx'
+            allQuantitiesIdx = unique([obj.optimizationQuantitiesIdx; obj.constrainedQuantitiesIdx]);
+            for quantityIdx=allQuantitiesIdx'
                 quantity = obj.quantities{quantityIdx};
                 tmpQuantitiesOutput.(quantity.quantityName) = quantity.getResult(dij,w);
             end
@@ -97,7 +113,28 @@ classdef matRad_BackProjectionQuantity < handle
             obj.wGrad = tmpGradient;
         end
       
-        function instantiateQuatities(this, optimizationQuantities, dij,cst)
+
+        % function computeConstraintResult(obj,dij,w)
+        %     tmpQuantitiesOutput = [];
+        % 
+        %     for quantityIdx=obj.optimizationQuantitiesIdx'
+        %         quantity = obj.quantities{quantityIdx};
+        %         tmpQuantitiesOutput.(quantity.quantityName) = quantity.getConstraintResult(dij,w);
+        %     end
+        %     obj.c = tmpQuantitiesOutput;
+        % end
+
+        function projectConstraintJacobian(obj,dij,fJacob,w)
+
+            tmpGradient = [];
+            for quantityIdx=obj.constrainedQuantitiesIdx'
+                quantity = obj.quantities{quantityIdx};
+                tmpGradient.(quantity.quantityName) = quantity.getProjectedJacobian(dij,fJacob.(quantity.quantityName),w);
+            end
+            obj.wJacob = tmpGradient;
+        end
+      
+        function instantiateQuatities(this, optimizationQuantities, constraintQuantities, dij,cst)
             
             matRad_cfg = MatRad_Config.instance();
 
@@ -108,15 +145,29 @@ classdef matRad_BackProjectionQuantity < handle
             if ~iscolumn(optimizationQuantities)
                 optimizationQuantities = optimizationQuantities';
             end
+  
+            if ~iscell(constraintQuantities)
+                matRad_cfg.dispError('Input quantities should be a cell array');
+            end
+
+            if ~iscolumn(constraintQuantities)
+                constraintQuantities = constraintQuantities';
+            end
+ 
             availableQuantitiesMeta = this.getAvailableOptimizationQuantities();
 
             if ~all(ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName}))
                 matRad_cfg.dispError('Unrecognized quantity:%s',optimizationQuantities{~ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName})});
             end
 
+            if ~all(ismember(constraintQuantities, {availableQuantitiesMeta.quantityName}))
+                matRad_cfg.dispError('Unrecognized quantity:%s',constraintQuantities{~ismember(constraintQuantities, {availableQuantitiesMeta.quantityName})});
+            end
+
+            allOptConstrainedQuantities = unique([optimizationQuantities; constraintQuantities]);
             subQuantitiesName = {};
-            for quantityIdx=1:numel(optimizationQuantities)
-                currQuantityName = optimizationQuantities{quantityIdx};
+            for quantityIdx=1:numel(allOptConstrainedQuantities)
+                currQuantityName = allOptConstrainedQuantities{quantityIdx};
                 currQuantityIdx = find(ismember({availableQuantitiesMeta.quantityName}, currQuantityName));
 
                 if ~isempty(currQuantityIdx)
@@ -125,7 +176,7 @@ classdef matRad_BackProjectionQuantity < handle
                 end
             end
 
-            allQuantitiesName = [optimizationQuantities; subQuantitiesName];
+            allQuantitiesName = [allOptConstrainedQuantities; subQuantitiesName];
             allQuantitiesName = unique(allQuantitiesName);
             
             selectedQuantitiesMeta = availableQuantitiesMeta(ismember({availableQuantitiesMeta.quantityName}, allQuantitiesName));
@@ -155,8 +206,24 @@ classdef matRad_BackProjectionQuantity < handle
 
             this.optimizationQuantities = optimizationQuantities';
             [~,this.optimizationQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},optimizationQuantities);
+            this.constrainedQuantities = constraintQuantities';
+            [~, this.constrainedQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},constraintQuantities);
             % [~,optimizationQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},optimizationQuantities);
             % this.optimizationQuantities = this.quantities(optimizationQuantitiesIdx);
+            
+            for i=1:size(cst,1)
+                for j=1:size(cst{i,6},2)
+                    obj = cst{i,6}{j};
+                    qtIdx = find(arrayfun(@(qtMeta) strcmp(qtMeta.quantityName, obj.quantity), selectedQuantitiesMeta));
+                    if isa(this.quantities{qtIdx}, 'matRad_ScalarQuantity')
+                        if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
+                            this.quantities{qtIdx}.useStructsOptimization = [this.quantities{qtIdx}.useStructsOptimization,i];
+                        elseif isa(obj, 'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+                            this.quantities{qtIdx}.useStructsConstraint = [this.quantities{qtIdx}.useStructsConstraint,i];
+                        end
+                    end
+                end
+            end
         end
 
         
@@ -278,15 +345,15 @@ classdef matRad_BackProjectionQuantity < handle
             end
         end
 
-        function updateStructsForQuantities(this)
-            % For the time being just mirror here, then
-            % assign according to selection of the objectives
-            for quantityIdx=1:numel(this.quantities)
-                if isa(this.quantities{quantityIdx}, 'matRad_ScalarQuantity')
-                    this.quantities{quantityIdx}.useStructs = this.structsForScalarQuantity;
-                end
-            end
-        end
+        % function updateStructsForQuantities(this)
+        %     % For the time being just mirror here, then
+        %     % assign according to selection of the objectives
+        %     for quantityIdx=1:numel(this.quantities)
+        %         if isa(this.quantities{quantityIdx}, 'matRad_ScalarQuantity')
+        %             this.quantities{quantityIdx}.useStructs = this.structsForScalarQuantity;
+        %         end
+        %     end
+        % end
     end
    
     
@@ -364,10 +431,10 @@ classdef matRad_BackProjectionQuantity < handle
             this.updateScenariosForQuantities();
         end
 
-         function set.structsForScalarQuantity(this,value)
-            this.structsForScalarQuantity = value;
-            this.updateStructsForQuantities();
-        end
+        %  function set.structsForScalarQuantity(this,value)
+        %     this.structsForScalarQuantity = value;
+        %     this.updateStructsForQuantities();
+        % end
     end
 end
 
