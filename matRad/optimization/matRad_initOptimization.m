@@ -259,7 +259,7 @@ if ~isempty(dij.physicalDose{:})
     linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
 
 else
-    linIxDIJ = [];
+    linIxDIJ = find(~cellfun(@isempty,dij.physicalDoseExp(:,:,:)));
     linIxDIJ_nominalCT = scen4D;
 
 end
@@ -307,18 +307,26 @@ backProjection = matRad_BackProjectionQuantity();
 
 % For the time being
 useStructsForOmega = [];
+useStructsForConstraintOmega = [];
 omegaQuantity = [];
 quantitiesFromCst = [];
+constraintQuantities = {};
 for i=1:size(cst,1)
     for j=1:numel(cst{i,6})
-        if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect'}))
-            omegaQuantity = cst{i,6}{j}.quantity;
-            useStructsForOmega = [useStructsForOmega,i];
-             
-        elseif isa(cst{i,6}{j}, 'DoseObjective.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
-            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
+        if isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') || isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective')
+            if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect', 'meanLETd', 'meanPhysicalDose'}))
+                omegaQuantity = cst{i,6}{j}.quantity;
+                useStructsForOmega = [useStructsForOmega,i];
+            elseif isa(cst{i,6}{j}, 'DoseObjective.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
+                cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
+            end
+            quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
+        elseif isa(cst{i,6}{j}, 'DoseConstraints.matRad_DoseConstraint') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+            constraintQuantities = [constraintQuantities, {cst{i,6}{j}.quantity}];
+            if isa(cst{i,6}{j}, 'OmegaConstraint.matRad_VarianceConstraint')
+                useStructsForOmega = [useStructsForOmega,i];
+            end
         end
-        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
     end
 end
 
@@ -327,15 +335,17 @@ optQuantities = [quantitiesFromCst, {omegaQuantity}];
 optQuantities(cellfun(@isempty,optQuantities)) = [];
 optQuantities = unique(optQuantities);
 
+constraintQuantities(cellfun(@isempty,constraintQuantities)) = [];
+constraintQuantities = unique(constraintQuantities);
 
-backProjection.instantiateQuatities(optQuantities,dij,cst);
+backProjection.instantiateQuatities(optQuantities,constraintQuantities,dij,cst);
 
 %Give scenarios used for optimization
 
 backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-backProjection.structsForScalarQuantity = unique(useStructsForOmega);
+%backProjection.structsForScalarQuantity = unique(useStructsForOmega);
 
 
 optiProb = matRad_OptimizationProblem(backProjection,cst);
