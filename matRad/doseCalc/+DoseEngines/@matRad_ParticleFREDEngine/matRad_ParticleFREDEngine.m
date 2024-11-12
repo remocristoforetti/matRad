@@ -93,7 +93,6 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         hLutLimits = [-1000,1375];  % Default FRED values
         
         conversionFactor = 1e6;     % Used to scale the FRED dose to matRad normalization
-%        planDeliveryTemplate = 'planDelivery.txt';
 
         FREDrootFolder;
 
@@ -128,7 +127,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 end
             end
 
-            this.FREDrootFolder = fullfile(matRad_cfg.thirdPartyFolder, 'FRED');
+            this.FREDrootFolder = fullfile(matRad_cfg.primaryUserFolder, 'FRED');
             
             if ~exist(this.FREDrootFolder, 'dir')
                 mkdir(this.FREDrootFolder);
@@ -333,7 +332,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             mainFolder        = fullfile(matRad_cfg.matRadSrcRoot,'hluts');
             userDefinedFolder = fullfile(matRad_cfg.primaryUserFolder, 'hluts');
-            fredDefinedFolder = fullfile(this.FREDrootFolder, 'hluts');
+            fredDefinedFolder = fullfile(matRad_cfg.thirdPartyFolder, 'FRED', 'hluts');
 
             % Collect all the subfolders
             if ispc
