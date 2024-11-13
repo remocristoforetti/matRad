@@ -538,7 +538,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
 
         function availableVersions = getAvailableVersions(this, sist)
-            % Function to get available FRED verions
+            % Function to get available FRED version
             
             matRad_cfg = MatRad_Config.instance();
 
@@ -569,7 +569,7 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 end
 
             else
-                matRad_cfg.dispError('Something wrong occured in checking FRED available verions. Please check correct FRED installation');
+                matRad_cfg.dispError('Something wrong occured in checking FRED available version. Please check correct FRED installation');
             end
         end
 
