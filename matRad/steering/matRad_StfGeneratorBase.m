@@ -446,6 +446,7 @@ classdef (Abstract) matRad_StfGeneratorBase < handle
 
             if nargin >= 1 && ~isempty(pln)
                 machine = matRad_loadMachine(pln);
+             
                 machineMode = machine.meta.radiationMode;
 
                 for cIx = 1:length(availableStfGenerators)
