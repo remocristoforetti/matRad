@@ -28,13 +28,15 @@ function machine = matRad_loadMachine(pln)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 matRad_cfg = MatRad_Config.instance();
-if isfield(pln, 'radiationMode')
+if isfield(pln, 'radiationMode') && ~strcmp(pln.radiationMode, 'MixMod')
     if isfield(pln, 'machine')
         fileName = [pln.radiationMode '_' pln.machine];
     else
         fileName = [pln.radiationMode '_Generic'];
         matRad_cfg.dispWarning('No machine name given, loading generic machine');
     end
+elseif strcmp(pln.radiationMode, 'MixMod')
+    
 else
     matRad_cfg.dispError('No radiation mode given in pln');
 end
