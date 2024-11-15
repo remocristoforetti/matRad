@@ -28,15 +28,13 @@ function machine = matRad_loadMachine(pln)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 matRad_cfg = MatRad_Config.instance();
-if isfield(pln, 'radiationMode') && ~strcmp(pln.radiationMode, 'MixMod')
+if isfield(pln, 'radiationMode')
     if isfield(pln, 'machine')
         fileName = [pln.radiationMode '_' pln.machine];
     else
         fileName = [pln.radiationMode '_Generic'];
         matRad_cfg.dispWarning('No machine name given, loading generic machine');
     end
-elseif strcmp(pln.radiationMode, 'MixMod')
-    
 else
     matRad_cfg.dispError('No radiation mode given in pln');
 end
@@ -48,15 +46,19 @@ folders = [{[matRad_cfg.matRadSrcRoot filesep 'basedata' filesep]} userfolders(:
 foundData = cellfun(@(folder) exist(fullfile(folder, [fileName '.mat']), 'file'), folders);
 foundIx = find(foundData, 1, 'first');
 
-if isempty(foundIx)
+if isempty(foundIx) && ~strcmp(pln.radiationMode, 'MixMod')
     matRad_cfg.dispError('Could not find the following machine file: %s',fileName);
 end
 
 filepath = fullfile(folders{foundIx}, [fileName '.mat']);
 
 try
-    m = load(filepath, 'machine');
-    machine = m.machine; % strip first layer of loaded struct for convenience
+    if ~strcmp(pln.radiationMode, 'MixMod')
+        m = load(filepath, 'machine');
+        machine = m.machine; % strip first layer of loaded struct for convenience
+    else
+        machine.meta.radiationMode = 'MixMod';
+    end
 catch
     matRad_cfg.dispError('Could not load the following machine file: %s',fileName);
 end
