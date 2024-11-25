@@ -50,17 +50,16 @@ if nPlans>1
     plnJO.numOfModalities = nPlans;
 
     %%%%%%% propDoseCalc %%%%%
-    allFields = arrayfun(@(plan) fieldnames(plan.propDoseCalc), pln, 'UniformOutput',false);
-    allFields = unique(cat(1,allFields{:}));
-    plnJO.propDoseCalc(1:plnJO.numOfModalities) = cell2struct(cell(1,length(allFields)), allFields, 2);
-
+    % allFields = arrayfun(@(plan) fieldnames(plan.propDoseCalc), pln, 'UniformOutput',false);
+    % allFields = unique(cat(1,allFields{:}));
+    
     for modalityIdx=1:plnJO.numOfModalities
-        currModalityFields = fieldnames(pln(modalityIdx).propDoseCalc);
-        for fieldIdx=1:length(currModalityFields)
-           plnJO.propDoseCalc(modalityIdx).(currModalityFields{fieldIdx}) = pln(modalityIdx).propDoseCalc.(currModalityFields{fieldIdx});
-        end
+        currModality = pln(modalityIdx).radiationMode;
+        plnJO.propDoseCalc.(currModality) = pln(modalityIdx).propDoseCalc;
     end
 
+    plnJO.propDoseCalc.engine = 'MixMod';
+    
     %%%%%%% propStf %%%%%
     allFields = arrayfun(@(plan) fieldnames(plan.propStf), pln, 'UniformOutput',false);
     allFields = unique(cat(1,allFields{:}));
@@ -96,13 +95,17 @@ if nPlans>1
         end
 
     end
-    plnJO.propOpt.spatioTemp = zeros(1,plnJO.numOfModalities);
-    plnJO.propOpt.STfractions = {pln.numOfFractions};
-    plnJO.propOpt.STscenarios = ones(1,plnJO.numOfModalities);
 
+    % for now disable it, later on will have the same structure
+    plnJO.propOpt.spatioTemp = zeros(1,plnJO.numOfModalities);
+    for modalityIdx=1:plnJO.numOfModalities
+        modalityName = originalPlans(modalityIdx).radiationMode;
+        plnJO.propOpt.STfractions.(modalityName) = {originalPlans(modalityIdx).numOfFractions};
+        plnJO.propOpt.STscenarios = ones(1,plnJO.numOfModalities);
+    end
     % Feed the first bio model quantity, they are consistent
-    plnJO.bioParam = matRad_bioModel(plnJO.radiationMode, 'MixMod');
-    plnJO.bioParam.singleModalityModels = {pln(:).bioParam};
+    plnJO.bioModel = matRad_bioModel(plnJO.radiationMode, 'MixMod');
+    plnJO.bioModel.singleModalityModels = {pln(:).bioParam};
     plnJO.originalPlans = originalPlans;
     plnJO.multScen = [pln(:).multScen];
 
