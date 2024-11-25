@@ -1,4 +1,4 @@
-classdef matRad_DoseProjection < matRad_BackProjection
+classdef matRad_DoseProjection < matRad_BackProjectionMM
 % matRad_DoseProjection class to compute physical dose during optimization
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
