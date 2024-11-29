@@ -57,7 +57,7 @@ function test_writeFiles
 
         resultGUI = matRad_calcDoseForward(ct,cst,stf,pln,w);
 
-        fredMainDir   = [matRad_cfg.thirdPartyFolder filesep 'FRED'];
+        fredMainDir   = [matRad_cfg.primaryUserFolder filesep 'FRED'];
         runFolder     = [fredMainDir filesep 'MCrun'];
         inputFolder   = [runFolder filesep 'inp'];
         planFolder    = [inputFolder filesep 'plan'];
