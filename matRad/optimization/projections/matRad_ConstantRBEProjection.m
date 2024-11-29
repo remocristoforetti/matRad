@@ -1,4 +1,4 @@
-classdef matRad_ConstantRBEProjection < matRad_BackProjection
+classdef matRad_ConstantRBEProjection < matRad_BackProjectionMM
 % matRad_BackProjection for optimization based on RBExDose
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

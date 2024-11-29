@@ -1,4 +1,4 @@
-classdef matRad_EffectProjection < matRad_BackProjection
+classdef matRad_EffectProjection < matRad_BackProjectionMM
 % matRad_EffectProjection class for effect-based optimization
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
