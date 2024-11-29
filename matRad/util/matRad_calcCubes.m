@@ -155,6 +155,25 @@ elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr),'alpha')), fieldna
             end
         end
     end
+elseif all(isfield(dij, {'ax', 'bx'}))
+    for i = 1:length(beamInfo)
+        % Get weights of current beam
+        
+        % consider biological optimization
+        ix = dij.bx{ctScen} ~= 0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > 0;
+        
+        % Calculate effect from alpha- and sqrtBetaDose
+
+        resultGUI.(['effect', beamInfo(i).suffix])                   = zeros(size(resultGUI.(['physicalDose', beamInfo(i).suffix])));
+        resultGUI.(['effect', beamInfo(i).suffix])(ix)               = dij.ax{scenNum}(ix) .* resultGUI.(['physicalDose', beamInfo(i).suffix])(ix) + dij.bx{scenNum}(ix) .* (resultGUI.(['physicalDose', beamInfo(i).suffix])(ix)).^2;
+
+        % Calculate RBExD from the effect
+        resultGUI.(['RBExD', beamInfo(i).suffix])                 = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
+        resultGUI.(['RBExD', beamInfo(i).suffix])(ix)             = (sqrt(dij.ax{ctScen}(ix).^2 + 4 .* dij.bx{ctScen}(ix) .* resultGUI.(['effect', beamInfo(i).suffix])(ix)) - dij.ax{ctScen}(ix))./(2.*dij.bx{ctScen}(ix));
+
+
+    end
+
 end
 
 %% Calculate Biological Effective Dose (BED)
