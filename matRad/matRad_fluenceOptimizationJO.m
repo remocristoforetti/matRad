@@ -150,27 +150,42 @@ if ~isfield(pln.propOpt, 'quantityOpt') || isempty(pln.propOpt.quantityOpt)
 end
 
 % Check optimization quantity
-switch pln.propOpt.quantityOpt
-    case 'effect'
-        if isa(pln.bioModel,'matRad_ConstantRBE') || (isstruct(pln.bioModel) && strcmp(pln.bioModel.model, 'constRBE'))
-            matRad_cfg.dispError('Effect optimization with constant RBE model not supported');
-        end
-        backProjection = matRad_EffectProjection;
-    case 'RBExD'
-        %Capture special case of constant RBE
-        if isa(pln.bioModel,'matRad_ConstantRBE') || (isstruct(pln.bioModel) && strcmp(pln.bioModel.model, 'constRBE'))
-            backProjection = matRad_ConstantRBEProjection;
-        else
-            backProjection = matRad_VariableRBEProjection;
-        end
-    case 'physicalDose'
-        backProjection = matRad_DoseProjection;
-
-    case 'BED'
-        backProjection = matRad_BEDProjection;
-    otherwise
-        warning(['Did not recognize biological setting ''' pln.propOpt.quantityOpt '''!\nUsing physical dose optimization!']);
-        backProjection = matRad_DoseProjection;
+if ~isa(pln.bioModel, 'matRad_MixModBiomodel')
+    switch pln.propOpt.quantityOpt
+        case 'effect'
+            if isa(pln.bioModel,'matRad_ConstantRBE') || (isstruct(pln.bioModel) && strcmp(pln.bioModel.model, 'constRBE'))
+                matRad_cfg.dispError('Effect optimization with constant RBE model not supported');
+            end
+            backProjection = matRad_EffectProjection;
+        case 'RBExD'
+            %Capture special case of constant RBE
+            if isa(pln.bioModel,'matRad_ConstantRBE') || (isstruct(pln.bioModel) && strcmp(pln.bioModel.model, 'constRBE'))
+                backProjection = matRad_ConstantRBEProjection;
+            else
+                backProjection = matRad_VariableRBEProjection;
+            end
+        case 'physicalDose'
+            backProjection = matRad_DoseProjection;
+    
+        case 'BED'
+            backProjection = matRad_BEDProjection;
+        otherwise
+            warning(['Did not recognize biological setting ''' pln.propOpt.quantityOpt '''!\nUsing physical dose optimization!']);
+            backProjection = matRad_DoseProjection;
+    end
+else
+    switch pln.propOpt.quantityOpt
+        case 'physicalDose'
+            backProjection = matRad_DoseProjection;
+        case 'RBExD'
+            if any(cellfun(@(mod) isa(mod, 'matRad_ConstantRBE'), pln.bioModel.singleModalityModels))
+                backProjection = matRad_ConstantRBEProjection;
+            else
+                backProjection = matRad_VariableRBEProjection;                
+            end
+        case 'effect'
+            backProjection = matRad_EffectProjection;
+    end
 end
 
 % Check minimum biological quantities available
@@ -178,10 +193,17 @@ if isa(backProjection,'matRad_EffectProjection') && ~all(isfield(dij,{'ax','bx'}
     matRad_cfg.dispWarning('Biological optimization requested, but no ax & bx provided in dij. Getting from cst...');
 
     %First get the voxels where we need it
-    validScen = ~cellfun(@isempty,dij.physicalDose);
-    d = cellfun(@(D) D*ones(dij.totalNumOfBixels,1),dij.physicalDose(validScen),'UniformOutput',false);
-    d = sum(cell2mat(d'),2);
-    ixZeroDose = d == 0;
+
+    ixZeroDose = zeros(dij.doseGrid.numOfVoxels,1);
+    for modalityIdx=1:dij.numOfModalities
+        modalityName = dij.radiationModalities{modalityIdx};
+        
+        validScen = ~cellfun(@isempty,dij.(modalityName).physicalDose);
+        d = cellfun(@(D) D*ones(dij.(modalityName).totalNumOfBixels,1),dij.(modalityName).physicalDose(validScen),'UniformOutput',false);
+        d = sum(cell2mat(d'),2);
+        ixZeroDose = ixZeroDose + (d == 0);
+    end
+    ixZeroDose = ixZeroDose > 0;
 
     numOfCtScenarios = numel(cst{1,4});
     for i = 1:numOfCtScenarios
@@ -217,15 +239,35 @@ if exist('wInit','var')
         dij.gamma(dij.ixDose) = dij.ax(dij.ixDose)./(2*dij.bx(dij.ixDose));
     end
 
-elseif isa(backProjection, 'matRad_ConstantRBEProjection') && strcmp(pln.radiationMode,'protons')
-    % check if a constant RBE is defined - if not use 1.1
-    if ~isfield(dij,'RBE')
-        dij.RBE = 1.1;
+elseif isa(backProjection, 'matRad_ConstantRBEProjection')
+
+    wInit = [];
+    for modality=1:dij.numOfModalities
+        modalityName = dij.radiationModalities{modality};
+
+        % check if a constant RBE is defined - if not use 1.1
+        if ~isfield(dij.(modalityName),'RBE')
+
+            % Peghaps better to get these values directly from default for
+            % consistency
+            switch modalityName
+
+                case 'protons'
+                    RBE = 1.1;
+                case 'photons'
+                    RBE = 1.0;
+                otherwise
+                    RBE = NaN;
+            end
+
+            dij.(modalityName).RBE = RBE;
+        end
+
+        doseTmp = dij.(modalityName).physicalDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        bixelWeight =  (doseTarget)/(dij.(modalityName).RBE * mean(doseTmp(V)));
+        wInit       = [wInit; ones(dij.(modalityName).totalNumOfBixels,1) * bixelWeight/pln.numOfFractions];
     end
 
-    doseTmp = dij.physicalDose{1}*wOnes;
-    bixelWeight =  (doseTarget)/(dij.RBE * mean(doseTmp(V)));
-    wInit       = wOnes * bixelWeight;
     matRad_cfg.dispInfo('chosen uniform weight of %f!\n',bixelWeight);
 
 elseif isa(backProjection, 'matRad_EffectProjection')
@@ -240,7 +282,7 @@ elseif isa(backProjection, 'matRad_EffectProjection')
 
         for j = 1:size(cst{i,6},2)
             % check if prescribed doses are in a valid domain
-            if any(cst{i,6}{j}.getDoseParameters() > 5) && isequal(cst{i,3},'TARGET')
+            if any(cst{i,6}{j}.getDoseParameters()/pln.numOfFractions > 5) && isequal(cst{i,3},'TARGET')
                 matRad_cfg.dispError('Reference dose > 5 Gy[RBE] for target. Biological optimization outside the valid domain of the base data. Reduce dose prescription or use more fractions.\n');
             end
 
@@ -251,64 +293,80 @@ elseif isa(backProjection, 'matRad_EffectProjection')
         dij.ixDose{s}  = dij.bx{s}~=0;
     end
     
-    doseTmp = dij.physicalDose{1}*wOnes;
-    if all(isfield(dij,{'mAlphaDose','mSqrtBetaDose'}))
-        aTmp = dij.mAlphaDose{1}*wOnes;
-        bTmp = dij.mSqrtBetaDose{1} * wOnes;
-    else        
-        aTmp = doseTmp.*dij.ax{1};
-        bTmp = doseTmp.*sqrt(dij.bx{1});
-    end
+    wInit = [];
+    for modalityIdx=1:dij.numOfModalities
+        modalityName = dij.radiationModalities{modalityIdx};
 
-    if isequal(pln.propOpt.quantityOpt,'effect')
-
-        effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
-        p = sum(aTmp(V)) / sum(bTmp(V).^2);
-        q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
-
-        wInit        = -(p/2) + sqrt((p^2)/4 -q) * wOnes;
-
-    elseif isequal(pln.propOpt.quantityOpt,'RBExD')
-
-        %pre-calculations
-        for s = 1:numel(dij.ixDose)
-            dij.gamma{s}             = zeros(dij.doseGrid.numOfVoxels,dij.numOfScenarios);
-            dij.gamma{s}(dij.ixDose{s}) = dij.ax{s}(dij.ixDose{s})./(2*dij.bx{s}(dij.ixDose{s}));
+        if strcmp(modalityName, 'photons')
+            dij.(modalityName).ax = dij.ax;
+            dij.(modalityName).bx = dij.bx;
+            dij.(modalityName).ixDose = dij.ixDose;            
         end
 
-
-        % calculate current effect in target
-        CurrEffectTarget = aTmp(V) + bTmp(V).^2;
-        % ensure a underestimated biological effective dose
-        TolEstBio        = 1.2;
-        % calculate maximal RBE in target
-        maxCurrRBE = max(-cst{ixTarget,5}.alphaX + sqrt(cst{ixTarget,5}.alphaX^2 + ...
-            4*cst{ixTarget,5}.betaX.*CurrEffectTarget)./(2*cst{ixTarget,5}.betaX*doseTmp(V)));
-        wInit    =  ((doseTarget)/(TolEstBio*maxCurrRBE*max(doseTmp(V))))* wOnes;
-
-    elseif strcmp(pln.propOpt.quantityOpt, 'BED')
-
-        if isfield(dij, 'mAlphaDose') && isfield(dij, 'mSqrtBetaDose')
-            abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
-            meanBED = mean((aTmp(V) + bTmp(V).^2)./cst{ixTarget,5}.alphaX);
-            %meanBED = mean((dij.mAlphaDose{1}(V,:)*wOnes + (dij.mSqrtBetaDose{1}(V,:)*wOnes).^2)./cst{ixTarget,5}.alphaX);
-            BEDTarget = doseTarget.*(1 + doseTarget./abr);
-            % elseif isfield(dij, 'RBE')
-            %     abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
-            %     meanBED = mean(dij.RBE.*dij.physicalDose{1}(V,:)*wOnes.*(1+dij.RBE.*dij.physicalDose{1}(V,:)*wOnes./abr));
-            %     BEDTarget = dij.RBE.*doseTarget.*(1 + dij.RBE.*doseTarget./abr);
-            % else
-            %     abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
-            %     meanBED = mean(dij.physicalDose{1}(V,:)*wOnes.*(1+dij.physicalDose{1}(V,:)*wOnes./abr));
-            %     BEDTarget = doseTarget.*(1 + doseTarget./abr);
+        doseTmp = dij.(modalityName).physicalDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        if all(isfield(dij.(modalityName),{'mAlphaDose','mSqrtBetaDose'}))
+            aTmp = dij.(modalityName).mAlphaDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+            bTmp = dij.(modalityName).mSqrtBetaDose{1} * ones(dij.(modalityName).totalNumOfBixels,1);
+        else        
+            aTmp = doseTmp.*dij.ax{1};
+            bTmp = doseTmp.*sqrt(dij.bx{1});
         end
 
-        bixelWeight =  BEDTarget/meanBED;
-        wInit       = wOnes * bixelWeight;
+        if isequal(pln.propOpt.quantityOpt,'effect')
+    
+            effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
+            p = sum(aTmp(V)) / sum(bTmp(V).^2);
+            q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
+    
+            wInit        = [wInit; -(p/2) + sqrt((p^2)/4 -q) * ones(dij.(modalityName).totalNumOfBixels,1)];
 
+        elseif isequal(pln.propOpt.quantityOpt,'RBExD')
+    
+            %pre-calculations
+            for s = 1:numel(dij.ixDose)
+                dij.gamma{s}             = zeros(dij.doseGrid.numOfVoxels,dij.numOfScenarios);
+                dij.gamma{s}(dij.ixDose{s}) = dij.ax{s}(dij.ixDose{s})./(2*dij.bx{s}(dij.ixDose{s}));
+            end
+    
+            if strcmp(modalityName, 'photons')
+                dij.(modalityName).ax = dij.ax;
+                dij.(modalityName).bx = dij.bx;
+                dij.(modalityName).ixDose = dij.ixDose;
+                dij.(modalityName).gamma = dij.gamma;
+            end
+            
+            % calculate current effect in target
+            CurrEffectTarget = aTmp(V) + bTmp(V).^2;
+            % ensure a underestimated biological effective dose
+            TolEstBio        = 1.2;
+            % calculate maximal RBE in target
+            maxCurrRBE = max(-cst{ixTarget,5}.alphaX + sqrt(cst{ixTarget,5}.alphaX^2 + ...
+                4*cst{ixTarget,5}.betaX.*CurrEffectTarget)./(2*cst{ixTarget,5}.betaX*doseTmp(V)));
+            wInit    =  [wInit; ((doseTarget)/(TolEstBio*maxCurrRBE*max(doseTmp(V))))* ones(dij.(modalityName).totalNumOfBixels,1)];
+
+        elseif strcmp(pln.propOpt.quantityOpt, 'BED')
+
+            if isfield(dij.(modalityName), 'mAlphaDose') && isfield(dij.(modalityName), 'mSqrtBetaDose')
+                abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
+                meanBED = mean((aTmp(V) + bTmp(V).^2)./cst{ixTarget,5}.alphaX);
+                %meanBED = mean((dij.mAlphaDose{1}(V,:)*wOnes + (dij.mSqrtBetaDose{1}(V,:)*wOnes).^2)./cst{ixTarget,5}.alphaX);
+                BEDTarget = doseTarget.*(1 + doseTarget./abr);
+                % elseif isfield(dij, 'RBE')
+                %     abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
+                %     meanBED = mean(dij.RBE.*dij.physicalDose{1}(V,:)*wOnes.*(1+dij.RBE.*dij.physicalDose{1}(V,:)*wOnes./abr));
+                %     BEDTarget = dij.RBE.*doseTarget.*(1 + dij.RBE.*doseTarget./abr);
+                % else
+                %     abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
+                %     meanBED = mean(dij.physicalDose{1}(V,:)*wOnes.*(1+dij.physicalDose{1}(V,:)*wOnes./abr));
+                %     BEDTarget = doseTarget.*(1 + doseTarget./abr);
+            end
+    
+            bixelWeight =  BEDTarget/meanBED;
+            wInit       = [ wInit; ones(dij.(modalityName).totalNumOfBixels,1) * bixelWeight];
+
+        end
     end
-
-    matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
+        matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
 
 else
     wInit = [];
@@ -374,11 +432,12 @@ if isfield(pln, 'propOpt') && isfield(pln.propOpt, 'spatioTemp')
 %     end
 else
     spatioTemp = 1;
-
 end
+
 backProjection.nModalities = dij.numOfModalities;
 backProjection.spatioTemporalFractions = spatioTemp;
 backProjection.radiationModalities = dij.radiationModalities;
+backProjection.totalNumOfFractions = pln.numOfFractions;
 
 optiProb = matRad_OptimizationProblemMixMod(backProjection);
 
