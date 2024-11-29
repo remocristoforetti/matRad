@@ -348,6 +348,9 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                           strsplit(genpath(fredDefinedFolder),folderDelimiter)'];
  
             searchPath(cellfun(@isempty, searchPath)) = [];
+
+            % Check for existence of folder paths
+            searchPath = searchPath(cellfun(@isfolder, searchPath));
             
             availableHLUTs = cellfun(@(x) dir([x,'\*.txt']), searchPath, 'UniformOutput',false);
             availableHLUTs = cell2mat(availableHLUTs);
@@ -368,6 +371,10 @@ classdef matRad_ParticleFREDEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 errString = [errString, sprintf('\ninternal')];
                 for hLUTindex=1:numel(availableHLUTs)
                     errString = [errString, sprintf('\n '), strrep(fullfile(availableHLUTs(hLUTindex).folder, availableHLUTs(hLUTindex).name), '\', '\\')];
+                end
+                errString = [errString, sprintf('\n looking in folder:')];
+                for i=1:numel(searchPath)
+                    errString = [errString, searchPath{i}, '\n'];
                 end
                 matRad_cfg.dispError(errString);
             end
