@@ -100,7 +100,7 @@ classdef matRad_MixModalityEngine < DoseEngines.matRad_DoseEngineBase
                 end
             end
 
-            % Do teh same for dij
+            % Do the same for dij
 
              % for modalityIdx = 1:this.nModalities
             %     modalityName = this.radiationModalities{modalityIdx};
@@ -123,25 +123,11 @@ classdef matRad_MixModalityEngine < DoseEngines.matRad_DoseEngineBase
 
             dij.spatioTemp = this.spatioTemp;
             dij.totalNumOfBixels = sum([dij.totalNumOfBixels{:}]);
+
+            
         end
 
-        % function dij = finalizeDose(this,dij)
-        % 
-        %     matRad_cfg = MatRad_Config.instance();
-        % 
-        %     stfModalities = {stf(:).radiationMode};
-        % 
-        %     for modalityIdx = 1:this.nModalities
-        %         modalityName = this.radiationModalities{modalityIdx};
-        % 
-        %         currStf  = stf(strcmp(stfModalities,modalityName));               
-        % 
-        %         currEngine = this.singleModalityEngines{modalityIdx};
-        % 
-        %         tmpDij = currEngine.finalizeDose(dij.(mod   ));
-        %     end
-        %     %dij = finalizeDose@DoseEngines.matRad_DoseEngineBase(this,dij);
-        % end
+
     end
 
     methods (Static)
