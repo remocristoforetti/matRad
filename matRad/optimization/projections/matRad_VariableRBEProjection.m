@@ -28,13 +28,18 @@ classdef matRad_VariableRBEProjection < matRad_EffectProjection
         function wGrad = projectSingleScenarioGradient(obj,dij,doseGrad,scen,w)
             %While the dose cache should be up to date here, we ask for
             %a computation (will skip if weights are equal to cache)
-            obj = obj.compute(dij,w);
-
+            % Can't do this anymore, this would call the compute function
+            % with the single modality dij and weights only.
+            %obj = obj.compute(dij,w);
+            
+            d = obj.computeSingleScenario(dij, scen, w);
+            
             %Get corresponding ct scenario
             [ctScen,~,~] = ind2sub(size(dij.physicalDose),scen); %TODO: Workaround for now
 
             %Scaling vor variable RBExDose
-            scaledEffect = obj.d{scen} + dij.gamma{ctScen};
+            scaledEffect = d + dij.gamma{ctScen};
+
             doseGradTmp = zeros(dij.doseGrid.numOfVoxels,1);
             doseGradTmp(dij.ixDose{ctScen}) = doseGrad{scen}(dij.ixDose{ctScen}) ./ (2*dij.bx{ctScen}(dij.ixDose{ctScen}).*scaledEffect(dij.ixDose{ctScen}));
 
@@ -46,15 +51,14 @@ classdef matRad_VariableRBEProjection < matRad_EffectProjection
                     matRad_cfg.dispWarning('Empty scenario in optimization detected! This should not happen...\n');
                     return;
                 else
-                    vBias = (doseGrad{scen}' * dij.mAlphaDose{scen})';
+                    vBias = (doseGradTmp' * dij.mAlphaDose{scen})';
                     quadTerm = dij.mSqrtBetaDose{scen} * w;
-                    mPsi = (2*(doseGrad{scen}.*quadTerm)' * dij.mSqrtBetaDose{scen})';
-                    wGrad = vBias + mPsi;
+                    mPsi = (2*(doseGradTmp.*quadTerm)' * dij.mSqrtBetaDose{scen})';
                 end
             else
-                vBias = ((dij.ax{ctScen} .* doseGradTmp)' * dij.physicalDose{scen})';
-                tmpDose = (dij.physicalDose{scen}*w);
-                mPsi = (2*(doseGrad{scen}.*tmpDose.*dij.bx{ctScen})' * dij.physicalDose{scen})';                
+                vBias = ((doseGradTmp .* dij.ax{scen})' * dij.physicalDose{scen})';
+                quadTerm = dij.physicalDose{scen} * w;
+                mPsi = (2*(doseGradTmp.*quadTerm.*dij.bx{scen})' * dij.physicalDose{scen})';
             end
             wGrad = vBias + mPsi;
         end
