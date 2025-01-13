@@ -89,23 +89,35 @@ if nPlans>1
     end
 
     %%% Disable STfractionation fo the time being
-    for modalityIdx=1:plnJO.numOfModalities
-        if (isfield(pln(modalityIdx).propOpt, 'spatioTemp')) && pln(modalityIdx).propOpt.spatioTemp
-            matRad.dispWarning('Sorry no spatioTemporal avalability yet');
-        end
-
-    end
+    % for modalityIdx=1:plnJO.numOfModalities
+    %     if (isfield(pln(modalityIdx).propOpt, 'spatioTemp')) && pln(modalityIdx).propOpt.spatioTemp
+    %         matRad_cfg.dispWarning('Sorry no spatioTemporal avalability yet');
+    %     end
+    % 
+    % end
 
     % for now disable it, later on will have the same structure
-    plnJO.propOpt.spatioTemp = zeros(1,plnJO.numOfModalities);
+    %plnJO.propOpt.spatioTemp = zeros(1,plnJO.numOfModalities);
     for modalityIdx=1:plnJO.numOfModalities
+        
         modalityName = originalPlans(modalityIdx).radiationMode;
-        plnJO.propOpt.STfractions.(modalityName) = {originalPlans(modalityIdx).numOfFractions};
-        plnJO.propOpt.STscenarios = ones(1,plnJO.numOfModalities);
+
+        if ~isfield(originalPlans(modalityIdx).propOpt, 'spatioTemp') || isempty(originalPlans(modalityIdx).propOpt.spatioTemp)
+            originalPlans(modalityIdx).propOpt.spatioTemp = false;
+        end
+        
+        if pln(modalityIdx).propOpt.spatioTemp
+            plnJO.propOpt.STfractions.(modalityName) = originalPlans(modalityIdx).propOpt.STfractions;
+            plnJO.propOpt.STscenarios = ones(1,plnJO.numOfModalities);
+        else
+            plnJO.propOpt.STfractions.(modalityName) = originalPlans(modalityIdx).numOfFractions;
+            plnJO.propOpt.STscenarios = ones(1,plnJO.numOfModalities);
+        end
     end
+    
     % Feed the first bio model quantity, they are consistent
     plnJO.bioModel = matRad_bioModel(plnJO.radiationMode, 'MixMod');
-    plnJO.bioModel.singleModalityModels = {pln(:).bioParam};
+    plnJO.bioModel.singleModalityModels = {pln(:).bioModel};
     plnJO.originalPlans = originalPlans;
     plnJO.multScen = [pln(:).multScen];
 
