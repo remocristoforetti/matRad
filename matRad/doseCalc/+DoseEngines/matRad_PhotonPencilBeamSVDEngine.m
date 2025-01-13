@@ -181,7 +181,6 @@ classdef matRad_PhotonPencilBeamSVDEngine < DoseEngines.matRad_PencilBeamEngineA
                 (fieldLimit-1)*this.intConvResolution);
 
 
-
             sigmaGauss = this.penumbraFWHM / sqrt(8*log(2)); % [mm]
             % use 5 times sigma as the limits for the gaussian convolution
             gaussLimit = ceil(5*sigmaGauss/this.intConvResolution);
@@ -236,6 +235,7 @@ classdef matRad_PhotonPencilBeamSVDEngine < DoseEngines.matRad_PencilBeamEngineA
                     matRad_cfg.dispWarning('Environment %s not recognized!',env);
             end
 
+            dij = this.loadBiologicalBaseData(dij);
         end
 
         function currBeam = initBeam(this,currBeam,ct,cst,stf,i)

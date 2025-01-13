@@ -42,7 +42,12 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
         radDepthCubes = {};     % only stored if property set accordingly
 
         cubeWED;                % relative electron density / stopping power cube
-        hlut;                   % hounsfield lookup table to craete relative electron density cube    
+        hlut;                   % hounsfield lookup table to craete relative electron density cube
+ 
+        vTissueIndex;                   % Stores tissue indices available in the matRad base data
+        vAlphaX;                        % Stores Photon Alpha
+        vBetaX;                         % Stores Photon Beta
+
     end
 
     methods
@@ -222,6 +227,32 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
                     dij.(names{n})(this.multScen.scenMask) = {spalloc(dij.doseGrid.numOfVoxels,this.numOfColumnsDij,round(prod(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)*1e-3))};
                 end
             end
+        end
+
+        function dij = loadBiologicalBaseData(this,dij)
+        
+            matRad_cfg = MatRad_Config.instance();
+
+            matRad_cfg.dispInfo('Initializing biological dose calculation...\n');
+            
+            numOfCtScen = numel(this.VdoseGridScenIx);
+           
+            tmpScenVdoseGrid = cell(numOfCtScen,1);
+
+            [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(this.cstDoseGrid,dij.doseGrid.numOfVoxels,this.VdoseGrid);  
+
+            for s = 1:numOfCtScen            
+                tmpScenVdoseGrid{s} = this.VdoseGrid(this.VdoseGridScenIx{s});
+
+                dij.ixDose{s} = dij.bx{s}~=0;
+                % retrieve photon LQM parameter for the current dose grid voxels
+
+                % vAlphaX and vBetaX for parameters in VdoseGrid
+                this.vAlphaX{s}         = dij.ax{s}(tmpScenVdoseGrid{s});
+                this.vBetaX{s}          = dij.bx{s}(tmpScenVdoseGrid{s});
+                this.vTissueIndex{s}    = zeros(size(tmpScenVdoseGrid{s},1),1);
+            end
+
         end
 
         function currBeam = initBeam(this,dij,ct,cst,stf,i)

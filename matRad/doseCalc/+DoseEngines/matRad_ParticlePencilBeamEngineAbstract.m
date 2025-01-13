@@ -33,10 +33,6 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
 
     properties (SetAccess = protected, GetAccess = public)
         constantRBE = NaN;              % constant RBE value
-        vTissueIndex;                   % Stores tissue indices available in the matRad base data
-        vAlphaX;                        % Stores Photon Alpha
-        vBetaX;                         % Stores Photon Beta
-
         bioKernelQuantities;             % Kernel quantites to request from the machine data for biological dose calculation
     end
 
@@ -434,25 +430,10 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
         end
         
         function dij = loadBiologicalBaseData(this,dij)
+            
             matRad_cfg = MatRad_Config.instance();
 
-            matRad_cfg.dispInfo('Initializing biological dose calculation...\n');
-            
-            numOfCtScen = numel(this.VdoseGridScenIx);
-           
-            tmpScenVdoseGrid = cell(numOfCtScen,1);
-
-            [dij.ax,dij.bx] = matRad_getPhotonLQMParameters(this.cstDoseGrid,dij.doseGrid.numOfVoxels,this.VdoseGrid);  
-
-            for s = 1:numOfCtScen            
-                tmpScenVdoseGrid{s} = this.VdoseGrid(this.VdoseGridScenIx{s});
-                % retrieve photon LQM parameter for the current dose grid voxels
-
-                % vAlphaX and vBetaX for parameters in VdoseGrid
-                this.vAlphaX{s}         = dij.ax{s}(tmpScenVdoseGrid{s});
-                this.vBetaX{s}          = dij.bx{s}(tmpScenVdoseGrid{s});
-                this.vTissueIndex{s}    = zeros(size(tmpScenVdoseGrid{s},1),1);
-            end
+            dij = loadBiologicalBaseData@DoseEngines.matRad_PencilBeamEngineAbstract(this,dij);
            
             if isa(this.bioModel,'matRad_LQKernelBasedModel') || isa(this.bioModel,'matRad_LQRBETabulatedModel')
                 this.bioKernelQuantities = this.bioModel.kernelQuantities;
@@ -462,7 +443,6 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             if isa(this.bioModel,'matRad_LETbasedModels')
                 this.calcLET = true;
             end
-
             
         end
 
