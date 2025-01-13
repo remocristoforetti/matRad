@@ -55,7 +55,7 @@ classdef matRad_BackProjectionMM < handle
             if ~isequal(obj.wCache,w)
                 obj.d = obj.computeResult(dij,w);
                 %[obj.dExp,obj.dOmegaV] = obj.computeResultProb(dij,w);
-                obj.wCache = w;              
+                obj.wCache = w;
             end
         end
         
@@ -98,7 +98,8 @@ classdef matRad_BackProjectionMM < handle
             for modalityIdx=1:obj.nModalities
                 modalityName = obj.radiationModalities{modalityIdx};
                 dTmp.(modalityName) = cell(size(dij.(modalityName).physicalDose));
-                dTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) computeSingleScenario(obj,dij.(modalityName),scen,w.(modalityName))*[obj.spatioTemporalFractions.(modalityName){:}],obj.scenarios,'UniformOutput',false);
+                dTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) computeSingleScenario(obj,dij.(modalityName),scen,w.(modalityName)),obj.scenarios,'UniformOutput',false);
+                dTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) dTmp.(modalityName){scen}*[obj.spatioTemporalFractions.(modalityName)]', obj.scenarios,'UniformOutput',false);
             end
 
             d = repmat({zeros(dij.doseGrid.numOfVoxels,1)}, size(dij.(modalityName).physicalDose));
@@ -133,7 +134,8 @@ classdef matRad_BackProjectionMM < handle
             for modalityIdx=1:obj.nModalities
                 modalityName = obj.radiationModalities{modalityIdx};
                 wGradTmp.(modalityName) = cell(size(dij.(modalityName).physicalDose));
-                wGradTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradient(obj,dij.(modalityName),doseGrad,scen,w.(modalityName))*[obj.spatioTemporalFractions.(modalityName){:}],obj.scenarios,'UniformOutput',false);
+                wGradTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradient(obj,dij.(modalityName),doseGrad,scen,w.(modalityName)),obj.scenarios,'UniformOutput',false);
+                wGradTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) wGradTmp.(modalityName){scen}.*[obj.spatioTemporalFractions.(modalityName)],obj.scenarios,'UniformOutput', false);
             end
 
             wGrad = cell(size(dij.(modalityName).physicalDose));%repmat({zeros(dij.totalNumOfBixels,1)}, size(dij.(modalityName).physicalDose));
@@ -142,7 +144,7 @@ classdef matRad_BackProjectionMM < handle
                 for modalityIdx=1:obj.nModalities
 
                     modalityName = obj.radiationModalities{modalityIdx};
-                    wGrad{scenIdx} = [wGrad{scenIdx}; wGradTmp.(modalityName){scenIdx}];
+                    wGrad{scenIdx} = [wGrad{scenIdx}; wGradTmp.(modalityName){scenIdx}(:)];
                 end
             end
 

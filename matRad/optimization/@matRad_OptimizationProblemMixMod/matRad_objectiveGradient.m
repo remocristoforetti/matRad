@@ -317,7 +317,7 @@ if exist('delta_COWC','var')
     end
 end
 
-weightGradient = zeros(dij.totalNumOfBixels,1);
+weightGradient = zeros(size(w));
 
 optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();
