@@ -1,4 +1,4 @@
-function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pln,cst,calcDoseDirect, saveDirectory)
+function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenariosExtended(ct,stf,pln,cst,calcDoseDirect, saveDirectory)
 % Wrapper to compute and save one scenario at a time and keepm RAM free
 
     matRad_cfg = MatRad_Config.instance();
@@ -52,7 +52,6 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
                     
                     currPln = pln;
 
-
                     currMultiScenMeta.model = 'nomScen';
                     currMultiScenMeta.isoShift      = pln.multScen.isoShift(currScenIndex,:);
                     currMultiScenMeta.relRangeShift = pln.multScen.relRangeShift(currScenIndex);
@@ -68,19 +67,52 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
                     end
 
                     if strcmp(pln.radiationMode, 'protons')
-                        currDij = matRad_calcParticleDose(currCt,stf,currPln,currCst);
+                        currDij = matRad_calcDoseInfluence(currCt,currCst,stf,currPln);
+                        %currDij = matRad_calcParticleDose(currCt,stf,currPln,currCst);
                     else
-                        currDij = matRad_calcPhotonDose(currCt, stf, currPln, currCst);
-                    
+                        currDij = matRad_calcPhotonDose(currCt, stf, currPln, currCst);                   
                     end
     
                     matRad_cfg.dispInfo('saving scenario...');
                     fileName = fullfile(saveDirectory, ['scenario_', num2str(currScenIndex)]);
     
                     dijScenario.physicalDose  = currDij.physicalDose;
-                    dijScenario.mAlphaDose    = currDij.mAlphaDose;
-                    dijScenario.mSqrtBetaDose = currDij.mSqrtBetaDose;
 
+                    if isfield(currDij, 'mAlphaDose')
+                        dijScenario.mAlphaDose    = currDij.mAlphaDose;
+                    end
+                    
+                    if isfield(currDij, 'mSqrtBetaDose')
+                        dijScenario.mSqrtBetaDose = currDij.mSqrtBetaDose;
+                    end
+
+                    if isfield(currDij, 'mLETDose')
+                        dijScenario.mLETDose      = currDij.mLETDose;
+                    end
+
+                    currCst = matRad_resizeCstToGrid(cst, currDij.ctGrid.x, currDij.ctGrid.y, currDij.ctGrid.z, currDij.doseGrid.x, currDij.doseGrid.y, currDij.doseGrid.z);
+                    
+                    %%%% Use for accumulated quantities
+                    % for structIdx=1:size(cst,1)
+                    %     currIdx = cat(1,currCst{structIdx,4}{:});
+                    %     currIdx = unique(currIdx);
+                    %     N = numel(currIdx);
+                    % 
+    	            %     if isfield(dijScenario, 'mAlphaDose')
+                    %         dijScenario.alphaJ{structIdx,1}         = full(sum(dijScenario.mAlphaDose{1}(currIdx,:),1));
+                    %     end
+                    %     if isfield(dijScenario, 'mSqrtBetaDose')
+                    %         dijScenario.sqrtBetaJ{structIdx,1}      = full(sum(dijScenario.mSqrtBetaDose{1}(currIdx,:),1));
+                    %     end
+                    % 
+                    %     dijScenario.physicalDoseJ{structIdx,1}  = full(sum(dijScenario.physicalDose{1}(currIdx,:),1));
+                    %     if isfield(dijScenario, 'mLETDose')
+                    %         dijScenario.mLETdJ{structIdx,1}         = full(sum(dijScenario.mLETDose{1}(currIdx,:),1));
+                    %     end
+                    %     currDist = dijScenario.physicalDose{1}(currIdx,:);
+                    %     dijScenario.physicalDoseOmegaReduced{structIdx,1}    = currDist'*currDist;
+                    % end
+                    
                     isoShift = currMultiScenMeta.isoShift;
                     relRangeShift = currMultiScenMeta.relRangeShift;
                     absRangeShift = currMultiScenMeta.absRangeShift;
@@ -91,7 +123,7 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
                     nnzElements = nnz(currDij.physicalDose{1});
                     nnzElementsV = [nnzElementsV, nnzElements];
 
-                    save(fileName, 'dijScenario', 'nnzElements', 'ctScenIdx', 'isoShift','relRangeShift','absRangeShift','scenProb', '-v7.3');
+                    save(fileName, 'dijScenario', 'nnzElements', 'ctScenIdx', 'isoShift','relRangeShift','absRangeShift','scenProb','-v7.3');
 
                     matRad_cfg.dispInfo('done\n');
 
@@ -101,6 +133,11 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenarios(ct,stf,pl
                         dijTemplate.physicalDose  = {[]};
                         dijTemplate.mAlphaDose    = {[]};
                         dijTemplate.mSqrtBetaDose = {[]};
+                        dijTemplate.alphaJ        = {[]};
+                        dijTemplate.sqrtBetaJ     = {[]};
+                        dijTemplate.mLETDose      = {[]};
+                        dijTemplate.physicalDoseJ = {[]};
+                        dijTemplate.mLETdJ        = {[]};
                     end
                     
                     clear currDij dijScenario;

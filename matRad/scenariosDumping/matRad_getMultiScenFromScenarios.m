@@ -1,13 +1,16 @@
-function multScen = matRad_getMultiScenFromScenarios(saveDir,scenarioModel)
+function multScen = matRad_getMultiScenFromScenarios(saveDir,scenarioModel, scenariosMeta)
     
     matRad_cfg = MatRad_Config.instance();
 
-    if ~exist('scenarioModel', 'var')
+    if ~exist('scenarioModel', 'var') || isempty(scenarioModel)
         scenarioModel = 'rndScen';
     end
-    % Recover scenarios meta
-    scenariosMeta = matRad_getMetaFromScenariosPool(saveDir);
 
+    if ~exist('scenariosMeta', 'var') || isempty(scenariosMeta)
+        % Recover scenarios meta
+        scenariosMeta = matRad_getMetaFromScenariosPool(saveDir);
+    end
+    
     numDetectedCtScenarios = numel(unique([scenariosMeta.ctScenIdx]));
     numDetectedScenarios   = numel(scenariosMeta);
     %Build the multscen
