@@ -111,10 +111,11 @@ matRad_cfg = MatRad_Config.instance();
                     if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
 
                         if nPhases==1
-                            structIdxs = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                            structIdxs = cat(1,cst{curObjIdx,4}{:});
                             structIdxs = {unique(structIdxs)};
                         else
-                            structIdxs = cst{curObjIdx,4}(useNominalCtScen);
+                            % ?? This has to be fixed!
+                            structIdxs = cst{curObjIdx,4}(nominalCTScenarios);
 
                         end
 
@@ -281,8 +282,11 @@ matRad_cfg = MatRad_Config.instance();
                 case 'PROB'
 
                     if nPhasesOmega==1
-                        structIdxs = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                        % structIdxs = cat(1,cst{curObjIdx,4}{useNominalCtScen});
+                        % structIdxs = {unique(structIdxs)};
+                        structIdxs = cat(1,cst{curObjIdx,4}{:});
                         structIdxs = {unique(structIdxs)};
+
                     else
                         structIdxs = cst{curObjIdx,4}(useNominalCtScen);
                     end

@@ -152,7 +152,7 @@ for  i = 1:size(optiProb.constrIdx,1)
 
                 case 'PROB'
                     allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
-                    nVoxels = numel(unique([allVoxels{:}]));
+                    nVoxels = numel(unique(vertcat(allVoxels{:})));
                     d_i = d.(quantityConstrained){curConIdx};
                     c = [c; constraint.computeVarianceConstraintFunction(d_i, nVoxels)];
             end

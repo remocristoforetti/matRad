@@ -41,19 +41,49 @@ for i = 1:size(optiProb.constrIdx,1)
    if isa(obj,'DoseConstraints.matRad_DoseConstraint')
         jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
         nRows = size(jacobDoseStruct,2);
-        if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
-            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
+        allVoxels = unique(vertcat(allVoxels{:}));
+
+        if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
+            %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDoseExp{1},2)),nRows,1))];	
         else
-            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+            %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDose{1},2)),nRows,1))];	
         end
+
+
+        % if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        % else
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        % end
     elseif isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
-        jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
+        jacobDoseStruct = obj.getVarianceConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));
         nRows = size(jacobDoseStruct,2);
-        if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
-            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        
+        % if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];
+        % else
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        % end
+
+        % Give precedence to physicalDoseExp, generally the sparsity
+        % pattern for the Exp distribution is wider than phyiscalDose. This
+        % could end up deleting some bixels form the jacobian structure.
+        % Only relevant in situatiuon when both physicalDose and
+        % physicalDoseExp are set.
+        allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
+        allVoxels = unique(vertcat(allVoxels{:}));
+
+        if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
+            %jacobStruct = [jacobStruct;repmat(spones(mean(dij.physicalDoseExp{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDoseExp{1},2)),nRows,1))];	
         else
-            jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+            %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDose{1},2)),nRows,1))];
         end
+
     end
    
       % % get the jacobian structure depending on dose	

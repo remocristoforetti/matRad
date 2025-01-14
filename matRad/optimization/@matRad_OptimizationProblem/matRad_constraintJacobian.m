@@ -157,9 +157,8 @@ for i = 1:size(optiProb.constrIdx,1)
           end
           
           nConst = size(jacobSub,2);
-
+          constIndexigStruct(i,3) = nConst;
             if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
-                constIndexigStruct(i,3) = nConst;
                 startIx = size(fJacob.(quantityConstrained){1},2) + 1;
 
                 fJacob.(quantityConstrained) = {[fJacob.(quantityConstrained){1},sparse(dij.doseGrid.numOfVoxels,nConst)]};
@@ -170,48 +169,6 @@ for i = 1:size(optiProb.constrIdx,1)
                 fJacob.(quantityConstrained)(curConIdx) = {[fJacob.(quantityConstrained){curConIdx},sparse(1,nConst)]}; 
                 fJacob.(quantityConstrained){curConIdx}(1,startIx:end) = jacobSub;
             end
-            % %Iterate through columns of the sub-jacobian
-            % if isa(optiProb.BP,'matRad_DoseProjection') && ~isempty(jacobSub) || isa(optiProb.BP,'matRad_ConstantRBEProjection')
-    % 
-    %          startIx = size(DoseProjection{1},2) + 1;
-    %          %First append the Projection matrix with sparse zeros
-    %          DoseProjection{1}          = [DoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];
-    % %               DoseProjection{1}          = [DoseProjection{1},zeros(dij.doseGrid.numOfVoxels,nConst)];
-    % 
-    %          %Now directly write the jacobian in there
-    %          DoseProjection{1}(cst{curConIdx,4}{1},startIx:end) = jacobSub;
-    % 
-    % 
-    %       elseif isa(optiProb.BP,'matRad_EffectProjection') && ~isempty(jacobSub)
-    % 
-    %          if isa(optiProb.BP,'matRad_VariableRBEProjection')
-    %             scaledEffect = (dij.gamma(cst{curConIdx,4}{1}) + d_i);
-    %             jacobSub     = jacobSub./(2*dij.bx(cst{curConIdx,4}{1}) .* scaledEffect);
-    %          end
-    % 
-    %          startIx = size(mAlphaDoseProjection{1},2) + 1;
-    % 
-    %          %First append the alphaDose matrix with sparse
-    %          %zeros then insert
-    %          mAlphaDoseProjection{1}    = [mAlphaDoseProjection{1},sparse(dij.doseGrid.numOfVoxels,nConst)];
-    %          mAlphaDoseProjection{1}(cst{curConIdx,4}{1},startIx:end) = jacobSub;
-    % 
-    %          %The betadose has a different structure due to the
-    %          %quadratic transformation, but in principle the
-    %          %same as above
-    %          mSqrtBetaDoseProjection{1} =  [mSqrtBetaDoseProjection{1}, sparse(repmat(cst{curConIdx,4}{1},nConst,1),repmat(1:numel(cst{curConIdx,4}{1}),1,nConst),2*reshape(jacobSub',[],1),dij.doseGrid.numOfVoxels,nConst*numel(cst{curConIdx,4}{1}))];
-    % 
-    %          if isempty(constraintID)
-    %             newID = 1;
-    %          else
-    %             newID = constraintID(end)+1;
-    %          end
-    % 
-    %          voxelID = [voxelID;repmat(cst{curConIdx,4}{1},nConst,1)];                         %Keep track of voxels for organizing the sqrt(beta)Dose projection later
-    %          constraintID = [constraintID, ...
-    %             reshape(ones(numel(cst{curConIdx,4}{1}),1)*[newID:newID+nConst-1],[1 nConst*numel(cst{curConIdx,4}{1})])];  %Keep track of constraints for organizing the sqrt(beta)Dose projection later
-    % 
-    %      end
 
       elseif isa(constraint, 'OmegaConstraints.matRad_VarianceConstraint')
 
@@ -228,7 +185,7 @@ for i = 1:size(optiProb.constrIdx,1)
         
         end
          allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
-         nVoxels = numel(unique([allVoxels{:}])); 
+         nVoxels = numel(unique(vertcat(allVoxels{:}))); 
 
 
          switch robustness
@@ -239,8 +196,10 @@ for i = 1:size(optiProb.constrIdx,1)
          end
 
         nConst = size(jacobSub,2);
-
-        startIx = size(fJacob.(quantityConstrained){1},2) + 1;
+        
+        constIndexigStruct(i,3) = nConst;
+        
+        %startIx = size(fJacob.(quantityConstrained){curConIdx},2) + 1;
         fJacob.(quantityConstrained){curConIdx} = [fJacob.(quantityConstrained){curConIdx},sparse(jacobSub)];
 
       end
@@ -251,21 +210,22 @@ for qtIdx=optiProb.BP.constrainedQuantities
     fJacob.(qtIdx{1})(find(cellfun(@(x) isempty(x), fJacob.(qtIdx{1})))) = {zeros(size(find(cellfun(@(x) ~isempty(x), fJacob.(qtIdx{1})), 1, 'first'),1))};
 end
 
-
 optiProb.BP.computeConstraintJacobian(dij,fJacob,w);
+
 j = optiProb.BP.wJacob;
 
 jacob = [];
+
 cumConstrDistIdx = struct();
+cumConstrScalarIdx = cell(size(cst,1),1);
 for i = 1:size(optiProb.constrIdx,1)
     constraint = optiProb.constraints{i};
     
     quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
     quantityConstrainedInstance = optiProb.BP.quantities{strcmp(constraint.quantity,quantityNames)};
     
-    
-    curConIdx  = optiProb.constrIdx(i,1);
-    
+    curStructIdx        = optiProb.constrIdx(i,1);
+    %curConstInStructIdx = optiProb.constrIdx(i,2);
     if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
         % Only one scenario for now. Need to pick the contraints entry in
         % the right order
@@ -281,7 +241,17 @@ for i = 1:size(optiProb.constrIdx,1)
 
         cumConstrDistIdx.(constraint.quantity) = cumConstrDistIdx.(constraint.quantity) + constIndexigStruct(i,3);
     elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
-        jacob = [jacob; j.(constraint.quantity){curConIdx}];
+        
+        if ~isfield(cumConstrScalarIdx{curStructIdx}, constraint.quantity)
+            cumConstrScalarIdx{curStructIdx}.(constraint.quantity) = 1;
+        end
+        
+        currConstrScalarIdx = cumConstrScalarIdx{curStructIdx}.(constraint.quantity);
+
+        jacob = [jacob; j.(constraint.quantity){curStructIdx}(currConstrScalarIdx:currConstrScalarIdx + constIndexigStruct(i,3) -1,:)];
+
+        cumConstrScalarIdx{curStructIdx}.(constraint.quantity) = cumConstrScalarIdx{curStructIdx}.(constraint.quantity) + constIndexigStruct(i,3);
+
     end
 end
 % constrQts = optiProb.BP.constrainedQuantities;

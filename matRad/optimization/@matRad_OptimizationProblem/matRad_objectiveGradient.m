@@ -424,7 +424,7 @@ end
 gradientChecker = 0;
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
-    epsilon = 1e-6;
+    epsilon = 1e-5;
 
 
     ix = unique(randi([dij.totalNumOfBixels],1,5));
