@@ -75,12 +75,12 @@ classdef matRad_OptimizerIPOPT < matRad_Optimizer
             obj.options.constr_viol_tol               = 1e-4; % (Opt3)
             obj.options.compl_inf_tol                 = 1e-4; % (Opt4), Optimal Solution Found if (Opt1),...,(Opt4) fullfiled
             
-            obj.options.acceptable_iter               = 5;    % (Acc1)
+            obj.options.acceptable_iter               = 3;    % (Acc1) 5
             obj.options.acceptable_tol                = 1e10; % (Acc2)
-            obj.options.acceptable_constr_viol_tol    = 1e-2; % (Acc3)
+            obj.options.acceptable_constr_viol_tol    = 1e-1; % (Acc3) -1
             obj.options.acceptable_dual_inf_tol       = 1e10; % (Acc4)
             obj.options.acceptable_compl_inf_tol      = 1e10; % (Acc5)
-            obj.options.acceptable_obj_change_tol     = 1e-5; % (Acc6), Solved To Acceptable Level if (Acc1),...,(Acc6) fullfiled
+            obj.options.acceptable_obj_change_tol     = 1e-5; % (Acc6), Solved To Acceptable Level if (Acc1),...,(Acc6) fullfiled -5
             
             obj.options.max_iter                      = matRad_cfg.defaults.propOpt.maxIter;
             obj.options.max_cpu_time                  = 7200;
@@ -281,6 +281,7 @@ classdef matRad_OptimizerIPOPT < matRad_Optimizer
                 grid(hAx,'minor');
                 set(hAx,'YScale','log');
                  
+                movegui(hFig, 'southwest');
                 %Add a Stop button with callback to change abort flag
                 c = uicontrol;
                 cPos = get(c,'Position');
