@@ -30,6 +30,9 @@ classdef matRad_PriorityList2 < matRad_PriorityClass
             [Priority,nextObjectives] = obj.nextPriority();
             for i = 1:numel(nextObjectives)
                 %use previously allocated position
+                if isempty(nextObjectives{i}.getVOIIdx)
+                    nextObjectives{i}.setVOIIdx(1);
+                end
                 cst{nextObjectives{i}.cstIdx,6}{nextObjectives{i}.getVOIIdx} = nextObjectives{i}.objective;
             end
 

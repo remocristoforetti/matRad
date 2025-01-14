@@ -21,7 +21,7 @@ classdef(Abstract) matRad_PriorityClass < handle
         Priorities;
         ConstraintList;
         GoalList;
-        slackVariable = 1.03;
+        slackVariable = 1.20;%1.10;%1.03;
         numOfObj;
     end
 
@@ -36,7 +36,7 @@ classdef(Abstract) matRad_PriorityClass < handle
 
         end
         
-        function addObjective(obj,Priority,objective,goal,cstIdx)
+        function addObjective(obj,Priority,objective,quantity,goal,cstIdx, robustness)
         % function to add an objective to a priorityList
         %
         % input
@@ -46,19 +46,28 @@ classdef(Abstract) matRad_PriorityClass < handle
         %   cstIdx:     Index of the VOI in the cst that this objective
         %               belongs to
 
+            if ~exist('robustness', 'var') || isempty(robustness)
+                if isa(objective, 'DoseObjectives.matRad_DoseObjective')
+                    robustness = 'none';
+                elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+                    robustness = 'PROB';
+                end
+            end
             obj.Priorities = [obj.Priorities,Priority]; %add priority
 
-            if ~isa(objective,'matRad_DoseOptimizationFunction')
+            if ~isa(objective,'matRad_DoseOptimizationFunction') && ~isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
                 objective = matRad_DoseOptimizationFunction.createInstanceFromStruct(objective);          
             end
   
+            objective.quantity = quantity;
+            objective.robustness = robustness;
             obj.GoalList{end+1} = matRad_PriorityListObjective(objective,goal,cstIdx);
             %sort by priority
             [obj.Priorities,I] = sort(obj.Priorities);
             obj.GoalList = obj.GoalList(I);
         end
 
-        function addConstraint(obj,constraint,cstIdx)
+        function addConstraint(obj,constraint,quantity,cstIdx, rob)
         % function to add an constraint to a priorityList
         %
         % input
@@ -66,10 +75,16 @@ classdef(Abstract) matRad_PriorityClass < handle
         %   cstIdx:     Index of the VOI in the cst that this objective
         %               belongs to
         %
-            if ~isa(constraint,'matRad_DoseOptimizationFunction')
+            if ~exist('rob', 'var') || isempty(rob)
+                rob = 'none';
+            end
+            
+            if ~isa(constraint,'matRad_DoseOptimizationFunction') && ~isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
                 constraint = matRad_DoseOptimizationFunction.createInstanceFromStruct(constraint);
             end
-
+    
+            constraint.quantity = quantity;
+            constraint.robustness  = rob;
             obj.ConstraintList{end+1} = matRad_PriorityListConstraint(constraint,cstIdx);
         end
 

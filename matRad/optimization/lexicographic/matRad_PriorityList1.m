@@ -17,8 +17,9 @@ classdef matRad_PriorityList1 < matRad_PriorityClass
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    
+    properties
+        skippedObjectives;
+    end
     methods 
 
         function obj = matRad_PriorityList1() 

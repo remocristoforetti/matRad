@@ -74,20 +74,31 @@ function [resultGUIs,resultGUIs2,cst1,cst2,PriorityList2]=  matRad_2pecOptimizat
     cst1 = PriorityList1.generateConstraintCst(cst);
     cst2 = cst1;
 
-    matRad_cfg.propOpt.defaultAccChangeTol = 1e-6;
+    %matRad_cfg.propOpt.defaultAccChangeTol = 1e-6;
     %add first objective(s) to cst
     cst1 =  PriorityList1.modifyCst(cst1);
-    while PriorityList1.numOfObj <= numel(PriorityList1.GoalList)
+    optiProb.extractObjectivesAndConstraintsFromCst(cst1);
+    
+    optiProb.BP = matRad_BackProjectionQuantity();
+    [optQuantities, constQuantities] = optiProb.BP.getOptimizationConstraintQuantitiesFromCst(cst1);
+    optiProb.BP.instantiateQuatities(optQuantities,constQuantities, dij,cst1);
 
-        optiProb.extractObjectivesAndConstraintsFromCst(cst1);
-        
+    % Update for quantities
+    optiProb.BP.scenarios = optiProb.BP.scenarios;
+
+    skippedObjectives1 = [];
+    while PriorityList1.numOfObj <= numel(PriorityList1.GoalList)        
 
         %check if objective can be skipped
         [objectives,FastCalc] = PriorityList1.fastObjectiveCalc(dij,cst1,optiProb,wInit);
 
         if ~FastCalc % can the objective be skipped?
             %If not optimize the current objective
+            optimizer.options.acceptable_obj_change_tol = 10^(-3);
+            
+            matRad_cfg.dispWarning(['Step 1: optimizing objective ', num2str(PriorityList1.numOfObj)]);
             optimizer = optimizer.optimize(wInit,optiProb,dij,cst1);
+            matRad_cfg.dispWarning(['Step 1: optimized objective ', num2str(PriorityList1.numOfObj)]);
             
             wOpt = optimizer.wResult;
             info = optimizer.resultInfo;
@@ -96,56 +107,120 @@ function [resultGUIs,resultGUIs2,cst1,cst2,PriorityList2]=  matRad_2pecOptimizat
             resultGUI.wUnsequenced = wOpt;
             resultGUI.usedOptimizer = optimizer;
             resultGUI.info = info;
-            resultGUI.optiProb = optiProb;
+
+            metaOptProb = metaclass(optiProb);
+
+            for propName = {metaOptProb.PropertyList.Name}
+                resultGUI.optiProb.(propName{1}) = optiProb.(propName{1});
+            end
+
             objectives = matRad_objectiveFunctions(optiProb,wOpt,dij,cst1);
     
             wInit = wOpt;
 
         else %objectives can be met
+            matRad_cfg.dispWarning(['Step 1: objective ', num2str(PriorityList1.numOfObj), ' skipped. Boundary = ', num2str(PriorityList1.GoalList{PriorityList1.numOfObj}.goalValue(1)), ' value = ', num2str(objectives(1))]);
+            
+            skippedObjectives1 = [skippedObjectives1; PriorityList1.numOfObj, PriorityList1.GoalList{PriorityList1.numOfObj}.goalValue(1),objectives(1)];
+            
             resultGUI = matRad_calcCubes(wInit,dij);
             resultGUI.wUnsequenced = wInit;
-            resultGUI.optiProb = optiProb;
+
+            
+            metaOptProb = metaclass(optiProb);
+            for propName = {metaOptProb.PropertyList.Name}
+                resultGUI.optiProb.(propName{1}) = optiProb.(propName{1});
+            end
+
             objectives = matRad_objectiveFunctions(optiProb,wInit,dij,cst1);
         end
 
+        
         resultGUI.objectives = objectives;  %add objectives 
 
         resultGUIs{end+1} = resultGUI;
         % exchange previously optimized objectives to constraints and remove from priorityList
-        [cst1,cst2,PriorityList2] = PriorityList1.updateStep(cst1,cst2,PriorityList2,objectives); 
+        [cst1,cst2,PriorityList2] = PriorityList1.updateStep(cst1,cst2,PriorityList2,objectives);
         
         %add next objective
+        
         if PriorityList1.numOfObj <= numel(PriorityList1.GoalList)
             cst1 = PriorityList1.modifyCst(cst1);
+        
+            optiProb.extractObjectivesAndConstraintsFromCst(cst1);
+
+            optiProb.BP = matRad_BackProjectionQuantity();
+            [optQuantities, constQuantities] = optiProb.BP.getOptimizationConstraintQuantitiesFromCst(cst1);
+            optiProb.BP.instantiateQuatities(optQuantities,constQuantities, dij,cst1);
+
+            % Update for quantities
+            optiProb.BP.scenarios = optiProb.BP.scenarios;
+
         end
     end
 
+    PriorityList1.skippedObjectives = skippedObjectives1;
     %step2
-    matRad_cfg.propOpt.defaultAccChangeTol = 1e-6;
-    cst2 = PriorityList2.modifyCst(cst2); %should set objective in appropriate spot -> use VOIIdx
-    while PriorityList2.numOfObj <= numel(PriorityList2.GoalList)
-        optiProb.extractObjectivesAndConstraintsFromCst(cst2);
-        optimizer = optimizer.optimize(wInit,optiProb,dij,cst2);
-            
-        wOpt = optimizer.wResult;
-        info = optimizer.resultInfo;
-        
-        resultGUI = matRad_calcCubes(wOpt,dij);
-        resultGUI.wUnsequenced = wOpt;
-        resultGUI.usedOptimizer = optimizer;
-        resultGUI.info = info;
-        resultGUI.optiProb = optiProb;
-        objectives = matRad_objectiveFunctions(optiProb,wOpt,dij,cst2);
-        resultGUI.objectives = objectives;
-        wInit = wOpt;
+    %matRad_cfg.propOpt.defaultAccChangeTol = 1e-6;
     
+    if ~isempty(PriorityList2.Priorities)
+        cst2 = PriorityList2.modifyCst(cst2); %should set objective in appropriate spot -> use VOIIdx
+     
+        optiProb.extractObjectivesAndConstraintsFromCst(cst2);
+        
+        optiProb.BP = matRad_BackProjectionQuantity();
+        [optQuantities, constQuantities] = optiProb.BP.getOptimizationConstraintQuantitiesFromCst(cst2);
+        optiProb.BP.instantiateQuatities(optQuantities,constQuantities, dij,cst2);
+    
+        % Update for quantities
+        optiProb.BP.scenarios = optiProb.BP.scenarios;
+    
+        %[dij,cst2,pln,wInit,optiProb] = matRad_initOptimization(dij,cst2,pln,wInit);
+    
+        while PriorityList2.numOfObj <= numel(PriorityList2.GoalList)
 
-        resultGUIs2{end+1} = resultGUI;
-        [cst2] = PriorityList2.updateStep(cst2,resultGUI.objectives); 
+            optimizer.options.acceptable_obj_change_tol = 10^(-5);
 
-        if PriorityList2.numOfObj <= numel(PriorityList2.GoalList)
-            cst2 = PriorityList2.modifyCst(cst2);
+
+            matRad_cfg.dispWarning(['Step 2: optimizing objective ', num2str(PriorityList2.numOfObj)]);
+            optimizer = optimizer.optimize(wInit,optiProb,dij,cst2);
+            matRad_cfg.dispWarning(['Step 2: optimized objective ', num2str(PriorityList2.numOfObj)]);
+            
+            wOpt = optimizer.wResult;
+            info = optimizer.resultInfo;
+            
+            resultGUI = matRad_calcCubes(wOpt,dij);
+            resultGUI.wUnsequenced = wOpt;
+            resultGUI.usedOptimizer = optimizer;
+            resultGUI.info = info;
+            metaOptProb = metaclass(optiProb);
+            for propName = {metaOptProb.PropertyList.Name}
+                resultGUI.optiProb.(propName{1}) = optiProb.(propName{1});
+            end
+            objectives = matRad_objectiveFunctions(optiProb,wOpt,dij,cst2);
+            resultGUI.objFunction = optiProb.objectives;
+            resultGUI.objectives = objectives;
+            wInit = wOpt;
+        
+            resultGUIs2{end+1} = resultGUI;
+            [cst2] = PriorityList2.updateStep(cst2,resultGUI.objectives); 
+    
+            if PriorityList2.numOfObj <= numel(PriorityList2.GoalList)
+                cst2 = PriorityList2.modifyCst(cst2);
+    
+                optiProb.extractObjectivesAndConstraintsFromCst(cst2);
+                optiProb.BP = matRad_BackProjectionQuantity();
+                [optQuantities, constQuantities] = optiProb.BP.getOptimizationConstraintQuantitiesFromCst(cst2);
+                optiProb.BP.instantiateQuatities(optQuantities,constQuantities, dij,cst2);
+    
+                % Update for quantities
+                optiProb.BP.scenarios = optiProb.BP.scenarios;
+    
+            end
+    
         end
-
+    else
+        matRad_cfg.dispWarning('Second optimization step not performed. Set boundaries probably too tight!!');
+        resultGUIs2{end+1} = {};
     end
 end
