@@ -123,13 +123,62 @@ end
 if ~isfield(dij, 'numOfModalities') || isempty(dij.numOfModalities)
     dij.numOfModalities = 1;
     dij.radiationModalities = {pln.radiationMode};
+
 end
 
-if strcmp(pln.radiationMode, 'MixMod')
-    totNumCtScen = size(dij.(dij.radiationModalities{1}).physicalDose,1);
+if ~isfield(pln, 'propOpt') || ~isfield(pln.propOpt, 'optimizationModalities')
+    % If not specified, include all available modalities
+    optimizationModalities = dij.radiationModalities;
 else
-    totNumCtScen = size(dij.physicalDose,1);
+    optimizationModalities = pln.propOpt.optimizationModalities;
 end
+
+
+optModalityIdx = find(strcmp(optimizationModalities, dij.radiationModalities));
+
+% Make sure that dij structure is compatible when single modality is
+% optimized. This is dirty for now.
+for modality=optModalityIdx
+    modalityName = dij.radiationModalities{modality};
+    if ~isfield(dij, modalityName)
+
+        matRad_cfg.dispWarning('Assuming single modality dij is provided');
+        
+        fieldNamesForConsistency = {'totalNumOfBixels', 'doseGrid', 'ctGrid','beamNum', 'numOfBeams', 'ax', 'bx', 'ixDose'};
+        uniqueFieldNamesForConsistency = {'physicalDose', 'mLETDose', 'mAlphaDose', 'mSqrtBetaDose'};
+        
+        for fName = uniqueFieldNamesForConsistency
+            if isfield(dij, fName{1})
+                dij.(modalityName).(fName{1}) = dij.(fName{1});
+                dij = rmfield(dij, fName{1});
+            end
+        end
+
+        for fName = fieldNamesForConsistency
+            if isfield(dij, fName{1})
+                dij.(modalityName).(fName{1}) = dij.(fName{1});
+            end
+        end
+    end
+end
+
+if ~isfield(pln, 'propOpt') || ~isfield(pln.propOpt, 'spatioTemp') 
+    pln.propOpt.spatioTemp = 0;
+end
+
+if ~pln.propOpt.spatioTemp
+    for modality=optModalityIdx
+        modalityName = dij.radiationModalities{modality};
+        pln.propOpt.STfractions.(modalityName) = 1;
+    end
+end
+
+
+%if strcmp(pln.radiationMode, 'MixMod')
+    totNumCtScen = size(dij.(dij.radiationModalities{1}).physicalDose,1);
+%else
+%    totNumCtScen = size(dij.physicalDose,1);
+%end
 
 % Validate / Create Scenario model
 if ~isfield(pln,'multScen')
@@ -206,7 +255,7 @@ if isa(backProjection,'matRad_EffectProjection') && ~all(isfield(dij,{'ax','bx'}
     %First get the voxels where we need it
 
     ixZeroDose = zeros(dij.doseGrid.numOfVoxels,1);
-    for modalityIdx=1:dij.numOfModalities
+    for modalityIdx=optModalityIdx
         modalityName = dij.radiationModalities{modalityIdx};
         
         validScen = ~cellfun(@isempty,dij.(modalityName).physicalDose);
@@ -253,7 +302,7 @@ if exist('wInit','var')
 elseif isa(backProjection, 'matRad_ConstantRBEProjection')
 
     wInit = [];
-    for modality=1:dij.numOfModalities
+    for modality=optModalityIdx
         modalityName = dij.radiationModalities{modality};
 
         % check if a constant RBE is defined - if not use 1.1
@@ -306,14 +355,14 @@ elseif isa(backProjection, 'matRad_EffectProjection')
     end
     
     wInit = [];
-    for modalityIdx=1:dij.numOfModalities
+    for modalityIdx=optModalityIdx
         modalityName = dij.radiationModalities{modalityIdx};
 
-        if strcmp(modalityName, 'photons')
+        %if strcmp(modalityName, 'photons')
             dij.(modalityName).ax = dij.ax;
             dij.(modalityName).bx = dij.bx;
-            dij.(modalityName).ixDose = dij.ixDose;          
-        end
+            dij.(modalityName).ixDose = dij.ixDose;
+        %end
 
         doseTmp = dij.(modalityName).physicalDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
         if all(isfield(dij.(modalityName),{'mAlphaDose','mSqrtBetaDose'}))
@@ -373,9 +422,13 @@ elseif isa(backProjection, 'matRad_EffectProjection')
                 %     abr = cst{ixTarget,5}.alphaX./cst{ixTarget,5}.betaX;
                 %     meanBED = mean(dij.physicalDose{1}(V,:)*wOnes.*(1+dij.physicalDose{1}(V,:)*wOnes./abr));
                 %     BEDTarget = doseTarget.*(1 + doseTarget./abr);
+                bixelWeight =  BEDTarget/meanBED;
+           
+            else
+  
+                bixelWeight = 1;
             end
     
-            bixelWeight =  BEDTarget/meanBED;
 
             wTmp = ones(dij.(modalityName).totalNumOfBixels,numel(pln.propOpt.STfractions.(modalityName))) * bixelWeight;
             wInit       = [ wInit; wTmp(:)];
@@ -383,10 +436,11 @@ elseif isa(backProjection, 'matRad_EffectProjection')
         end
     end
         matRad_cfg.dispInfo('chosen weights adapted to biological dose calculation!\n');
-
 else
+
     wInit = [];
-    for modality=1:dij.numOfModalities
+
+    for modality=optModalityIdx
 
         modalityName = dij.radiationModalities{modality};
 
@@ -446,9 +500,9 @@ else
     spatioTemp = 1;
 end
 
-backProjection.nModalities = dij.numOfModalities;
+backProjection.nModalities = numel(optModalityIdx);
 backProjection.spatioTemporalFractions = spatioTemp;
-backProjection.radiationModalities = dij.radiationModalities;
+backProjection.radiationModalities = dij.radiationModalities(optModalityIdx);
 backProjection.totalNumOfFractions = pln.numOfFractions;
 
 optiProb = matRad_OptimizationProblemMixMod(backProjection);
@@ -513,7 +567,7 @@ optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
 wOpt = optimizer.wResult;
 info = optimizer.resultInfo;
 
-for modalityIdx=1:dij.numOfModalities
+for modalityIdx=optModalityIdx
     modalityName = dij.radiationModalities{modalityIdx};
 
     nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, dij.radiationModalities);
@@ -521,7 +575,9 @@ for modalityIdx=1:dij.numOfModalities
     w = backProjection.splitWeigths(wOpt,nBixels);
 
     for STidx=1:size(w.(modalityName),2)
+
         resultGUItmp = matRad_calcCubes(w.(modalityName)(:,STidx),dij.(modalityName));
+
         % resultGUI.(modalityName) = matRad_calcCubes(w.(modalityName)(:,STidx),dij.(modalityName));
         if ~exist('resultGUI', 'var') || ~isfield(resultGUI, modalityName)
             resultGUI.(modalityName) = resultGUItmp;
