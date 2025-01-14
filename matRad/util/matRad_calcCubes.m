@@ -168,8 +168,8 @@ elseif all(isfield(dij, {'ax', 'bx'}))
         resultGUI.(['effect', beamInfo(i).suffix])(ix)               = dij.ax{scenNum}(ix) .* resultGUI.(['physicalDose', beamInfo(i).suffix])(ix) + dij.bx{scenNum}(ix) .* (resultGUI.(['physicalDose', beamInfo(i).suffix])(ix)).^2;
 
         % Calculate RBExD from the effect
-        resultGUI.(['RBExD', beamInfo(i).suffix])                 = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
-        resultGUI.(['RBExD', beamInfo(i).suffix])(ix)             = (sqrt(dij.ax{ctScen}(ix).^2 + 4 .* dij.bx{ctScen}(ix) .* resultGUI.(['effect', beamInfo(i).suffix])(ix)) - dij.ax{ctScen}(ix))./(2.*dij.bx{ctScen}(ix));
+        resultGUI.(['RBExDose', beamInfo(i).suffix])                 = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
+        resultGUI.(['RBExDose', beamInfo(i).suffix])(ix)             = (sqrt(dij.ax{ctScen}(ix).^2 + 4 .* dij.bx{ctScen}(ix) .* resultGUI.(['effect', beamInfo(i).suffix])(ix)) - dij.ax{ctScen}(ix))./(2.*dij.bx{ctScen}(ix));
 
 
     end
