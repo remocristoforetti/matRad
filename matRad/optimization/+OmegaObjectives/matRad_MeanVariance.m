@@ -38,6 +38,21 @@ classdef matRad_MeanVariance < OmegaObjectives.matRad_OmegaObjective
                 g = 0;
             end
         end
+
+        function constr = turnIntoLexicographicConstraint(obj,goal)
+            if goal < 5e-4
+                goal = 5e-4*1.03;
+            end
+            
+            objective = OmegaObjectives.matRad_MeanVariance();
+            objective.quantity = obj.quantity;
+            objective.robustness = obj.robustness;
+            
+            constr = OmegaConstraints.matRad_OmegaConstraintFromObjective(objective,goal);
+            constr.quantity = obj.quantity;
+            constr.robustness = obj.robustness;
+        end
+
     end
 end
 

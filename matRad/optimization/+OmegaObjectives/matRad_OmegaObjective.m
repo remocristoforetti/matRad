@@ -46,6 +46,17 @@ classdef (Abstract) matRad_OmegaObjective
         function d = getDoseParameters(obj)
            d = []; 
         end
+
+        function obj = setDoseParameters(obj, value)
+            
+        end
+
+        function out = adaptGoalToFraction(obj,value, nFractions)
+            % No adaptation, the Omega Objecties are fraction size already
+
+            out = value;
+        end
+
     end
 end
 

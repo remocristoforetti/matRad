@@ -27,7 +27,6 @@ classdef matRad_MaxVariance < OmegaConstraints.matRad_VarianceConstraint
     properties
         parameters = {30};
         robustness;
-        quantity;
     end
     
     methods

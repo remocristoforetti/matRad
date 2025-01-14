@@ -16,8 +16,10 @@ classdef (Abstract) matRad_VarianceConstraint < handle
 % propagated, or distributed except according to the terms contained in the 
 % LICENSE file.
 %
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    properties
+        quantity;
+    end
     %These should be abstract methods, however Octave can't parse them. As soon 
     %as Octave is able to do this, they should be made abstract again    
     methods %(Abstract)
