@@ -109,7 +109,13 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
 
         function constr = turnIntoLexicographicConstraint(obj,goal)
             objective = DoseObjectives.matRad_MeanDose(100,obj.parameters{1},obj.parameters{2});
+            objective.quantity = obj.quantity;
+            objective.robustness = obj.robustness;
             constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
+            constr.quantity = obj.quantity;
+
+            constr.robustness = obj.robustness;
+
         end
 
     end

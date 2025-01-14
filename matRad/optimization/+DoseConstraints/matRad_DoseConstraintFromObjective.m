@@ -58,6 +58,8 @@ classdef matRad_DoseConstraintFromObjective < DoseConstraints.matRad_DoseConstra
                 end
 
             end
+
+            this.quantity = objective.quantity;
             %}
         end
         

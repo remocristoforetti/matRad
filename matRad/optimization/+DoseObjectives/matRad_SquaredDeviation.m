@@ -81,7 +81,12 @@ classdef matRad_SquaredDeviation < DoseObjectives.matRad_DoseObjective
                 goal = 5e-4*1.03;
             end
             objective = DoseObjectives.matRad_SquaredDeviation(100,obj.parameters{1});
+            objective.quantity = obj.quantity;
+            objective.robustness = obj.robustness;
+
             constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
+            constr.quantity = obj.quantity;
+            constr.robustness = obj.robustness;
         end
         
     end

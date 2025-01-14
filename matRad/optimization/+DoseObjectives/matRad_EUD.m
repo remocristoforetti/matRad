@@ -65,9 +65,15 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
             k = obj.parameters{2};
             
             % calculate power sum
+
+            if any(dose<0)
+                matRad_cfg = MatRad_Config.instance();
+                stringWarning = sprintf('Negative dose values detected:%s, setting to zero', dose(dose<0));
+                matRad_cfg.dispWarning(stringWarning);
+                %dose = dose(dose>0);
+                dose(dose<0) = 0;
+            end
             powersum = sum(dose.^k);
-            
-            
             
             %Calculate objective
             
@@ -84,6 +90,14 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
             
             %numerical stability
             dose(dose == 0) = 0.001;
+            
+            if any(dose<0)
+                matRad_cfg = MatRad_Config.instance();
+                stringWarning = sprintf('Negative dose values detected:%s, setting to zero', dose(dose<0));
+                matRad_cfg.dispWarning(stringWarning);
+                %dose = dose(dose>0);
+                dose(dose<0) = 0.001;
+            end
             
             % calculate power sum
             powersum = sum(dose.^k);
@@ -102,7 +116,13 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
 
         function constr = turnIntoLexicographicConstraint(obj,goal)
             objective = DoseObjectives.matRad_EUD(100,obj.parameters{1,1},obj.parameters{1,2});
+            objective.quantity = obj.quantity;
+            objective.robustness = obj.robustness;
             constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
+            
+            constr.quantity = obj.quantity;
+            constr.robustness = obj.robustness;
+
         end
 
     end

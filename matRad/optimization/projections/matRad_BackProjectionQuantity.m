@@ -226,7 +226,40 @@ classdef matRad_BackProjectionQuantity < handle
             end
         end
 
-        
+        function [optQuantities,constraintQuantities] = getOptimizationConstraintQuantitiesFromCst(~,cst)
+            
+            useStructsForOmega = [];
+            useStructsForConstraintOmega = [];
+            omegaQuantity = [];
+            quantitiesFromCst = [];
+            constraintQuantities = {};
+            for i=1:size(cst,1)
+                for j=1:numel(cst{i,6})
+                    if isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') || isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective')
+                        if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect', 'meanLETd', 'meanPhysicalDose'}))
+                            omegaQuantity = cst{i,6}{j}.quantity;
+                            useStructsForOmega = [useStructsForOmega,i];
+                        elseif isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
+                            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
+                        end
+                        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
+                    elseif isa(cst{i,6}{j}, 'DoseConstraints.matRad_DoseConstraint') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+                        constraintQuantities = [constraintQuantities, {cst{i,6}{j}.quantity}];
+                        if isa(cst{i,6}{j}, 'OmegaConstraint.matRad_VarianceConstraint')
+                            useStructsForOmega = [useStructsForOmega,i];
+                        end
+                    end
+                end
+            end
+            
+            quantitiesFromCst = unique(quantitiesFromCst);
+            optQuantities = [quantitiesFromCst, {omegaQuantity}];
+            optQuantities(cellfun(@isempty,optQuantities)) = [];
+            optQuantities = unique(optQuantities);
+            
+            constraintQuantities(cellfun(@isempty,constraintQuantities)) = [];
+            constraintQuantities = unique(constraintQuantities);
+        end
         
         % function instantiateQuatities(this, optimizationQuantities)
         % 
