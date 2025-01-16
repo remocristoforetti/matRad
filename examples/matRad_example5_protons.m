@@ -44,6 +44,8 @@ load('PROSTATE.mat');
 % 'proton_Generic.mat'; consequently the machine has to be set accordingly
 pln.radiationMode = 'protons';        
 pln.machine       = 'Generic';
+pln.bioModel      = 'constRBE';
+pln.multScen      = 'nomScen';
 
 %%
 % for particles it is possible to also calculate the LET disutribution
@@ -64,23 +66,13 @@ pln.propStf.isoCenter     = ones(pln.propStf.numOfBeams,1) * matRad_getIsoCenter
 pln.propOpt.runDAO        = 0;
 pln.propSeq.runSequencing = 0;
 
-% Define the flavor of biological optimization for treatment planning along
-% with the quantity that should be used for optimization.
-
-quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
-modelName     = 'constRBE';         % none: for photons, protons, carbon                                    constRBE: constant RBE model
-                                    % MCN: McNamara-variable RBE model for protons                          WED: Wedenberg-variable RBE model for protons 
-                                    % LEM: Local Effect Model for carbon ions
-% retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
-
-% retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
-
 % dose calculation settings
 pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
+
+% Optimization settings
+pln.propOpt.quantityOpt = 'RBExDose';
 
 %% Generate Beam Geometry STF
 stf = matRad_generateStf(ct,cst,pln);
@@ -93,7 +85,7 @@ dij = matRad_calcDoseInfluence(ct,cst,stf,pln);
 
 %% Inverse Optimization for IMPT
 % The goal of the fluence optimization is to find a set of bixel/spot 
-% weights which yield the best possible dose distribution according to the 
+% weights which yield the best possible dose distribution according to the
 % clinical objectives and constraints underlying the radiation treatment
 resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 
@@ -102,14 +94,14 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 slice = matRad_world2cubeIndex(pln.propStf.isoCenter(1,:),ct);
 slice = slice(3);
 figure
-imagesc(resultGUI.RBExD(:,:,slice)),colorbar,colormap(jet)
+imagesc(resultGUI.RBExDose(:,:,slice)),colorbar,colormap(jet)
 
 %% Plot the Resulting Beam Dose Slice
 % Let's plot the transversal iso-center dose slice of beam 1 and beam 2
 % separately 
 figure
-subplot(121),imagesc(resultGUI.RBExD_beam1(:,:,slice)),colorbar,colormap(jet),title('dose of beam 1')
-subplot(122),imagesc(resultGUI.RBExD_beam2(:,:,slice)),colorbar,colormap(jet),title('dose of beam 2')
+subplot(121),imagesc(resultGUI.RBExDose_beam1(:,:,slice)),colorbar,colormap(jet),title('dose of beam 1')
+subplot(122),imagesc(resultGUI.RBExDose_beam2(:,:,slice)),colorbar,colormap(jet),title('dose of beam 2')
 %% and the corresponding LET distribution
 % Transversal iso-center slice
 if pln.propDoseCalc.calcLET
@@ -129,22 +121,22 @@ resultGUI_isoShift = matRad_calcDoseForward(ct,cst,stf,pln,resultGUI.w);
 %%  Visual Comparison of results
 % Let's compare the new recalculation against the optimization result.
 plane = 3;
-doseWindow = [0 max([resultGUI.RBExD(:); resultGUI_isoShift.RBExD(:)])];
+doseWindow = [0 max([resultGUI.RBExDose(:); resultGUI_isoShift.RBExDose(:)])];
 
 figure,title('original plan')
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.RBExD,plane,slice,[],0.75,colorcube,[],doseWindow,[]);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.RBExDose,plane,slice,[],0.75,colorcube,[],doseWindow,[]);
 figure,title('shifted plan')
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_isoShift.RBExD,plane,slice,[],0.75,colorcube,[],doseWindow,[]);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_isoShift.RBExDose,plane,slice,[],0.75,colorcube,[],doseWindow,[]);
 
-absDiffCube = resultGUI.RBExD-resultGUI_isoShift.RBExD;
+absDiffCube = resultGUI.RBExDose-resultGUI_isoShift.RBExDose;
 figure,title('absolute difference')
 matRad_plotSliceWrapper(gca,ct,cst,1,absDiffCube,plane,slice,[],[],colorcube);
 
 % Let's plot single profiles that are perpendicular to the beam direction
 ixProfileY = matRad_world2cubeIndex(pln.propStf.isoCenter(1,:),ct);
 ixProfileY = ixProfileY(2);
-profileOrginal = resultGUI.RBExD(:,ixProfileY,slice);
-profileShifted = resultGUI_isoShift.RBExD(:,ixProfileY,slice);
+profileOrginal = resultGUI.RBExDose(:,ixProfileY,slice);
+profileShifted = resultGUI_isoShift.RBExDose(:,ixProfileY,slice);
 
 figure,plot(profileOrginal,'LineWidth',2),grid on,hold on,
 plot(profileShifted,'LineWidth',2),legend({'original profile','shifted profile'}),
@@ -163,7 +155,7 @@ distToAgreement = 2;
 n               = 1;
 
 [gammaCube,gammaPassRateCell] = matRad_gammaIndex(...
-    resultGUI_isoShift.RBExD,resultGUI.RBExD,...
+    resultGUI_isoShift.RBExDose,resultGUI.RBExDose,...
     [ct.resolution.x, ct.resolution.y, ct.resolution.z],...
     [doseDifference distToAgreement],slice,n,'global',cst);
 

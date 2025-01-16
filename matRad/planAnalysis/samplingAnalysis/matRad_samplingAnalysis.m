@@ -112,9 +112,12 @@ end
     
 
 % gamma cube
-doseCube = resultGUInomScen.(pln.bioParam.quantityVis);
-if strncmp(pln.bioParam.quantityVis,'RBExD', 5)
-    doseStat.gammaAnalysis.cube1Name = 'resultGUInomScen.RBExD';
+if isfield(resultGUInomScen,'RBExDose'), quantityVis  = 'RBExDose'; else,  quantityVis = 'physicalDose';  end
+
+doseCube = resultGUInomScen.(quantityVis);
+
+if strncmp(quantityVis,'RBExDose', 5)
+    doseStat.gammaAnalysis.cube1Name = 'resultGUInomScen.RBExDose';
 else
     doseStat.gammaAnalysis.cube1Name = 'resultGUInomScen.physicalDose';
 end

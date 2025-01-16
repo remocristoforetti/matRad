@@ -95,11 +95,9 @@ classdef MatRad_Config < handle
                 addpath(obj.exampleFolder);
                 addpath(genpath(obj.thirdPartyFolder));
                 obj.userfolders = {[obj.matRadRoot filesep 'userdata' filesep]};
-            end
-
+            end           
             
-            
-            %Set Version
+            %set version
             obj.getEnvironment();
             obj.matRad_version = matRad_version(obj.matRadRoot);
 
@@ -195,8 +193,25 @@ classdef MatRad_Config < handle
             %setDefaultProperties set matRad's default computation
             %   properties
             %  input
+
+            %Default machines
+            obj.defaults.machine.photons    = 'Generic';
+            obj.defaults.machine.protons    = 'Generic';
+            obj.defaults.machine.helium     = 'Generic';
+            obj.defaults.machine.carbon     = 'Generic';
+            obj.defaults.machine.brachy     = 'HDR';
+            obj.defaults.machine.fallback   = 'Generic';
+
+            %Default Bio Model
+            obj.defaults.bioModel.photons   = 'none';
+            obj.defaults.bioModel.protons   = 'constRBE';
+            obj.defaults.bioModel.helium    = 'HEL';
+            obj.defaults.bioModel.carbon    = 'LEM';
+            obj.defaults.bioModel.brachy    = 'none';
+            obj.defaults.bioModel.fallback  = 'none';
             
             %Default Steering/Geometry Properties
+            obj.defaults.propStf.generator = {'PhotonIMRT','ParticleIMPT','SimpleBrachy'};
             obj.defaults.propStf.longitudinalSpotSpacing = 2;
             obj.defaults.propStf.addMargin = true; %expand target for beamlet finding
             obj.defaults.propStf.bixelWidth = 5;
@@ -300,7 +315,32 @@ classdef MatRad_Config < handle
         end
 
         function setDefaultGUIProperties(obj)
-            theme = matRad_ThemeDark();
+            %Detect current theme
+            light = false;
+            try
+                if ispc
+                    light = logical(winqueryreg('HKEY_CURRENT_USER','Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize','AppsUseLightTheme'));
+                elseif ismac
+                    out = system('defaults read -g AppleInterfaceStyle');
+                    if ~strcmp(out,'Dark')
+                        light = true;
+                    end
+                else
+                    out = system('gsettings get org.gnome.desktop.interface color-scheme');
+                    if strcmp(out,'prefer-light')
+                        light = true;
+                    end
+                end
+            catch
+                light = false;
+            end
+            
+            if light
+                theme = matRad_ThemeLight();
+            else
+                theme = matRad_ThemeDark();
+            end
+
             obj.gui = struct(theme);
         end
 

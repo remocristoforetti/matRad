@@ -72,7 +72,8 @@ classdef matRad_DVHWidget < matRad_Widget
 
                 if doUpdate && evalin('base','exist(''resultGUI'')') && evalin('base','exist(''cst'')')
                     this.showDVH();
-                    if numel(this.widgetHandle.Children) > 2
+                    ch = get(this.widgetHandle,'Children'); %Octave compatibility, no dot indexing
+                    if numel(ch) > 2
                         this.removeOverlap();
                     end
                 end
@@ -91,10 +92,13 @@ classdef matRad_DVHWidget < matRad_Widget
             if isempty(this.selectedCube)
                 return;
             end
+
+            matRad_cfg = MatRad_Config.instance();
+            
+            %Create axis if not existing, otherwise clear
             if isgraphics(this.dvhAx)
                 cla(this.dvhAx);
             else
-                matRad_cfg = MatRad_Config.instance();
                 this.dvhAx = axes(this.widgetHandle,...
                     'Color',matRad_cfg.gui.elementColor,...
                     'XColor',matRad_cfg.gui.textColor,...
@@ -105,15 +109,24 @@ classdef matRad_DVHWidget < matRad_Widget
             resultGUI = evalin('base','resultGUI');
             pln = evalin('base','pln');
             cst = evalin('base','cst');
+            ct  = evalin('base','ct');
+
             % Calculate and show DVH
             doseCube = resultGUI.(this.selectedCube);
             dvh = matRad_calcDVH(cst,doseCube,'cum');
             
             matRad_showDVH(dvh,cst,pln,'axesHandle',this.dvhAx);
+
+            if ~isfield(pln,'multScen')
+                multScen = matRad_NominalScenario(ct);
+            else
+                multScen = pln.multScen;
+            end
+            multScen = matRad_ScenarioModel.create(multScen,ct);
             
             %check scenarios
-            if pln.multScen.totNumScen > 1
-                for i = 1:pln.multScen.totNumScen
+            if multScen.totNumScen > 1
+                for i = 1:multScen.totNumScen
                     scenFieldName = sprintf('%s_scen%d',this.selectedCube,i);
                     if isfield(resultGUI,scenFieldName)
                         tmpDvh = matRad_calcDVH(cst,resultGUI.(scenFieldName),'cum'); % Calculate cumulative scenario DVH
@@ -121,8 +134,10 @@ classdef matRad_DVHWidget < matRad_Widget
                     end
                 end
             end
-        
-            this.widgetHandle.Children(2).Title.String = strrep(this.selectedCube, '_',' ');
+            
+            %No dot indexing for Octave compatibility
+            hTitle = get(this.dvhAx,'Title');
+            set(hTitle,'String', strrep(this.selectedCube, '_',' '), 'Color',matRad_cfg.gui.highlightColor);
         end
         
     end

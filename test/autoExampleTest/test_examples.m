@@ -22,6 +22,7 @@ exampleScripts = {'examples/matRad_example1_phantom.m',...
     'examples/matRad_example11_helium.m',...
     'examples/matRad_example12_simpleParticleMonteCarlo.m',...
     'examples/matRad_example15_brachy.m',...
+    'examples/matRad_example17_biologicalModels.m',...
     'matRad.m',...
     };
 
@@ -41,11 +42,7 @@ unitTestResolution = matRad_cfg.defaults.propDoseCalc.doseGrid.resolution;
 [folders,names,exts] = cellfun(@fileparts,exampleScripts,'UniformOutput',false);
 
 %Create temporary example test folder
-tmpExampleTestFolder = tempdir();
-tmpExampleTestFolder = fullfile(tmpExampleTestFolder,'exampleTest');
-if ~exist(tmpExampleTestFolder,'dir')
-    mkdir(tmpExampleTestFolder);
-end
+tmpExampleTestFolder = helper_temporaryFolder('exampleTest',true);
 addpath(tmpExampleTestFolder);
 newFolders = cell(size(folders));
 [newFolders{:}] = deal(tmpExampleTestFolder);
@@ -62,7 +59,7 @@ matRad_unitTestTextManipulation(testScriptFiles,'pln.propStf.longitudinalSpotSpa
 matRad_unitTestTextManipulation(testScriptFiles,'pln.propDoseCalc.doseGrid.resolution.x',['pln.propDoseCalc.doseGrid.resolution.x = ' num2str(unitTestResolution.x) ';'],tmpExampleTestFolder);
 matRad_unitTestTextManipulation(testScriptFiles,'pln.propDoseCalc.doseGrid.resolution.y',['pln.propDoseCalc.doseGrid.resolution.y = ' num2str(unitTestResolution.y) ';'],tmpExampleTestFolder);
 matRad_unitTestTextManipulation(testScriptFiles,'pln.propDoseCalc.doseGrid.resolution.z',['pln.propDoseCalc.doseGrid.resolution.z = ' num2str(unitTestResolution.z) ';'],tmpExampleTestFolder);
-matRad_unitTestTextManipulation(testScriptFiles,'display(','%%%%%%%%%%%%%%% REMOVED DISPLAY FOR TESTING %%%%%%%%%%%%%%',tmpExampleTestFolder);
+matRad_unitTestTextManipulation(testScriptFiles,'disp(','%%%%%%%%%%%%%%% REMOVED DISPLAY FOR TESTING %%%%%%%%%%%%%%',tmpExampleTestFolder);
 
 %initTestSuite;
 %We need to manually set up the test_suite to bypass the automatic function
@@ -78,12 +75,6 @@ for testIx = 1:length(testScriptNames)
         mfilename, testfun);
     test_suite=addTest(test_suite, test_case);
     %test_functions{testIx,1} = testfun;
-end
-
-try
-    rmdir(exampleTestFolder,'s');
-catch
-    warning('Could not delete temporary example test folder');
 end
 
 %initTestSuite;

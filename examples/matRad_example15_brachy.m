@@ -39,7 +39,7 @@ load 'PROSTATE.mat';
 % towards higher or lower doses (SquaredOverdose, SquaredUnderdose) or
 % doses that are particularly aimed for (SquaredUnderDose).
 
-display(cst{6,6}{1});
+disp(cst{6,6}{1});
 
 % Following frequently prescribed planning doses of 15 Gy
 % (https://pubmed.ncbi.nlm.nih.gov/22559663/) objectives can be updated to:
@@ -84,23 +84,11 @@ cst{9,6}{1} = struct(DoseObjectives.matRad_MeanDose(1));
 % Here we will use HDR. By this means matRad will look for 'brachy_HDR.mat'
 % in our root directory and will use the data provided in there for 
 % dose calculation.
-
 pln.radiationMode   = 'brachy'; 
 pln.machine         = 'HDR';    % 'LDR' or 'HDR' for brachy
 
-quantityOpt    = 'physicalDose';                                     
-modelName      = 'none';  
-
-% retrieve bio model parameters
-pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
-
-% retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
-% dose calculation settings
-%Choose BT Engine
-pln.propDoseCalc.engine = 'TG43';
-
-
+pln.bioModel        = 'none';
+pln.multScen        = 'nomScen';
 
 %% II.1 - needle and template geometry
 % Now we have to set some parameters for the template and the needles. 
@@ -120,33 +108,39 @@ pln.propStf.needle.seedsNo           = 6;
 % The needles will be positioned right under the target volume pointing up.
 
 
+pln.propStf.visMode      = 1; %Enable visualization for stf generation
 pln.propStf.bixelWidth   = 5; % [mm] template grid distance
-pln.propStf.templateRoot = matRad_getTemplateRoot(ct,cst); % mass center of
-% target in x and y and bottom in z
+
+%Template Type
+pln.propStf.template.type = 'checkerboard'; %  'checkerboard' if template is created automatically 
+                                            %  'manual' if template is  needed as preset manually (see below)
+
+%Template Root - mass center of target in x and y and bottom in z
+pln.propStf.template.root = matRad_getTemplateRoot(ct,cst); 
+
+% Dose Calculation engine
+pln.propDoseCalc.engine = 'TG43';
 
 % Here, we define active needles as 1 and inactive needles
 % as 0. This is the x-y plane and needles point in z direction. 
 % A checkerboard pattern is frequantly used. The whole geometry will become
 % clearer when it is displayed in 3D view in the next section.
-
-pln.propStf.template.activeNeedles = [0 0 0 1 0 1 0 1 0 1 0 0 0;... % 7.0
-                                      0 0 1 0 1 0 0 0 1 0 1 0 0;... % 6.5
-                                      0 1 0 1 0 1 0 1 0 1 0 1 0;... % 6.0
-                                      1 0 1 0 1 0 0 0 1 0 1 0 1;... % 5.5
-                                      0 1 0 1 0 1 0 1 0 1 0 1 0;... % 5.0
-                                      1 0 1 0 1 0 0 0 1 0 1 0 1;... % 4.5
-                                      0 1 0 1 0 1 0 1 0 1 0 1 0;... % 4.0
-                                      1 0 1 0 1 0 0 0 1 0 1 0 1;... % 4.5
-                                      0 1 0 1 0 1 0 1 0 1 0 1 0;... % 3.0
-                                      1 0 1 0 1 0 1 0 1 0 1 0 1;... % 2.5
-                                      0 1 0 1 0 1 0 1 0 1 0 1 0;... % 2.0
-                                      1 0 1 0 1 0 0 0 0 0 1 0 1;... % 1.5
-                                      0 0 0 0 0 0 0 0 0 0 0 0 0];   % 1.0
-                                     %A a B b C c D d E e F f G
-
-pln.propStf.isoCenter    = matRad_getIsoCenter(cst,ct,0); %  target center
-
-
+if strcmp(pln.propStf.template.type,'manual')
+    pln.propStf.template.activeNeedles = [0 0 0 1 0 1 0 1 0 1 0 0 0;... % 7.0
+        0 0 1 0 1 0 0 0 1 0 1 0 0;... % 6.5
+        0 1 0 1 0 1 0 1 0 1 0 1 0;... % 6.0
+        1 0 1 0 1 0 0 0 1 0 1 0 1;... % 5.5
+        0 1 0 1 0 1 0 1 0 1 0 1 0;... % 5.0
+        1 0 1 0 1 0 0 0 1 0 1 0 1;... % 4.5
+        0 1 0 1 0 1 0 1 0 1 0 1 0;... % 4.0
+        1 0 1 0 1 0 0 0 1 0 1 0 1;... % 4.5
+        0 1 0 1 0 1 0 1 0 1 0 1 0;... % 3.0
+        1 0 1 0 1 0 1 0 1 0 1 0 1;... % 2.5
+        0 1 0 1 0 1 0 1 0 1 0 1 0;... % 2.0
+        1 0 1 0 1 0 0 0 0 0 1 0 1;... % 1.5
+        0 0 0 0 0 0 0 0 0 0 0 0 0];   % 1.0
+       %A a B b C c D d E e F f G
+end
 
 %% II.1 - dose calculation options
 % for dose calculation we use eather the 2D or the 1D formalism proposed by
@@ -156,15 +150,11 @@ pln.propStf.isoCenter    = matRad_getIsoCenter(cst,ct,0); %  target center
 % needles.
 % Calculation time will be reduced by one tenth when we define a dose
 % cutoff distance.
-
-
 pln.propDoseCalc.TG43approximation = '2D'; %'1D' or '2D' 
 
 pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
-
-
 
 % We can also use other solver for optimization than IPOPT. matRad 
 % currently supports simulannealbnd from the MATLAB Global Optimization Toolbox. First we
@@ -176,41 +166,32 @@ if matRad_OptimizerSimulannealbnd.IsAvailable()
 else
     pln.propOpt.optimizer = 'IPOPT';
 end
+
 %% II.1 - book keeping
 % Some field names have to be kept although they don't have a direct
 % relevance for brachy therapy.
-pln.propOpt.bioOptimization = 'none';
-pln.propOpt.runDAO          = false;  
-pln.propOpt.runSequencing   = false; 
-pln.propStf.gantryAngles    = []; 
-pln.propStf.couchAngles     = []; 
-pln.propStf.numOfBeams      = 0;
 pln.numOfFractions          = 1; 
 
 %% II.1 - view plan
 % Et voila! Our treatment plan structure is ready. Lets have a look:
-display(pln);
-
+disp(pln);
 
 %% II.2 Steering Seed Positions From STF
 % The steering file struct contains all needls/catheter geometry with the
 % target volume, number of needles, seeds and the positions of all needles
 % The one in the end enables visualization.
-
-stf = matRad_generateStf(ct,cst,pln,1);
+stf = matRad_generateStf(ct,cst,pln);
 
 %% II.2 - view stf
 % The 3D view is interesting, but we also want to know how the stf struct
 % looks like.
-
-display(stf)
+disp(stf);
 
 %% II.3 - Dose Calculation
 % Let's generate dosimetric information by pre-computing a dose influence 
 % matrix for seed/holding point intensities. Having dose influences
 % available allows subsequent inverse optimization.
 % Don't get inpatient, this can take a few seconds...
-
 dij = matRad_calcDoseInfluence(ct,cst,stf,pln);
 
 %% III Inverse Optimization for brachy therapy
@@ -219,14 +200,12 @@ dij = matRad_calcDoseInfluence(ct,cst,stf,pln);
 % the clinical objectives and constraints underlying the radiation 
 % treatment. Once the optimization has finished, trigger to 
 % visualize the optimized dose cubes.
-
 resultGUI = matRad_fluenceOptimization(dij,cst,pln);
-matRadGUI;
 
 %% IV.1 Plot the Resulting Dose Slice
 % Let's plot the transversal iso-center dose slice
 
-slice = matRad_world2cubeIndex(pln.propStf.isoCenter(1,:),ct);
+slice = matRad_world2cubeIndex(matRad_getIsoCenter(cst,ct),ct);
 slice = slice(3);
 figure
 imagesc(resultGUI.physicalDose(:,:,slice)),colorbar, colormap(jet);
@@ -234,5 +213,4 @@ imagesc(resultGUI.physicalDose(:,:,slice)),colorbar, colormap(jet);
 %% IV.2 Obtain dose statistics
 % Two more columns will be added to the cst structure depicting the DVH and
 % standard dose statistics such as D95,D98, mean dose, max dose etc.
-[dvh,qi]               = matRad_indicatorWrapper(cst,pln,resultGUI);
-
+resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln);

@@ -46,10 +46,25 @@ end
 
 % remember old solution
 resultGUI.optW = resultGUI.w;
-if isequal(pln.bioParam.model,'none')
+
+% Get Biological Model
+if ~isfield(pln,'bioModel')
+    pln.bioModel = 'none';
+end
+if ~isa(pln.bioModel,'matRad_BiologicalModel')
+    pln.bioModel = matRad_BiologicalModel.validate(pln.bioModel,pln.radiationMode);
+end
+
+% Optimization Quantity
+if ~isfield(pln,'propOpt') || ~isfield(pln.propOpt, 'quantityOpt') || isempty(pln.propOpt.quantityOpt)
+    pln.propOpt.quantityOpt = pln.bioModel.defaultReportQuantity;
+    matRad_cfg.dispWarning('quantityOpt was not provided, using quantity suggested by biological model: %s',pln.propOpt.quantityOpt);    
+end
+
+if isequal(pln.propOpt.quantityOpt,'physicalDose')
     resultGUI.optDose = resultGUI.physicalDose;
 else
-    resultGUI.optRBExD = resultGUI.RBExD;
+    resultGUI.optRBExDose = resultGUI.RBExDose;
 end
 
 % manipulate fluence vector
@@ -62,12 +77,12 @@ resultGUI.w(resultGUI.w<Imin & resultGUI.w>=Imin/2) = Imin;
 calcCubes = matRad_calcCubes(resultGUI.w,dij,1);
 
 % compare dose
-if isequal(pln.bioParam.model,'none')
+if isequal(pln.propOpt.quantityOpt,'physicalDose')
     resultGUI.physicalDose = calcCubes.physicalDose;
     relIntDoseDif = (1-sum(resultGUI.physicalDose(:))/sum(resultGUI.optDose(:)))*100;
 else
-    resultGUI.RBExD = calcCubes.RBExD;
-    relIntDoseDif = (1-sum(resultGUI.RBExD(:))/sum(resultGUI.optRBExD(:)))*100;
+    resultGUI.RBExDose = calcCubes.RBExDose;
+    relIntDoseDif = (1-sum(resultGUI.RBExDose(:))/sum(resultGUI.optRBExDose(:)))*100;
 end
 
 if relIntDoseDif ~= 0
@@ -120,12 +135,12 @@ if(minNrParticlesIES ~= 0)
     calcCubes = matRad_calcCubes(resultGUI.w,dij,1);
 
     % compare dose
-    if isequal(pln.bioParam.model,'none')
+    if isequal(pln.bioModel.model,'none')
         resultGUI.physicalDose = calcCubes.physicalDose;
         relIntDoseDif = (1-sum(resultGUI.physicalDose(:))/sum(resultGUI.optDose(:)))*100;
     else
-        resultGUI.RBExD = calcCubes.RBExD;
-        relIntDoseDif = (1-sum(resultGUI.RBExD(:))/sum(resultGUI.optRBExD(:)))*100;
+        resultGUI.RBExDose = calcCubes.RBExDose;
+        relIntDoseDif = (1-sum(resultGUI.RBExDose(:))/sum(resultGUI.optRBExDose(:)))*100;
     end
 
     if relIntDoseDif ~= 0
