@@ -16,7 +16,7 @@ function [expDist,omega, mAlphaDoseExp, mSqrtBetaDoseExp, mAlphaDoseOmega, mSqrt
     end
 
     
-    if ~exist('multiScen', 'var')
+    if ~exist('multiScen', 'var') || isempty(multiScen)
         matRad_cfg.dispWarning('Specific multScen not provided, loading default one');
         multiScen = matRad_getMultiScenFromScenarios(saveDir,'rndScen');
     end

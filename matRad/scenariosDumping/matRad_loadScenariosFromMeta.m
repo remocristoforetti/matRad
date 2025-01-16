@@ -57,6 +57,8 @@ function [physicalDose,physicalDoseOmegaReduced, mAlphaDose, mSqrtBetaDose, mLET
             
             if isfield(currDijScen, 'physicalDoseOmegaReduced')
                 physicalDoseOmegaReduced{scenIdx} = currDijScen.physicalDoseOmegaReduced;
+            else
+                physicalDoseOmegaReduced{scenIdx} = [];
             end
 
             if isfield(currDijScen, 'mLETdJ')
