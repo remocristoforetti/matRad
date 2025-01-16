@@ -35,7 +35,7 @@ classdef (Abstract) matRad_ScalarQuantity < matRad_OptimizationQuantity
         function constJacobianOutput = getProjectedJacobian(this,dij,fJacob,w)
             if ~isequal(this.wConstJacobianCache,w)
                 this.wJacob(this.useStructsConstraint) = arrayfun(@(struct) this.projectConstraintJacobian(dij,struct,fJacob,w), this.useStructsConstraint, 'UniformOutput',false);
-                this.wGradCache = w;
+                this.wConstJacobianCache = w;
             end
             constJacobianOutput = this.wJacob;
         end
@@ -46,22 +46,6 @@ classdef (Abstract) matRad_ScalarQuantity < matRad_OptimizationQuantity
             this.wGrad = cell(size(cst,1),1);
             this.wJacob = cell(size(cst,1),1);
 
-            % tmpUseStructsOptimization = [];
-            % tmpUseStructsConstraint = [];
-            % for i=1:size(cst,1)
-            %     for j=1:size(cst{i,6})
-            %         if strcmp(cst{i,6}{j}.quantity, this.quantityName)
-            %             if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_VarianceObjective')
-            %                 tmpUseStructsOptimization = [tmpUseStructsOptimization, i];
-            %             elseif isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
-            %                 tmpUseStructsConstraint = [tmpUseStructsConstraint, i];
-            %             end
-            %         end
-            %     end
-            % end
-            % 
-            % this.useStructsOptimization = unique(tmpUseStructsOptimization);
-            % this.useStructsConstraint   = unique(tmpUseStructsConstraint);
         end
 
         function updateSubquantityOptimization(this,structsOptimization)

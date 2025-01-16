@@ -40,7 +40,7 @@ classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
         function constJacobianOutput = getProjectedJacobian(this,dij,fJacob,w)
             if ~isequal(this.wConstJacobianCache,w)
                 this.wJacob{1} = this.projectConstraintJacobian(dij,fJacob,w);
-                this.wGradCache = w;
+                this.wConstJacobianCache = w;
             end
             constJacobianOutput = this.wJacob;
         end

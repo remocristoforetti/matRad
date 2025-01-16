@@ -36,7 +36,7 @@ classdef matRad_BackProjectionQuantity < handle
         quantities;             % Quantities that need to be evaluated (includes subquantities)
         optimizationQuantities; % Quantities on which an objective function is defined
         constrainedQuantities;
-        structsForScalarQuantity;
+        %structsForScalarQuantity;
     end
 
     
@@ -66,13 +66,6 @@ classdef matRad_BackProjectionQuantity < handle
                 obj.wGradCache = w;
             end
         end
-        
-        % function obj = computeConstraint(obj,dij,w)
-        %     if ~isequal(obj.wConstraintCache,w)
-        %         obj.computeConstraintResult(dij,w);
-        %         obj.wConstraintCache = w;
-        %     end
-        % end
 
         function obj = computeConstraintJacobian(obj,dij,fJacob, w)
             if ~isequal(obj.wConstJacobianCache,w)
@@ -109,17 +102,6 @@ classdef matRad_BackProjectionQuantity < handle
             end
             obj.wGrad = tmpGradient;
         end
-
-
-        % function computeConstraintResult(obj,dij,w)
-        %     tmpQuantitiesOutput = [];
-        % 
-        %     for quantityIdx=obj.optimizationQuantitiesIdx'
-        %         quantity = obj.quantities{quantityIdx};
-        %         tmpQuantitiesOutput.(quantity.quantityName) = quantity.getConstraintResult(dij,w);
-        %     end
-        %     obj.c = tmpQuantitiesOutput;
-        % end
 
         function projectConstraintJacobian(obj,dij,fJacob,w)
 
@@ -202,7 +184,7 @@ classdef matRad_BackProjectionQuantity < handle
 
             this.optimizationQuantities = optimizationQuantities';
             [~,this.optimizationQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},optimizationQuantities);
-            this.constrainedQuantities = constraintQuantities;
+            this.constrainedQuantities = constraintQuantities';
             [~, this.constrainedQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},constraintQuantities);
             % [~,optimizationQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},optimizationQuantities);
             % this.optimizationQuantities = this.quantities(optimizationQuantitiesIdx);
@@ -214,7 +196,7 @@ classdef matRad_BackProjectionQuantity < handle
                     if isa(this.quantities{qtIdx}, 'matRad_ScalarQuantity')
                         if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
                             this.quantities{qtIdx}.useStructsOptimization = [this.quantities{qtIdx}.useStructsOptimization,i];
-                        elseif isa(obj, 'DoseConstraints.matRad_DoseConstraints') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+                        elseif isa(obj, 'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
                             this.quantities{qtIdx}.useStructsConstraint = [this.quantities{qtIdx}.useStructsConstraint,i];
                         end
                     end
