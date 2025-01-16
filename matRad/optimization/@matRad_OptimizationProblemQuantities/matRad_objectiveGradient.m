@@ -104,7 +104,7 @@ for  i = 1:size(cst,1)
                         gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
                     elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
                         gGrad.(quantityOptimized)                                       = cell(size(d.(quantityOptimized)));
-                        gGrad.(quantityOptimized)(optiProb.BP.structsForScalarQuantity) = {0};           
+                        gGrad.(quantityOptimized)(:) = {0};           
                     end
                 end
 
@@ -345,7 +345,7 @@ for  i = 1:size(cst,1)
 
                 if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimizedVariance)
                     gGrad.(quantityOptimizedVariance)          = cell(size(d.(quantityOptimizedVariance)));
-                    gGrad.(quantityOptimizedVariance)(optiProb.BP.structsForScalarQuantity) = {0};
+                    gGrad.(quantityOptimizedVariance)(:) = {0};
 
                 end
 
@@ -425,7 +425,7 @@ end
 gradientChecker = 0;
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
-    epsilon = 1e-5;
+    epsilon = 1e-3;
 
 
     ix = unique(randi([dij.totalNumOfBixels],1,5));

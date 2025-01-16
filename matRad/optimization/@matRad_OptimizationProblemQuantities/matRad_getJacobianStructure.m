@@ -55,7 +55,7 @@ for i = 1:size(cst,1)
                 end
 
               elseif isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
-                jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
+                jacobDoseStruct = obj.getVarianceConstraintJacobianStructure(numel(cst{i,4}{1}));	
                 nRows = size(jacobDoseStruct,2);
                 if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
                     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	

@@ -89,23 +89,31 @@ for i = 1:size(cst,1)
             if ~exist('fJacob', 'var') || ~isfield(fJacob,quantityConstrained)
                 if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
                     fJacob.(quantityConstrained) = cell(1);%cell(size(d.(quantityConstrained)));
-                    %fJacob.(quantityConstrained) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                    fJacob.(quantityConstrained) = {zeros(dij.doseGrid.numOfVoxels,1)};
                 elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
-                    fJacob.(quantityConstrained)                                       = cell(1);
-                    fJacob.(quantityConstrained)(optiProb.BP.structsForScalarQuantity) = {0};           
+                    fJacob.(quantityConstrained)= cell(size(cst,1),1);
+                    %fJacob.(quantityConstrained)(:) = {};           
                 end
             
             end
             
             switch robustness
                
-               case 'none' % if conventional opt: just sum objectiveectives of nominal dose
-                  d_i = d.(quantityConstrained){1}(cst{i,4}{1});
-                  jacobSub = constraint.computeDoseConstraintJacobian(d_i);
-                  
-               case 'PROB' % if prob opt: sum up expectation value of objectives
+                case 'none' % if conventional opt: just sum objectiveectives of nominal dose
+                  if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                      d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                  elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                      d_i = d.(quantityConstrained){i};
+                  end
 
-                  d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                  jacobSub = constraint.computeDoseConstraintJacobian(d_i);
+               case 'PROB' % if prob opt: sum up expectation value of objectives
+                  if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                      d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                  elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                      d_i = d.(quantityConstrained){i};
+                  end
+                  
                   jacobSub = constraint.computeDoseConstraintJacobian(d_i);
                   
                case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
@@ -165,9 +173,17 @@ for i = 1:size(cst,1)
             nConst = size(jacobSub,2);
 
 
-            startIx = size(fJacob.(quantityConstrained){1},2) + 1;
-            fJacob.(quantityConstrained) = {[fJacob.(quantityConstrained){1},sparse(dij.doseGrid.numOfVoxels,nConst)]};
-            fJacob.(quantityConstrained){1}(cst{i,4}{1},startIx:end) = jacobSub;
+            if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                startIx = size(fJacob.(quantityConstrained){1},2) + 1;
+
+                fJacob.(quantityConstrained) = {[fJacob.(quantityConstrained){1},sparse(dij.doseGrid.numOfVoxels,nConst)]}; 
+                fJacob.(quantityConstrained){1}(cst{i,4}{1},startIx:end) = jacobSub;
+            elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                startIx = size(fJacob.(quantityConstrained){i},2) + 1;
+
+                fJacob.(quantityConstrained)(i) = {[fJacob.(quantityConstrained){i},sparse(1,nConst)]}; 
+                fJacob.(quantityConstrained){i}(1,startIx:end) = jacobSub;
+            end
             % %Iterate through columns of the sub-jacobian
             % if isa(optiProb.BP,'matRad_DoseProjection') && ~isempty(jacobSub) || isa(optiProb.BP,'matRad_ConstantRBEProjection')
             % 
@@ -220,7 +236,7 @@ for i = 1:size(cst,1)
                 if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
                     fJacob.(quantityConstrained) = cell(1);
                 elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
-                    fJacob.(quantityConstrained) = cell(1);
+                    %fJacob.(quantityConstrained) = cell(1);
                     fJacob.(quantityConstrained) = cell(size(cst,1),1);           
                 end
             
@@ -290,7 +306,6 @@ gradientChecker = 0;
 if gradientChecker == 1
     f =  matRad_constraintFunctions(optiProb,w,dij,cst);
     epsilon = 1e-5;
-
 
     ix = randi([dij.totalNumOfBixels],numel(f),5);
 

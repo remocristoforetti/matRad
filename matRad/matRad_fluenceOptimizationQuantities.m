@@ -388,7 +388,7 @@ end
 backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-backProjection.structsForScalarQuantity = unique(useStructsForOmega);
+%backProjection.structsForScalarQuantity = unique(useStructsForOmega);
 %backProjection.structsForConstrainedScalarQuantities = unique(useStructsForConstraintOmega);
 
 

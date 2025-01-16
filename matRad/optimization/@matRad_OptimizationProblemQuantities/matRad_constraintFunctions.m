@@ -71,17 +71,26 @@ for  i = 1:size(cst,1)
             quantityConstrainedInstance = optiProb.BP.quantities{strcmp(quantityConstrained,quantityNames)};
             % rescale dose parameters to biological optimization quantity if required
             constraint = quantityConstrainedInstance.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
-            
 
-            
             switch robustness
-               case 'none' % if conventional opt: just sum objectives of nominal dose
-                   d_i = d.(quantityConstrained){1}(cst{i,4}{1});
-                   c = [c; constraint.computeDoseConstraintFunction(d_i)];
+                case 'none' % if conventional opt: just sum objectives of nominal dose
+                  
+                  if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                      d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                  elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                      d_i = d.(quantityConstrained){i};
+                  end
+                  
+                  c = [c; constraint.computeDoseConstraintFunction(d_i)];
                   
                case 'PROB' % if prob opt: sum up expectation value of objectives
                   
-                  d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                   if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                      d_i = d.(quantityConstrained){1}(cst{i,4}{1});
+                  elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+                      d_i = d.(quantityConstrained){i};
+                  end
+
                   c = [c; constraint.computeDoseConstraintFunction(d_i)];
                   
                case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
