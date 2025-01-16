@@ -29,8 +29,9 @@ classdef matRad_MeanAverageEffectVariance < matRad_ScalarQuantity
 
             currIdx = cat(1,this.cst{struct,4}{:});
             currIdx = unique(currIdx);
+            N = numel(currIdx);
 
-            quantityOutput = (1/numel(currIdx))*(alphaOmega{struct}) - meanAverageEffect{struct}^2;
+            quantityOutput = (1/N)*(alphaOmega{struct}) - meanAverageEffect{struct}^2;
         end
 
         function gradientOutput = projectGradient(this,dij,struct,fGrad,w)

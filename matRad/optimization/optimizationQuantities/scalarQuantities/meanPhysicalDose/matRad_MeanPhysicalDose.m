@@ -43,7 +43,8 @@ classdef matRad_MeanPhysicalDose < matRad_ScalarQuantity
             currIdx = unique(currIdx);
             N = numel(currIdx);
 
-            constJacobianOutput = (1/N) * fJacob{struct} *  dij.physicalDoseJ{struct}';
+
+            constJacobianOutput = (1/N) * (fJacob{struct} .*  dij.physicalDoseJ{struct})';
         end
     end  
 end
