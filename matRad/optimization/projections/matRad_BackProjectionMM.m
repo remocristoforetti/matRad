@@ -24,6 +24,7 @@ classdef matRad_BackProjectionMM < handle
         wGradProb
         dExp
         dOmegaV
+        vTot
     end
     
     properties 
@@ -35,6 +36,7 @@ classdef matRad_BackProjectionMM < handle
         radiationModalities;
         spatioTemporalFractions;
         totalNumOfFractions;
+        useStructsForOmega = [];
     end
 
     
@@ -54,7 +56,7 @@ classdef matRad_BackProjectionMM < handle
         function obj = compute(obj,dij,w)
             if ~isequal(obj.wCache,w)
                 obj.d = obj.computeResult(dij,w);
-                %[obj.dExp,obj.dOmegaV] = obj.computeResultProb(dij,w);
+                [obj.dExp,obj.dOmegaV, obj.vTot] = obj.computeResultProb(dij,w);
                 obj.wCache = w;
             end
         end
@@ -77,9 +79,10 @@ classdef matRad_BackProjectionMM < handle
             d = obj.d;
         end
         
-        function [dExp,dOmegaV] = GetResultProb(obj)
+        function [dExp,dOmegaV, vTot] = GetResultProb(obj)
             dExp = obj.dExp;
             dOmegaV = obj.dOmegaV;
+            vTot = obj.vTot;
         end
 
         function wGrad = GetGradient(obj)
@@ -91,6 +94,7 @@ classdef matRad_BackProjectionMM < handle
         end
         
         function d = computeResult(obj,dij,w)
+
             nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, obj.radiationModalities);
 
             w = obj.splitWeigths(w, nBixels);
@@ -102,7 +106,9 @@ classdef matRad_BackProjectionMM < handle
                 dTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) dTmp.(modalityName){scen}*[obj.spatioTemporalFractions.(modalityName)]', obj.scenarios,'UniformOutput',false);
             end
 
-            d = repmat({zeros(dij.doseGrid.numOfVoxels,1)}, size(dij.(modalityName).physicalDose));
+            d = cell(size(dij.(modalityName).physicalDose));%repmat({zeros(dij.doseGrid.numOfVoxels,1)}, size(dij.(modalityName).physicalDose));
+            d(obj.scenarios) = {zeros(dij.doseGrid.numOfVoxels,1)};
+
             for scenIdx=obj.scenarios
 
                 for modalityIdx=1:obj.nModalities
@@ -114,18 +120,70 @@ classdef matRad_BackProjectionMM < handle
 
         end
         
-        function [dExp,dOmegaV] = computeResultProb(obj,dij,w)
-            if isfield(dij,'physicalDoseExp')
-                dExp = cell(size(dij.physicalDoseExp));
-                [dExp(obj.scenarios),dOmegaVTmp] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij,scen,w),obj.scenarios,'UniformOutput',false);
-                dOmegaV = cell(size(dij.physicalDoseOmega));
-                dOmegaV(:,obj.scenarios) = dOmegaVTmp{:};
+        function [dExp,dOmegaV,vTot] = computeResultProb(obj,dij,w)
+            % should not work with multiple CTphases at the same
+            % time            
+            nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, obj.radiationModalities);
+
+            w = obj.splitWeigths(w, nBixels);
+
+            for modalityIdx=1:obj.nModalities
+                modalityName = obj.radiationModalities{modalityIdx};
+
+                if isfield(dij.(modalityName),'physicalDoseExp') || (isfield(dij.(modalityName), 'mAlphaDoseExp') && isfield(dij.(modalityName), 'mSqrtBetaDoseExp'))
+                    if (isfield(dij.(modalityName),'physicalDoseExp') && ~isempty(dij.(modalityName).physicalDoseExp)) && ~(isfield(dij.(modalityName), 'mAlphaDoseExp') && isfield(dij.(modalityName), 'mSqrtBetaDoseExp'))
+    
+                        scensToInclude = find(~cellfun(@isempty, dij.(modalityName).physicalDoseExp));
+                        
+                        dTmpExp.(modalityName)    = cell(size(dij.(modalityName).physicalDoseExp));
+                        dTmpOmegaV.(modalityName) = cell(size(dij.(modalityName).physicalDoseOmega));
+                        vTotTmp.(modalityName)    = cell(size(dij.(modalityName).physicalDoseOmega));
+                    
+                    elseif (isfield(dij.(modalityName), 'mAlphaDoseExp') && ~isempty(dij.(modalityName).mAlphaDoseExp))
+                        scensToInclude = find(~cellfun(@isempty, dij.(modalityName).mAlphaDoseExp));
+        
+                        dTmpExp.(modalityName)    = cell(size(dij.mAlphaDoseExp));
+                        dTmpOmegaV.(modalityName) = cell(size(dij.mAlphaDoseOmega));
+                        vTotTmp.(modalityName)    = cell(size(dij.mAlphaDoseOmega));
+                    end
+        
+                       
+                    [dTmpExp.(modalityName), ...
+                    dTmpOmegaV.(modalityName),...
+                    vTotTmp.(modalityName)] = arrayfun(@(scen) computeSingleScenarioProb(obj,dij.(modalityName),scen,w.(modalityName)),scensToInclude, 'UniformOutput',false);
+                
+                    dTmpExp.(modalityName)    = arrayfun(@(scen) dTmpExp.(modalityName){scen}    * [obj.spatioTemporalFractions.(modalityName)]',scensToInclude,'UniformOutput',false);
+                    dTmpOmegaV.(modalityName){1}(obj.useStructsForOmega) = arrayfun(@(struct) dTmpOmegaV.(modalityName){1}{struct} * [obj.spatioTemporalFractions.(modalityName).^2]',obj.useStructsForOmega','UniformOutput',false);
+                    vTotTmp.(modalityName){1}(obj.useStructsForOmega)    = arrayfun(@(struct) vTotTmp.(modalityName){1}{struct}    * [obj.spatioTemporalFractions.(modalityName).^2]',obj.useStructsForOmega','UniformOutput',false); 
+
+                % else
+                %     dTmpExp.(modalityName) = [];
+                %     dTmpOmegaV.(modalityName) = [];
+                %     vTotTmp.(modalityName) = [];
+                end
+            end
+
+            if exist('dTmpExp', 'var')
+                dExp = zeros(dij.doseGrid.numOfVoxels,1);
+                vTot = repmat({0},size(vTotTmp.(modalityName){1},1),size(vTotTmp.(modalityName){1},2));
+    
+                for modalityIdx=1:obj.nModalities
+    
+                    modalityName = obj.radiationModalities{modalityIdx};
+                    dExp = dExp + dTmpExp.(modalityName){1};
+                    dOmegaV.(modalityName) = dTmpOmegaV.(modalityName){1};
+                    vTot(obj.useStructsForOmega) = arrayfun(@(struct) vTot{struct} + vTotTmp.(modalityName){1}{struct}, obj.useStructsForOmega, 'UniformOutput',false);
+                end
+    
+                dExp = {dExp};
             else
                 dExp = [];
                 dOmegaV = [];
+                vTot = [];
             end
+
         end
-        
+     
         function wGrad = projectGradient(obj,dij,doseGrad,w)
             nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, obj.radiationModalities);
  
@@ -138,7 +196,7 @@ classdef matRad_BackProjectionMM < handle
                 wGradTmp.(modalityName)(obj.scenarios) = arrayfun(@(scen) wGradTmp.(modalityName){scen}.*[obj.spatioTemporalFractions.(modalityName)],obj.scenarios,'UniformOutput', false);
             end
 
-            wGrad = cell(size(dij.(modalityName).physicalDose));%repmat({zeros(dij.totalNumOfBixels,1)}, size(dij.(modalityName).physicalDose));
+            wGrad = cell(size(dij.(modalityName).physicalDose));
             for scenIdx=obj.scenarios
 
                 for modalityIdx=1:obj.nModalities
@@ -147,15 +205,38 @@ classdef matRad_BackProjectionMM < handle
                     wGrad{scenIdx} = [wGrad{scenIdx}; wGradTmp.(modalityName){scenIdx}(:)];
                 end
             end
-
-
-            % wGrad = cell(size(dij.physicalDose));
-            % wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradient(obj,dij,doseGrad,scen,w),obj.scenarios,'UniformOutput',false);         
         end
         
         function wGrad = projectGradientProb(obj,dij,dExpGrad,dOmegaVgrad,w)
-            wGrad = cell(size(dij.physicalDose));
-            wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),obj.scenarios,'UniformOutput',false);
+
+            nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, obj.radiationModalities);
+
+            w = obj.splitWeigths(w, nBixels);
+
+            for modalityIdx=1:obj.nModalities
+                modalityName = obj.radiationModalities{modalityIdx};
+
+                if (isfield(dij.(modalityName),'physicalDoseExp') && ~isempty(dij.(modalityName).physicalDoseExp)) && ~(isfield(dij.(modalityName), 'mAlphaDoseExp') && isfield(dij.(modalityName), 'mSqrtBetaDoseExp'))
+                    wGradTmp.(modalityName) = cell(size(dij.(modalityName).physicalDoseExp));
+                elseif (isfield(dij.(modalityName), 'mAlphaDoseExp') && ~isempty(dij.(modalityName).mAlphaDoseExp))
+                    wGradTmp.(modalityName) = cell(size(dij.(modalityName).mAlphaDoseExp));
+                end
+
+                wGradTmp.(modalityName) = cell(size(dij.(modalityName).physicalDoseExp));
+                dTmpExpGrad = {dExpGrad{1} * obj.spatioTemporalFractions.(modalityName)};
+                wGradTmp.(modalityName) = projectSingleScenarioGradientProb(obj,dij.(modalityName),dTmpExpGrad,dOmegaVgrad.(modalityName),1);
+            end
+
+            
+            wGrad = [];
+            for modalityIdx=1:obj.nModalities
+                modalityName = obj.radiationModalities{modalityIdx};
+                wGrad = [wGrad; wGradTmp.(modalityName)(:)];
+            end
+
+            wGrad = {wGrad};
+            % wGrad = cell(size(dij.physicalDose));
+            % wGrad(obj.scenarios) = arrayfun(@(scen) projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w),obj.scenarios,'UniformOutput',false);
         end
 
         function splitW = splitWeigths(this,w,bixelNumbers)
@@ -183,11 +264,11 @@ classdef matRad_BackProjectionMM < handle
             error('Function needs to be implemented');
         end
         
-        function [dExp,dOmegaV] = computeSingleScenarioProb(obj,dij,scen,w)
+        function [dExp,dOmegaV,vTot] = computeSingleScenarioProb(obj,dij,scen,w)
             %warning('');
         end
         
-        function [dExp,dOmegaV] = projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w)
+        function [wGrad] = projectSingleScenarioGradientProb(obj,dij,dExpGrad,dOmegaVgrad,scen,w)
             %warning('');
         end
     end
