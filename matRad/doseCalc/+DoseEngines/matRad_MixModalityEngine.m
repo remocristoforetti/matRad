@@ -102,10 +102,14 @@ classdef matRad_MixModalityEngine < DoseEngines.matRad_DoseEngineBase
 
             % Do the same for dij
 
-             % for modalityIdx = 1:this.nModalities
+            % for modalityIdx = 1:this.nModalities
             %     modalityName = this.radiationModalities{modalityIdx};
             allFieldsName = cellfun(@(x) fieldnames(dij.(x)), this.radiationModalities, 'UniformOutput',false);
-            commonFieldsName = intersect(allFieldsName{1}, allFieldsName{2});%unique([vertcat(allFieldsName{:})]);
+            commonFieldsName = allFieldsName{1};
+
+            for modalityIdx=2:this.nModalities
+                commonFieldsName = intersect(commonFieldsName, allFieldsName{modalityIdx});%unique([vertcat(allFieldsName{:})]);
+            end
             
             % Exclude large fields
             [~,excludeFieldIdx] = intersect(commonFieldsName, {'physicalDose', 'mAlphaDose', 'mSqrtBetaDose', 'mLETDose'});
