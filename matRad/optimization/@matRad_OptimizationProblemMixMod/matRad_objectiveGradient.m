@@ -41,7 +41,7 @@ optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 
 % also get probabilistic quantities (nearly no overhead if empty)
-[dExp,dOmega] = optiProb.BP.GetResultProb();
+[dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
@@ -57,7 +57,10 @@ doseGradient          = cell(size(dij.(dij.radiationModalities{1}).physicalDose)
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
 %For probabilistic optimization
-vOmega = 0;
+for modalityIdx=1:optiProb.BP.nModalities
+    modalityName = optiProb.BP.radiationModalities{modalityIdx};
+    vOmega.(modalityName) = {0};
+end
 
 %For COWC
 f_COWC = zeros(size(dij.(dij.radiationModalities{1}).physicalDose));
@@ -124,18 +127,34 @@ for  i = 1:size(cst,1)
                         end
                         
                     case 'PROB' % use the expectation value and the integral variance influence matrix
-                        %First check the speficic cache for probabilistic
-                        if ~exist('doseGradientExp','var')
-                            doseGradientExp{1} = zeros(dij.doseGrid.numOfVoxels,1);
-                        end
-                        
-                        d_i = dExp{1}(cst{i,4}{1});
-                        
-                        doseGradientExp{1}(cst{i,4}{1}) = doseGradientExp{1}(cst{i,4}{1}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
-                        
-                        p = objective.penalty/numel(cst{i,4}{1});
-                        
-                        vOmega = vOmega + p * dOmega{i,1};
+                            
+                            if ~exist('doseGradientExp','var')
+                                optiProb.BP.compute(dij,w);
+    
+                                [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                                
+                                nonEmptyExp = find(~cellfun(@isempty, dExp))';
+    
+                                for s=nonEmptyExp
+                                    [doseGradientExp(s,1)] = {zeros(dij.doseGrid.numOfVoxels,1)};
+                                end
+                            end
+    
+    
+                            nonEmptyExp = find(~cellfun(@isempty, dExp))';
+    
+                            if ~isequal(nonEmptyExp,useNominalCtScen)
+                                totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                                
+                                newIdx{1} = unique(totIdx);
+                            else
+                                newIdx = cst{i,4}(useNominalCtScen);
+                            end
+    
+                            for s=nonEmptyExp
+                                d_i = dExp{s}(newIdx{s});
+                                doseGradientExp{s}(newIdx{s}) = doseGradientExp{s}(newIdx{s}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                            end
                     
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
@@ -287,8 +306,46 @@ for  i = 1:size(cst,1)
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         
                 end  %robustness type                              
+           elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+
+
+                robustness = objective.robustness;
+        
+                % rescale dose parameters to biological optimization quantity if required
+                %objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+                if objective.isActive
+                    switch robustness
+                        case 'PROB'
+                            if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
+                                optiProb.BP.compute(dij,w);
+                                [doseGradientExp(:)] = {zeros(dij.totalNumOfBixels,1)};
+                                [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
+                            end
+                            
+                            nonEmptyExp = find(~cellfun(@isempty, dExp))';
+    
+                            if ~isequal(nonEmptyExp,useNominalCtScen)
+                                totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                                
+                                newIdx{1} = unique(totIdx);
+                            else
+                                newIdx = cst{i,4}(useNominalCtScen);
+                            end
+                            for s=nonEmptyExp
+                                %vOmega here is sum over all structures
+                                d_i = dExp{s}(newIdx{s});
+                                tvGrad = objective.computeTotalVarianceGradient(vTot{i,s}, d_i);
+
+                                for modalityIdx=1:optiProb.BP.nModalities
+                                    modalityName = optiProb.BP.radiationModalities{modalityIdx};
+                                    vOmega.(modalityName){s,1} = vOmega.(modalityName){s,1} + tvGrad*dOmega.(modalityName){i,s} .* objective.penalty;
+                                end
+                            end
+                    end
+                end % isActive
             end  % objective check         
         end %objective loop       
+
     end %empty check    
 end %cst structure loop
 
@@ -326,7 +383,7 @@ for s = 1:numel(useScen)
    weightGradient = weightGradient + g{useScen(s)};
 end
 
-if vOmega ~= 0
+if ~isempty(dOmega)
     optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
     gProb = optiProb.BP.GetGradientProb();
     
@@ -336,6 +393,7 @@ if vOmega ~= 0
 end
 
 % code snippet to check the gradient
+
 gradientChecker = 0;
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);

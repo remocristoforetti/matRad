@@ -50,7 +50,7 @@ for i = 1:size(cst,1)
         %In case it is a default saved struct, convert to object
         %Also intrinsically checks that we have a valid optimization
         %objective or constraint function in the end
-        if ~isa(obj,'matRad_DoseOptimizationFunction')
+        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective') && ~isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
             try
                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
             catch
@@ -174,11 +174,11 @@ if ~pln.propOpt.spatioTemp
 end
 
 
-%if strcmp(pln.radiationMode, 'MixMod')
+if isfield(dij.(dij.radiationModalities{1}), 'physicalDose') && ~isempty(dij.(dij.radiationModalities{1}).physicalDose{1})
     totNumCtScen = size(dij.(dij.radiationModalities{1}).physicalDose,1);
-%else
-%    totNumCtScen = size(dij.physicalDose,1);
-%end
+elseif isfield(dij.(dij.radiationModalities{1}), 'physicalDoseExp')
+    totNumCtScen = size(dij.(dij.radiationModalities{1}).physicalDoseExp,1);    
+end
 
 % Validate / Create Scenario model
 if ~isfield(pln,'multScen')
@@ -444,7 +444,11 @@ else
 
         modalityName = dij.radiationModalities{modality};
 
-        doseTmp = dij.(modalityName).physicalDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        if isfield(dij.(modalityName), 'physicalDose') && ~isempty(dij.(modalityName).physicalDose{1})
+            doseTmp = dij.(modalityName).physicalDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        elseif isfield(dij.(modalityName), 'physicalDoseExp')
+            doseTmp = dij.(modalityName).physicalDoseExp{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        end
         bixelWeight =  (doseTarget)/mean(doseTmp(V));
         wTmp = ones(dij.(modalityName).totalNumOfBixels,numel(pln.propOpt.STfractions.(modalityName))) * bixelWeight/pln.numOfFractions;
         
@@ -456,41 +460,68 @@ end
 
 %% calculate probabilistic quantities for probabilistic optimization if at least
 % one robust objective is defined
+if isfield(dij.(dij.radiationModalities{1}), 'physicalDose') && ~isempty(dij.(dij.radiationModalities{1}).physicalDose{1})
+    linIxDIJ = find(~cellfun(@isempty,dij.(dij.radiationModalities{1}).physicalDose(scen4D,:,:)))';
+    linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.(dij.radiationModalities{1}).physicalDose(scen4D,1,1)))';
+elseif isfield(dij.(dij.radiationModalities{1}), 'physicalDoseExp')
 
-linIxDIJ = find(~cellfun(@isempty,dij.(dij.radiationModalities{1}).physicalDose(scen4D,:,:)))';
+    linIxDIJ = [];
+    linIxDIJ_nominalCT = scen4D;
+end
 
 %Only select the indexes of the nominal ct Scenarios
-linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.(dij.radiationModalities{1}).physicalDose(scen4D,1,1)))';
 
 FLAG_CALC_PROB = false;
 FLAG_ROB_OPT   = false;
-
+FLAG_PROB_OPT  = false;
 
 for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
-        if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
-            FLAG_CALC_PROB = true;
+        if strcmp(cst{i,6}{j}.robustness,'PROB')
+            FLAG_PROB_OPT = true;
+            if all([(~isfield(dij.(dij.radiationModalities{1}), 'physicalDoseExp') || isempty(dij.(dij.radiationModalities{1}).physicalDoseExp)), (~isfield(dij.(dij.radiationModalities{1}), 'mAlphaDoseExp')|| isempty(dij.(dij.radiationModalities{1}).mAlphaDoseExp))])
+                FLAG_CALC_PROB = true;
+            end
         end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;
         end
     end
 end
+% if FLAG_CALC_PROB
+%     [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+% end
 
-if FLAG_CALC_PROB
-    [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+% set optimization options
+if FLAG_PROB_OPT
+    %Set the structures to be included for prob calculation
+    voiForOmegaIx = [];
+    if (isfield(dij.(dij.radiationModalities{1}), 'physicalDoseOmega') && ~isempty(dij.(dij.radiationModalities{1}).physicalDoseOmega)) || (isfield(dij.(dij.radiationModalities{1}), 'mAlphaDoseOmega') && ~isempty(dij.(dij.radiationModalities{1}).mAlphaDoseOmega))
+        for i = 1:size(cst,1)
+            for j=1:size(cst{i,6},2)
+                if isa(cst{i,6}{j},'OmegaObjectives.matRad_OmegaObjective') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+                    voiForOmegaIx = [voiForOmegaIx i];
+                end
+            end
+        end
+        voiForOmegaIx = unique(voiForOmegaIx);
+    end
+else
+    voiForOmegaIx = [];
 end
 
 % set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
-    ixForOpt = scen4D;
-else
-    ixForOpt = linIxDIJ;
+useScen = 1;
+
+if FLAG_ROB_OPT && ~FLAG_PROB_OPT
+    useScen = linIxDIJ;
+elseif FLAG_PROB_OPT && ~FLAG_ROB_OPT
+    useScen = [];
 end
 
 
 %Give scenarios used for optimization
-backProjection.scenarios    = ixForOpt;
+backProjection.scenarios    = useScen;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
@@ -499,6 +530,8 @@ if isfield(pln, 'propOpt') && isfield(pln.propOpt, 'spatioTemp')
 else
     spatioTemp = 1;
 end
+backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
+backProjection.useStructsForOmega = voiForOmegaIx;
 
 backProjection.nModalities = numel(optModalityIdx);
 backProjection.spatioTemporalFractions = spatioTemp;
@@ -589,13 +622,13 @@ for modalityIdx=optModalityIdx
         end
     end
     %Robust quantities
-    if pln.multScen(modalityIdx).totNumScen > 1
-        for i = 1:pln.multScen.totNumScen
-            scenSubIx = pln.multScen.linearMask(i,:);
-            resultGUItmp = matRad_calcCubes(w.(modalityName),dij.(modalityName),pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
-            resultGUI.(modalityName) = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
-        end
-    end
+    % if pln.multScen(modalityIdx).totNumScen > 1
+    %     for i = 1:pln.multScen.totNumScen
+    %         scenSubIx = pln.multScen.linearMask(i,:);
+    %         resultGUItmp = matRad_calcCubes(w.(modalityName),dij.(modalityName),pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
+    %         resultGUI.(modalityName) = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
+    %     end
+    % end
 end
 
 % unblock mex files

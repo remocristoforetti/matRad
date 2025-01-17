@@ -36,12 +36,19 @@ optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 
 % get probabilistic quantities (nearly no overhead if empty)
-[dExp,dOmega] = optiProb.BP.GetResultProb();
+[dExp,dOmega, vTot] = optiProb.BP.GetResultProb();
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
 useNominalCtScen = optiProb.BP.nominalCtScenarios;
+
+
+if ~isempty(dExp)
+    nonEmptyExp = find(~cellfun(@isempty, dExp))';
+else
+    nonEmptyExp =  [];
+end
 
 % retrieve matching 4D scenarios
 fullScen = cell(ndims(d),1);
@@ -52,8 +59,14 @@ contourScen = fullScen{1};
 f = 0;
 
 % required for COWC opt
-f_COWC = zeros(numel(useScen),1);
+if ~isempty(useScen)
+    f_COWC = zeros(numel(useScen),1);
+else
+    f_COWC = 0;
 
+end
+
+singleObjective = [];
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
@@ -112,16 +125,41 @@ for  i = 1:size(cst,1)
 
                     case 'PROB' % if prob opt: sum up expectation value of objectives
 
-                        d_i = dExp{1}(cst{i,4}{1});
-
-                        f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
-
-                        p = objective.penalty/numel(cst{i,4}{1});
-
-                        % only one variance term per VOI
-                        if j == 1
-                            f = f + p * w' * dOmega{i,1};
+                        if ~exist('dExp','var')
+                            optiProb.BP.compute(dij,w);
+                            [dExp,dOmega,vTot] = optiProb.BP.GetResultProb();
                         end
+
+                        if ~isequal(nonEmptyExp,useNominalCtScen)
+                            totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                            
+                            newIdx{1} = unique(totIdx);
+                        else
+                            newIdx = cst{i,4}(useNominalCtScen);
+                        end
+                        
+                        f_objective = 0;
+                        for s=nonEmptyExp
+                            d_i = dExp{s}(newIdx{s});
+                        
+                            f_objective = f_objective + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                        end
+
+                        singleObjective = [singleObjective,f_objective];
+
+                        f = f + f_objective;
+                        
+                        
+                        % d_i = dExp{1}(cst{i,4}{1});
+                        % 
+                        % f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                        % 
+                        % p = objective.penalty/numel(cst{i,4}{1});
+                        % 
+                        % % only one variance term per VOI
+                        % if j == 1
+                        %     f = f + p * w' * dOmega{i,1};
+                        % end
 
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
@@ -215,6 +253,40 @@ for  i = 1:size(cst,1)
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
 
                 end  %robustness type                              
+            elseif isa(objective, 'OmegaObjectives.matRad_OmegaObjective')
+
+
+                %objective = optiProb.BP.setBiologicalDosePrescriptions(objective, cst{i,5}.alphaX, cst{i,5}.betaX);
+                robustness = objective.robustness;
+
+                switch robustness
+                    case 'PROB'
+
+                        if ~exist('vTot','var') % happens if this is the first cst struct that has PROB with OmegaObjective and no DoseObjective
+                            optiProb.BP.compute(dij,w);
+                            [dExp,~,vTot] = optiProb.BP.GetResultProb();
+                        end
+                        
+                        if ~isequal(nonEmptyExp,useNominalCtScen)
+                            totIdx = cat(1,cst{i,4}{useNominalCtScen});
+                            
+                            newIdx{1} = unique(totIdx);
+                        else
+                            newIdx = cst{i,4}(useNominalCtScen);
+                        end
+
+                        f_objective = 0;
+                        for s=nonEmptyExp
+                            d_i = dExp{s}(newIdx{s});
+                            f_objective = f_objective + objective.penalty * objective.computeTotalVarianceObjective(vTot{i,s}, d_i);
+
+                        end
+
+                        singleObjective = [singleObjective,f_objective];
+                        f = f + f_objective;
+                end
+            
+            
             end  % objective check         
         end %objective loop       
     end %empty check    
