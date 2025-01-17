@@ -54,8 +54,18 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(resultGUI.w,1),1);
 
 
 %% Physical Dose
-doseFields = {'physicalDose','doseToWater'};
-doseQuantities = {'','_std','_batchStd'};
+if ~isempty(dij.physicalDose{1})
+    doseFields = {'physicalDose','doseToWater'};
+    doseQuantities = {'','_std','_batchStd'};
+    if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1}) && scenNum==1
+        doseFields = [doseFields, {'physicalDoseExp'}];
+    end
+else
+    doseFields = {'physicalDoseExp'};
+    doseQuantities = {'','_std','_batchStd'};
+
+end
+
 % compute physical dose for all beams individually and together
 for j = 1:length(doseFields)
     for k = 1:length(doseQuantities)
@@ -80,9 +90,22 @@ end
 if ~isfield(dij,'doseWeightingThreshold')
     dij.doseWeightingThreshold = 0.01;
 end
-absoluteDoseWeightingThreshold = dij.doseWeightingThreshold*max(resultGUI.physicalDose(:));
 
+if ~isempty(dij.physicalDose{scenNum})
+    absoluteDoseWeightingThreshold = dij.doseWeightingThreshold*max(resultGUI.physicalDose(:));
+else
+    absoluteDoseWeightingThreshold = dij.doseWeightingThreshold*max(resultGUI.physicalDoseExp(:));
+end
 
+if ~isempty(dij.physicalDose{scenNum})
+    pDPrefix = 'physicalDose';
+    mAlphaDosePrefix = 'mAlphaDose';
+    mSqrtBetaDosePrefix = 'mSqrtBetaDose'; 
+else
+    pDPrefix = 'physicalDoseExp';
+    mAlphaDosePrefix = 'mAlphaDoseExp';
+    mSqrtBetaDosePrefix = 'mSqrtBetaDoseExp'; 
+end
 
 %% LET
 % consider LET
@@ -90,8 +113,8 @@ if isfield(dij,'mLETDose')
     for i = 1:length(beamInfo)
         LETDoseCube                                 = reshape(full(dij.mLETDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
         resultGUI.(['LET', beamInfo(i).suffix])     = zeros(dij.doseGrid.dimensions);
-        ix                                          = resultGUI.(['physicalDose', beamInfo(i).suffix]) > absoluteDoseWeightingThreshold;
-        resultGUI.(['LET', beamInfo(i).suffix])(ix) = LETDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix);
+        ix                                          = resultGUI.([pDPrefix, beamInfo(i).suffix]) > absoluteDoseWeightingThreshold;
+        resultGUI.(['LET', beamInfo(i).suffix])(ix) = LETDoseCube(ix)./resultGUI.([pDPrefix, beamInfo(i).suffix])(ix);
     end
 end
 
@@ -100,7 +123,7 @@ end
 % consider RBE for protons and skip varRBE calculation
 if isfield(dij,'RBE') && isscalar(dij.RBE)
     for i = 1:length(beamInfo)
-        resultGUI.(['RBExDose', beamInfo(i).suffix]) = resultGUI.(['physicalDose', beamInfo(i).suffix]) * dij.RBE;
+        resultGUI.(['RBExDose', beamInfo(i).suffix]) = resultGUI.([pDPrefix, beamInfo(i).suffix]) * dij.RBE;
     end
 elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr),'alpha')), fieldnames(dij)))
     % Load RBE models if MonteCarlo was calculated for multiple models
@@ -122,8 +145,8 @@ elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr),'alpha')), fieldna
                 wBeam = (resultGUI.w .* beamInfo(i).logIx);
 
                 % consider biological optimization
-                ix = dij.bx{ctScen} ~= 0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > 0;
-                ixWeighted = dij.bx{ctScen} ~= 0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > absoluteDoseWeightingThreshold;
+                ix = dij.bx{ctScen} ~= 0 & resultGUI.([pDPrefix, beamInfo(i).suffix])(:) > 0;
+                ixWeighted = dij.bx{ctScen} ~= 0 & resultGUI.([pDPrefix, beamInfo(i).suffix])(:) > absoluteDoseWeightingThreshold;
 
                 % Calculate effect from alpha- and sqrtBetaDose
                 resultGUI.(['effect', RBE_model{j}, beamInfo(i).suffix])                = full(dij.(['mAlphaDose' RBE_model{j}]){scenNum} * wBeam + (dij.(['mSqrtBetaDose' RBE_model{j}]){scenNum} * wBeam).^2);
@@ -160,18 +183,15 @@ elseif all(isfield(dij, {'ax', 'bx'}))
         % Get weights of current beam
         
         % consider biological optimization
-        ix = dij.bx{ctScen} ~= 0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > 0;
-        
+        ix = dij.bx{ctScen} ~= 0 & resultGUI.([pDPrefix, beamInfo(i).suffix])(:) > 0;
         % Calculate effect from alpha- and sqrtBetaDose
 
-        resultGUI.(['effect', beamInfo(i).suffix])                   = zeros(size(resultGUI.(['physicalDose', beamInfo(i).suffix])));
-        resultGUI.(['effect', beamInfo(i).suffix])(ix)               = dij.ax{scenNum}(ix) .* resultGUI.(['physicalDose', beamInfo(i).suffix])(ix) + dij.bx{scenNum}(ix) .* (resultGUI.(['physicalDose', beamInfo(i).suffix])(ix)).^2;
+        resultGUI.(['effect', beamInfo(i).suffix])                   = zeros(size(resultGUI.([pDPrefix, beamInfo(i).suffix])));
+        resultGUI.(['effect', beamInfo(i).suffix])(ix)               = dij.ax{scenNum}(ix) .* resultGUI.([pDPrefix, beamInfo(i).suffix])(ix) + dij.bx{scenNum}(ix) .* (resultGUI.([pDPrefix, beamInfo(i).suffix])(ix)).^2;
 
         % Calculate RBExD from the effect
         resultGUI.(['RBExDose', beamInfo(i).suffix])                 = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
         resultGUI.(['RBExDose', beamInfo(i).suffix])(ix)             = (sqrt(dij.ax{ctScen}(ix).^2 + 4 .* dij.bx{ctScen}(ix) .* resultGUI.(['effect', beamInfo(i).suffix])(ix)) - dij.ax{ctScen}(ix))./(2.*dij.bx{ctScen}(ix));
-
-
     end
 
 end
@@ -180,7 +200,7 @@ end
 
 % When depth Dependent alpha beta values are calculated in dij calculation
 if isfield(dij,'ax') && isfield(dij,'bx')
-    ixWeighted = dij.ax{ctScen} > 0 & dij.bx{ctScen} > 0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > absoluteDoseWeightingThreshold;
+    ixWeighted = dij.ax{ctScen} > 0 & dij.bx{ctScen} > 0 & resultGUI.([pDPrefix, beamInfo(i).suffix])(:) > absoluteDoseWeightingThreshold;
 
     if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
         for i = 1:length(beamInfo)
