@@ -35,7 +35,7 @@ classdef matRad_BackProjectionMM < handle
         nModalities = 1;
         radiationModalities;
         spatioTemporalFractions;
-        totalNumOfFractions;
+        %totalNumOfFractions;
         useStructsForOmega = [];
     end
 
