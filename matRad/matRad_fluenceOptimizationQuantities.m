@@ -596,6 +596,21 @@ if ~optimizer.IsAvailable()
     matRad_cfg.dispError(['Optimizer ''' pln.propOpt.optimizer ''' not available!']);
 end
 
+
+if isfield(pln.propOpt, 'runOnGPU')
+    gpuRun = pln.propOpt.runOnGPU;
+else
+    gpuRun = false;
+end
+
+
+if gpuRun
+    dij.protons.physicalDose{1} = gpuArray(dij.protons.physicalDose{1});
+    dij.photons.physicalDose{1} = gpuArray(dij.photons.physicalDose{1});
+
+    optiProb.BP.gpuCalc = true;
+end
+
 optimizer = optimizer.optimize(wInit,optiProb,dij,cst);
 
 wOpt = optimizer.wResult;
@@ -606,22 +621,19 @@ try
 catch
     matRad_cfg.dispWarning('Unable to compue calcCubes');
 end
+
 resultGUI.wUnsequenced = wOpt;
 resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
 resultGUI.info.timePerIteration = resultGUI.info.cpu/resultGUI.info.iter;
 
-% for i=1:numel(optiProb.graphicOutput.data.objectiveFunctions)
-%     functionName = optiProb.graphicOutput.leg{i};
-%     resultGUI.costFunctions(i).name = functionName;
-%     resultGUI.costFunctions(i).values = optiProb.graphicOutput.data.objectiveFunctions(i).values;
-% end
-
-% resultGUI.costFunctions(i+1).name = 'total Function';
-% resultGUI.costFunctions(i+1).values = optiProb.graphicOutput.data.totFValues;
 if ~exist('computeScenarios', 'var') || isempty(computeScenarios)
     computeScenarios = 1;
+
 end
+
+dij.protons.physicalDose = cellfun(@gather, dij.protons.physicalDose, 'UniformOutput',false);
+dij.photons.physicalDose = cellfun(@gather, dij.photons.physicalDose, 'UniformOutput',false);
 
 %Robust quantities
 try
@@ -635,8 +647,7 @@ try
         for STidx=1:size(w.(modalityName),2)
     
             resultGUItmp = matRad_calcCubes(w.(modalityName)(:,STidx),dij.(modalityName));
-    
-            % resultGUI.(modalityName) = matRad_calcCubes(w.(modalityName)(:,STidx),dij.(modalityName));
+
             if ~exist('resultGUI', 'var') || ~isfield(resultGUI, modalityName)
                 resultGUI.(modalityName) = resultGUItmp;
                 resultGUI.(modalityName).wUnsequenced = w.(modalityName);

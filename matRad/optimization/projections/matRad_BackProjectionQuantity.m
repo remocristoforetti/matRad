@@ -40,6 +40,7 @@ classdef matRad_BackProjectionQuantity < handle
         radiationModalities;
         spatioTemporalFractions;
         totalNumOfFractions;
+        gpuCalc;
         %structsForScalarQuantity;
     end
 
@@ -55,18 +56,32 @@ classdef matRad_BackProjectionQuantity < handle
             obj.wJacob = [];
             %obj.wConstraintCache = [];
             obj.wConstJacobianCache = [];
+            obj.gpuCalc = false;
         end       
         
         function obj = compute(obj,dij,w)
             if ~isequal(obj.wCache,w)
+                if obj.gpuCalc
+                    w = gpuArray(w);
+                end
+                
                 obj.computeResult(dij,w);
+
+                w = gather(w);
                 obj.wCache = w;
+            
             end
         end
         
         function obj = computeGradient(obj,dij,fGrad,w)
             if ~isequal(obj.wGradCache,w)
+                if obj.gpuCalc
+                    w = gpuArray(w);
+                end
+                
                 obj.projectGradient(dij,fGrad,w);
+                
+                w = gather(w);
                 obj.wGradCache = w;
             end
         end
@@ -83,7 +98,7 @@ classdef matRad_BackProjectionQuantity < handle
         end
 
         function wGrad = GetGradient(obj)
-            wGrad = obj.wGrad;
+            wGrad = gather(obj.wGrad);
         end
       
         function computeResult(obj,dij,w)

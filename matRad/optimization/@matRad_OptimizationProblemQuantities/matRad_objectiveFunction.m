@@ -65,41 +65,24 @@ for  i = 1:size(cst,1)
             % only perform gradient computations for objectiveectives
              
             if isa(objective,'DoseObjectives.matRad_DoseObjective')
-% 
-%                 % rescale dose parameters to biological optimization quantity if required
-%                 objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
-% 
-%                 f = [f; objective.computeObjectiveFunction(d,cst{i,4})];
-% 
-%             end
-% 
-%         end
-%     end
-% end
-% 
-% compFunctionsIdx = cellfun(@(x) numel(x{1})>1, f, 'UniformOutput', false);
-% compFunctions = sum([f{compFunctionsIdx,:}],2);
-% compFunctions = max(compFunctions);
-% f = sum(f{~compFunctions}) + compFunctions;
-
                 % retrieve the robustness type
                 
                 robustness = objective.robustness;
 
-                %This is just for temporary compatibility
-                % for optQt=optiProb.BP.optimizationQuantities
-                %     if any(strcmp(optQt, {'physicalDose', 'RBExD', 'effect', 'BED', 'physicalDoseExp', 'ApproxEffect', 'MeanAverageEffect'}))
-                %         quantityOptimized = optQt{1};
-                %     end
-                % end
-                quantityOptimized = objective.quantity;
 
+
+                quantityOptimized = objective.quantity;
 
                 quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
                 quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimized,quantityNames)};
                 % rescale dose parameters to biological optimization quantity if required
                 objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
-    
+                
+                if optiProb.BP.gpuCalc
+                    objective.penalty    = gpuArray(objective.penalty);
+                    objective.parameters = cellfun(@gpuArray, objective.parameters, 'UniformOutput',false); 
+                end
+                
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
                         if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
@@ -306,6 +289,8 @@ end
 %Sum up max of composite worst case part
 
 f = f + fMax;
+
+f = gather(f);
 % 
 % 
 % v = (dij.mSqrtBetaDoseExp{1}*w).^2;%dij.mAlphaDoseExp{1}*w;% + (dij.mSqrtBetaDoseExp{1}*w).^2;

@@ -39,8 +39,7 @@ matRad_cfg = MatRad_Config.instance();
 % get current dose / effect / RBExDose vector
 
 optiProb.BP.compute(dij,w);
-d = optiProb.BP.d;
-%d = optiProb.BP.GetResult();
+d = optiProb.BP.GetResult();
 gGrad = [];
 
 
@@ -94,7 +93,12 @@ for  i = 1:size(cst,1)
 
                 % retrieve the robustness type
                 robustness = objective.robustness;
-                
+
+                if optiProb.BP.gpuCalc
+                    objective.penalty    = gpuArray(objective.penalty);
+                    objective.parameters = cellfun(@gpuArray, objective.parameters, 'UniformOutput',false); 
+                end
+
                 quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
                 quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimized,quantityNames)};
                 % rescale dose parameters to biological optimization quantity if required
@@ -103,13 +107,22 @@ for  i = 1:size(cst,1)
                 if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimized)
                     if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
                         gGrad.(quantityOptimized)          = cell(size(d.(quantityOptimized)));
-                        gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+
+                        if optiProb.BP.gpuCalc
+                            gGrad.(quantityOptimized)(useScen) = {gpuArray(zeros(dij.doseGrid.numOfVoxels,1))};
+                        else
+                            gGrad.(quantityOptimized)(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                        end
                     elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
                         gGrad.(quantityOptimized)                                       = cell(size(d.(quantityOptimized)));
-                        gGrad.(quantityOptimized)(:) = {0};           
+                                               
+                        if optiProb.BP.gpuCalc
+                            gGrad.(quantityOptimized)(:) = {gpuArray(0)};
+                        else
+                            gGrad.(quantityOptimized)(:) = {0};
+                        end
                     end
                 end
-
 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectiveectives of nominal dose 
@@ -399,8 +412,12 @@ if exist('delta_COWC','var')
     end
 end
 
-weightGradient = zeros(dij.totalNumOfBixels,1);
+if optiProb.BP.gpuCalc
+    weightGradient = gpuArray(zeros(dij.totalNumOfBixels,1));
+else
 
+    weightGradient = zeros(dij.totalNumOfBixels,1);
+end
 % fGrad has an entry for each quantity on which objective functions are
 % defined. the fGrad is the sum over all the objfunctions defined for that
 % quantity, then gradient wrt the quantity is defined by quantity itself.
@@ -440,6 +457,7 @@ for qtIdx=optiProb.BP.optimizationQuantities
     end
 end
 
+weightGradient = gather(weightGradient);
 
 gradientChecker = 0;
 if gradientChecker == 1
