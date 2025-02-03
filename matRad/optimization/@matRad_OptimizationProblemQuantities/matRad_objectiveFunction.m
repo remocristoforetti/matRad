@@ -76,8 +76,20 @@ for  i = 1:size(cst,1)
                 quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
                 quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimized,quantityNames)};
                 % rescale dose parameters to biological optimization quantity if required
+                
+                % First scale the dose prescription to fraction size
+                doseParameter = objective.getDoseParameters();
+                objective = objective.setDoseParameters(doseParameter./optiProb.BP.spatioTemporalFractions.total);
+
+                % Compute the biological parameters. This function is only effective when using effect-based
+                % optimization
                 objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
                 
+                % Scale back the biological dose prescription to total plan
+                % size
+                doseParameter = objective.getDoseParameters();
+                objective = objective.setDoseParameters(doseParameter.*optiProb.BP.spatioTemporalFractions.total);
+
                 if optiProb.BP.gpuCalc
                     objective.penalty    = gpuArray(objective.penalty);
                     objective.parameters = cellfun(@gpuArray, objective.parameters, 'UniformOutput',false); 

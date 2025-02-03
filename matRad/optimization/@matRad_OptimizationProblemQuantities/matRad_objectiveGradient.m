@@ -101,8 +101,19 @@ for  i = 1:size(cst,1)
 
                 quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
                 quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimized,quantityNames)};
-                % rescale dose parameters to biological optimization quantity if required
+                
+                % First scale the dose prescription to fraction size
+                doseParameter = objective.getDoseParameters();
+                objective = objective.setDoseParameters(doseParameter./optiProb.BP.spatioTemporalFractions.total);
+
+                % Compute the biological parameters. This function is only effective when using effect-based
+                % optimization
                 objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
+                
+                % Scale back the biological dose prescription to total plan
+                % size
+                doseParameter = objective.getDoseParameters();
+                objective = objective.setDoseParameters(doseParameter.*optiProb.BP.spatioTemporalFractions.total);
                 
                 if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimized)
                     if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
@@ -345,17 +356,10 @@ for  i = 1:size(cst,1)
             
                 robustness = objective.robustness;
 
-                %This is just for temporary compatibility
-                % for optQt=optiProb.BP.optimizationQuantities
-                %     if any(strcmp(optQt, {'meanVariance', 'vTotApprox', 'vAlpha', 'vBeta', 'MeanAverageEffectVariance', 'AlphaOnlyVariance', 'SqrtBetaOnlyVariance'}))
-                %         quantityOptimizedVariance = optQt{1};
-                %     end
-                % end
+
                 quantityOptimizedVariance = objective.quantity;
                 quantityNames = cellfun(@(x) x.quantityName, optiProb.BP.quantities, 'UniformOutput',false);
                 quantityOptimizedInstance = optiProb.BP.quantities{strcmp(quantityOptimizedVariance,quantityNames)};
-                % rescale dose parameters to biological optimization quantity if required
-                %objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
 
 
                 if ~exist('gGrad', 'var') || ~isfield(gGrad,quantityOptimizedVariance)
@@ -413,10 +417,10 @@ if exist('delta_COWC','var')
 end
 
 if optiProb.BP.gpuCalc
-    weightGradient = gpuArray(zeros(dij.totalNumOfBixels,1));
+    weightGradient = gpuArray(zeros(size(w)));
 else
 
-    weightGradient = zeros(dij.totalNumOfBixels,1);
+    weightGradient = zeros(size(w));
 end
 % fGrad has an entry for each quantity on which objective functions are
 % defined. the fGrad is the sum over all the objfunctions defined for that
@@ -459,7 +463,9 @@ end
 
 weightGradient = gather(weightGradient);
 
+
 gradientChecker = 0;
+
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
     epsilon = 1e-3;
