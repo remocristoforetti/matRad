@@ -33,7 +33,7 @@ classdef matRad_MeanAlpha < matRad_ScalarQuantity
             currIdx = unique(currIdx);
             N = numel(currIdx);
 
-            
+
             gradientOutput = (1/N)*fGrad{struct} *  dij.alphaJExp{struct};
         end
     end  

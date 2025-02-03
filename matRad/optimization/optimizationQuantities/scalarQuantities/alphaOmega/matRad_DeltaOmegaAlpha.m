@@ -18,7 +18,7 @@ classdef matRad_DeltaOmegaAlpha < matRad_ScalarQuantity
         end
 
         function quantityOutput = computeQuantity(~, dij,struct,w)
-            quantityOutput = dij.mAlphaDoseOmega{struct} * w; %cellfun(@(structOmega) structOmega*w, dij. 'UniformOutput',false);
+            quantityOutput = dij.mAlphaDoseOmega{struct} * w;
         end
 
         function gradientOutput = projectGradient(~,dij,~,fGrad,~)
