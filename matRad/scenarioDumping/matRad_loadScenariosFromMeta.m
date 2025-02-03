@@ -1,4 +1,4 @@
-function [physicalDose, physicalDoseOmegaReduced, mAlphaDose, mSqrtBetaDose, mLETDose,mLETdJ, alphaJ, sqrtBetaJ,physicalDoseJ]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate, verbosity)
+function [outScenarioQuantities]  = matRad_loadScenariosFromMeta(saveDir, scenariosMeta, dijTemplate, bioQuantities, verbosity)
 
     matRad_cfg = MatRad_Config.instance();
     %% Input
@@ -14,24 +14,28 @@ function [physicalDose, physicalDoseOmegaReduced, mAlphaDose, mSqrtBetaDose, mLE
         end
     end
 
-    if ~exist('verbosity', 'var') || isempty(verbosity)
+    if ~exist('bioQuantities', 'var') || isempty(bioQuantities)
 
+        bioQuantities = false;
+    end
+
+    if ~exist('verbosity', 'var') || isempty(verbosity)
         verbosity = false;
     end
 
-    %% Output
-    %nOutputs = nargout();
-    %TODO
     %% Loading
     physicalDose             = {};
-    physicalDoseOmegaReduced = {};
-    mAlphaDose               = {};
-    mSqrtBetaDose            = {};
+
+    if bioQuantities
+        mAlphaDose               = {};
+        mSqrtBetaDose            = {};
+        alphaJ                   = {};
+        sqrtBetaJ                = {};
+        physicalDoseJ            = {};
+    end
+
     mLETDose                 = {};
     mLETdJ                   = {};
-    alphaJ                   = {};
-    sqrtBetaJ                = {};
-    physicalDoseJ            = {};
 
     % Get meta info from dij template
     nVoxels = dijTemplate.doseGrid.numOfVoxels;
@@ -40,13 +44,13 @@ function [physicalDose, physicalDoseOmegaReduced, mAlphaDose, mSqrtBetaDose, mLE
     nScensToLoad = numel(scenariosMeta);
     
     physicalDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
-    %mAlphaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
-    %mSqrtBetaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
-
-    alphaJ        = cell(nScensToLoad,1);
-    sqrtBetaJ     = cell(nScensToLoad,1);
-    % sqrtBetaJ     = arrayfun(@(scen) spalloc(nBixels,1, nBixels), scenariosMeta, 'UniformOutput',false);
+    if bioQuantities
+        mAlphaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
+        mSqrtBetaDose = arrayfun(@(scen) spalloc(nVoxels,nBixels,scen.nnzElements), scenariosMeta, 'UniformOutput',false);
     
+        alphaJ        = cell(nScensToLoad,1);
+        sqrtBetaJ     = cell(nScensToLoad,1);
+    end
     
     stringLength = 0;
     for scenIdx=1:nScensToLoad
@@ -68,38 +72,50 @@ function [physicalDose, physicalDoseOmegaReduced, mAlphaDose, mSqrtBetaDose, mLE
         else
             physicalDose(scenIdx)  = currDijScen.physicalDose;
             
-            if isfield(currDijScen, 'mAlphaDose')
-                mAlphaDose{scenIdx}   = currDijScen.mAlphaDose;
-            end
+            if bioQuantities
+                if isfield(currDijScen, 'mAlphaDose')
+                    mAlphaDose(scenIdx)   = currDijScen.mAlphaDose;
+                end
 
-            if isfield(currDijScen, 'mSqrtBetaDose')
-                mSqrtBetaDose{scenIdx} = currDijScen.mSqrtBetaDose;
+                if isfield(currDijScen, 'mSqrtBetaDose')
+                    mSqrtBetaDose(scenIdx) = currDijScen.mSqrtBetaDose;
+                end
+                
+                % if isfield(currDijScen, 'alphaDoseJ') && isfield(currDijScen, 'sqrtBetaDoseJ')
+                %     alphaJ(scenIdx)    = currDijScen.alphaDoseJ;
+                %     sqrtBetaJ(scenIdx) = currDijScen.sqrtBetaDoseJ;
+                % end
+
             end
 
             if isfield(currDijScen, 'mLETDose')
-                mLETDose{scenIdx} = currDijScen.mLETDose;
+                mLETDose(scenIdx) = currDijScen.mLETDose;
             end
 
-            if isfield(currDijScen, 'alphaJ') && isfield(currDijScen, 'sqrtBetaJ')
-                alphaJ{scenIdx}    = currDijScen.alphaJ;
-                sqrtBetaJ{scenIdx} = currDijScen.sqrtBetaJ;
-            end
-            
-            if isfield(currDijScen, 'physicalDoseOmegaReduced')
-                physicalDoseOmegaReduced{scenIdx} = currDijScen.physicalDoseOmegaReduced;
-            else
-                physicalDoseOmegaReduced{scenIdx} = [];
-            end
 
-            if isfield(currDijScen, 'mLETdJ')
-                mLETdJ{scenIdx} = currDijScen.mLETdJ;
-            end
+            % if isfield(currDijScen, 'mLETdJ')
+            %     mLETdJ(scenIdx) = currDijScen.mLETdJ;
+            % end
 
             
-            if isfield(currDijScen, 'mLETdJ')
-                physicalDoseJ{scenIdx} = currDijScen.physicalDoseJ;
-            end
+            % if isfield(currDijScen, 'mLETdJ')
+            %     physicalDoseJ(scenIdx) = currDijScen.physicalDoseJ;
+            % end
 
         end
     end
+
+    outScenarioQuantities.physicalDose  = physicalDose;
+    % outScenarioQuantities.physicalDoseJ = physicalDoseJ;
+
+    if bioQuantities
+        outScenarioQuantities.mAlphaDose = mAlphaDose;
+        outScenarioQuantities.mSqrtBetaDose = mSqrtBetaDose;
+        % outScenarioQuantities.alphaDoseJ = alphaJ;
+        % outScenarioQuantities.sqrtBetaDoseJ = sqrtBetaJ;
+    end
+
+
+    outScenarioQuantities.mLETdose = mLETDose;
+    % outScenarioQuantities.mLETdJ   = mLETdJ;
 end

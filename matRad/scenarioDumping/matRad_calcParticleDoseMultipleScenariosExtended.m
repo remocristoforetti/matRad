@@ -66,12 +66,12 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenariosExtended(c
                         currCst{i,4}(1) = cst{i,4}(ctScenIdx);
                     end
 
-                    if strcmp(pln.radiationMode, 'protons')
+                    %if strcmp(pln.radiationMode, 'protons')
                         currDij = matRad_calcDoseInfluence(currCt,currCst,stf,currPln);
                         %currDij = matRad_calcParticleDose(currCt,stf,currPln,currCst);
-                    else
-                        currDij = matRad_calcPhotonDose(currCt, stf, currPln, currCst);                   
-                    end
+                    %else
+                    %    currDij = matRad_calcPhotonDose(currCt, stf, currPln, currCst);                   
+                    %end
     
                     matRad_cfg.dispInfo('saving scenario...');
                     fileName = fullfile(saveDirectory, ['scenario_', num2str(currScenIndex)]);
@@ -133,11 +133,13 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenariosExtended(c
                         dijTemplate.physicalDose  = {[]};
                         dijTemplate.mAlphaDose    = {[]};
                         dijTemplate.mSqrtBetaDose = {[]};
-                        dijTemplate.alphaJ        = {[]};
-                        dijTemplate.sqrtBetaJ     = {[]};
+                        dijTemplate.alphaDoseJ    = {[]};
+                        dijTemplate.sqrtBetaDoseJ = {[]};
                         dijTemplate.mLETDose      = {[]};
                         dijTemplate.physicalDoseJ = {[]};
                         dijTemplate.mLETdJ        = {[]};
+                        dijTemplate.mAlphaDoseOmega    = {[]};
+                        dijTemplate.mSqrtBetaDoseOmega = {[]};
                     end
                     
                     clear currDij dijScenario;

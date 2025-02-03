@@ -1,4 +1,4 @@
-function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProbabilisticQuantities(saveDir,ct,cst,scenariosMeta, multiScen, mode4D)
+function [outputProbabilisticQuantities,probQuantitiesAccumulationTime] = matRad_accumulateProbabilisticQuantities(saveDir,ct,cst,scenariosMeta, multiScen, mode4D, bioQuantities)
     
     matRad_cfg = MatRad_Config.instance();
     originaLogLevel = matRad_cfg.logLevel;
@@ -19,6 +19,10 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
     if ~exist('multiScen', 'var')
         matRad_cfg.dispWarning('Specific multScen not provided, loading default one');
         multiScen = matRad_getMultiScenFromScenarios(saveDir,'rndScen');
+    end
+
+    if ~exist('bioQuantities', 'var') || isempty(bioQuantities)
+        bioQuantities = false;
     end
 
     % Load dij template
@@ -79,11 +83,52 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
             omega = cell(size(cst,1),multiScen.numOfCtScen);
             omega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
 
+            if bioQuantities
+                mAlphaDoseExp    = cell(multiScen.numOfCtScen,1);
+                mAlphaDoseExp(:) = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
+    
+                mSqrtBetaDoseExp    = cell(multiScen.numOfCtScen,1);
+                mSqrtBetaDoseExp(:) = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
+    
+                mAlphaDoseOmega    = cell(size(cst,1),multiScen.numOfCtScen);
+                mAlphaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+    
+                mSqrtBetaDoseOmega    = cell(size(cst,1),multiScen.numOfCtScen);
+                mSqrtBetaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+
+            end
+
   
         case 'all'
             expDist = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
             omega   = cell(size(cst,1),1);
             omega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+            
+            physicalDoseJExp = cell(size(cst,1),1);
+            physicalDoseJExp(:) = {zeros(dijTemplate.totalNumOfBixels,1)};
+            
+            if bioQuantities
+                mAlphaDoseExp    = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
+                mSqrtBetaDoseExp = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
+    
+                mAlphaDoseOmega   = cell(size(cst,1),1);
+                mAlphaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+    
+                mSqrtBetaDoseOmega   = cell(size(cst,1),1);
+                mSqrtBetaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+    
+                % mAlphaSqrtBetaDoseOmega = cell(size(cst,1),1);
+                % mAlphaSqrtBetaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+                % 
+                % mTwiceAlphaSqrtBetaDoseOmega = cell(size(cst,1),1);
+                % mTwiceAlphaSqrtBetaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+    
+                alphaJExp = cell(size(cst,1),1);
+                alphaJExp(:) = {zeros(dijTemplate.totalNumOfBixels,1)};
+    
+                sqrtBetaJExp = cell(size(cst,1),1);
+                sqrtBetaJExp(:) = {zeros(dijTemplate.totalNumOfBixels,1)};
+            end
     end
 
 
@@ -92,11 +137,21 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
     matRad_cfg.dispInfo('Accumulating probabilistic quantities E[D] & Omega[D] ...\n');
 
 
-    
     for phaseIdx=1:numel(ctAccumIx)
         lineLengthPhase = fprintf('\t\t4D-Phase %d/%d...\n',phaseIdx,numel(ctAccumIx));
 
         currPhaseOmega = omega(:,phaseIdx);
+        currPhasePhysicalDoseJ = physicalDoseJExp(:,phaseIdx);
+
+        if bioQuantities
+
+            currPhaseOmegaAlpha = mAlphaDoseOmega(:,phaseIdx);
+            currPhaseOmegaBeta  = mSqrtBetaDoseOmega(:,phaseIdx);
+
+            currPhaseAlphaJ     = alphaJExp(:,phaseIdx);
+            currPhaseSqrtBetaJ  = sqrtBetaJExp(:,phaseIdx);
+
+        end
 
         % Get scenarios meta in this psecific phase
         scenariosMetaInPhase = scenariosMeta(ctAccumIx{phaseIdx}(:,4));
@@ -106,10 +161,47 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
         for scenIdx=1:nScenariosInPhase
             lineLengthScen = fprintf('\t\t\tAccumulating scenario: %d/%d\n',scenIdx,nScenariosInPhase);
             currMeta = scenariosMetaInPhase(scenIdx);
-            scenarioDistribution = matRad_loadScenariosFromMeta(saveDir,currMeta,dijTemplate);
+            outScenarioQuantities = matRad_loadScenariosFromMeta(saveDir,currMeta,dijTemplate, bioQuantities);
+
+            scenarioDistribution = outScenarioQuantities.physicalDose;
+            scenarioPhysicalDoseJ = cell(size(cst,1),1);
+            scenarioPhysicalDoseJ(structsToInclude)       = arrayfun(@(structIdx) sum(scenarioDistribution{1}(cst{structIdx,4}{currMeta.ctScenIdx},:),1), structsToInclude, 'UniformOutput',false);
 
             lineLengthScen = lineLengthScen + fprintf('\t\t\t\tAccumulating exp...');
             expDist{phaseIdx} = expDist{phaseIdx} + scenarioDistribution{1}.*scenWeights{phaseIdx}(scenIdx);
+
+            if bioQuantities
+  
+                ax = zeros(size(scenarioDistribution{1},1),1);
+                bx = zeros(size(scenarioDistribution{1},1),1);
+    
+                for v = 1:size(cst,1)
+                    ax(cst{v,4}{currMeta.ctScenIdx}) = cst{v,5}.alphaX;
+                    bx(cst{v,4}{currMeta.ctScenIdx}) = cst{v,5}.betaX;
+                end
+
+                if isfield(outScenarioQuantities, 'mAlphaDose')  && nnz(outScenarioQuantities.mAlphaDose{1})>0
+                    scenarioAlphaDose    = outScenarioQuantities.mAlphaDose;
+                else
+                    scenarioAlphaDose    = {scenarioDistribution{1}.*ax};
+                end
+                
+                if isfield(outScenarioQuantities, 'mSqrtBetaDose') && nnz(outScenarioQuantities.mSqrtBetaDose{1})>0
+                    scenarioSqrtBetaDose = outScenarioQuantities.mSqrtBetaDose;
+                else
+                    scenarioSqrtBetaDose    = {scenarioDistribution{1}.*sqrt(bx)};
+                end
+
+                scenarioAlphaJ = cell(size(cst,1),1);
+                scenarioSqrtBetaJ = cell(size(cst,1),1);
+                
+                scenarioAlphaJ(structsToInclude)       = arrayfun(@(structIdx) sum(scenarioAlphaDose{1}(cst{structIdx,4}{currMeta.ctScenIdx},:),1), structsToInclude, 'UniformOutput',false);
+                scenarioSqrtBetaJ(structsToInclude)    = arrayfun(@(structIdx) sum(scenarioSqrtBetaDose{1}(cst{structIdx, 4}{currMeta.ctScenIdx},:),1), structsToInclude, 'UniformOutput',false);
+                
+                mAlphaDoseExp{phaseIdx}    = mAlphaDoseExp{phaseIdx} + scenarioAlphaDose{1}.*scenWeights{phaseIdx}(scenIdx);
+                mSqrtBetaDoseExp{phaseIdx} = mSqrtBetaDoseExp{phaseIdx} + scenarioSqrtBetaDose{1}.*scenWeights{phaseIdx}(scenIdx);
+
+            end
 
             lineLengthScen = lineLengthScen + fprintf('done.\n');
             lineLengthScen = lineLengthScen + fprintf('\t\t\t\tAccumulating omega for struct: ');
@@ -137,38 +229,53 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
                 end
                 currStructVoxels = unique(currStructVoxels);
 
-
                 currStructOmega = currPhaseOmega{structIdx};
                 currDist = gpuArray(scenarioDistribution{1}(currStructVoxels,:));
 
                 currStructOmega = currStructOmega + gather(currDist'*currDist).*scenWeights{phaseIdx}(scenIdx);
                 wait(gpu);
 
-                clear currDist;
-
                 currPhaseOmega{structIdx} = currStructOmega;
+                
+                currStructPhysicalDoseJ = currPhasePhysicalDoseJ{structIdx};
+                currStructPhysicalDoseJ = currStructPhysicalDoseJ + scenarioPhysicalDoseJ{structIdx}'.*scenWeights{phaseIdx}(scenIdx);                    
+                currPhasePhysicalDoseJ{structIdx} = currStructPhysicalDoseJ;
 
-                % %%%%%%
-                % w = ones(size(currStructOmega,1),1);
-                % vis_omega = currStructOmega;
-                % currStructVoxels = [];
-                % for scenIdx=1:nScenariosInPhase
-                %     currMeta = scenariosMetaInPhase(scenIdx);
-                %     currStructVoxels = [currStructVoxels; cst{structIdx,4}{currMeta.ctScenIdx}];
-                % end
-                % currStructVoxels = unique(currStructVoxels);
-                % 
-                % vis_curExp = expDist{phaseIdx}(currStructVoxels,:);
-                % 
-                % vis_omega = vis_omega - vis_curExp'*vis_curExp;
-                % vis_omega = vis_omega*w;
-                % vis_omega = w'*vis_omega;
-                % 
-                % if vis_omega<0
-                %     fprintf(['Omega tmp value:' num2str(vis_omega), '\n']);
-                % end
+                if bioQuantities
+                    % omega Alpha
+                    currStructOmegaAlpha = currPhaseOmegaAlpha{structIdx};
+                    currDistAlpha = gpuArray(scenarioAlphaDose{1}(currStructVoxels,:));
+    
+                    currStructOmegaAlpha = currStructOmegaAlpha + gather(currDistAlpha'*currDistAlpha).*scenWeights{phaseIdx}(scenIdx);
+                    wait(gpu);
+                    
+                    currPhaseOmegaAlpha{structIdx} = currStructOmegaAlpha;
+    
+                    % Omega Beta
+                    currStructOmegaBeta = currPhaseOmegaBeta{structIdx};
+                    currDistBeta = gpuArray(scenarioSqrtBetaDose{1}(currStructVoxels,:));
+                    currStructOmegaBeta = currStructOmegaBeta + gather(currDistBeta'*currDistBeta).*scenWeights{phaseIdx}(scenIdx);
+                    wait(gpu);
+    
+                    currPhaseOmegaBeta{structIdx} = currStructOmegaBeta;
 
-                %%%%%%
+                    % AlphaJ
+                    currStructAlphaJ = currPhaseAlphaJ{structIdx};
+                    currStructAlphaJ = currStructAlphaJ + scenarioAlphaJ{structIdx}'.*scenWeights{phaseIdx}(scenIdx);
+                    
+                    currPhaseAlphaJ{structIdx} = currStructAlphaJ;
+    
+                    % BetaJ
+                    currStructSqrtBetaJ = currPhaseSqrtBetaJ{structIdx};
+                    currStructSqrtBetaJ = currStructSqrtBetaJ + scenarioSqrtBetaJ{structIdx}'*scenWeights{phaseIdx}(scenIdx);
+    
+                    currPhaseSqrtBetaJ{structIdx} = currStructSqrtBetaJ;
+                end
+
+                clear currDist;
+                clear currDistAlpha;
+                clear currDistBeta;
+
                 if structIdx~=structsToInclude(end)
                     fprintf(repmat('\b',1,lineLengthStruct));
                     lineLengthStruct = 0;
@@ -184,41 +291,33 @@ function [expDist,omega,probQuantitiesAccumulationTime] = matRad_accumulateProba
             end
         end
 
-
-        for structIdx=structsToInclude
-            
-            % This is different from previous branch. I consider here
-            % only voxels within the structure in this ct scenario.
-            % Beore I was considering dose to structure in all ct
-            % scenarios
-            scenariosMetaInPhase = scenariosMeta(ctAccumIx{phaseIdx}(:,4));
-            nScenariosInPhase = numel(scenariosMetaInPhase);
-
-            % Accumulate quantities
-            currStructVoxels = [];
-            for scenIdx=1:nScenariosInPhase
-               currMeta = scenariosMetaInPhase(scenIdx);
-               currStructVoxels = [currStructVoxels; cst{structIdx,4}{currMeta.ctScenIdx}];
-            end
-            currStructVoxels = unique(currStructVoxels);
-            
-            currExpDist = expDist{phaseIdx}(currStructVoxels,:);
-            currStructOmega = currPhaseOmega{structIdx};
-
-            currPhaseOmega{structIdx} = sparse(currStructOmega - currExpDist'*currExpDist);
-
-            clear currStructOmega;
-
+        outputProbabilisticQuantities.physicalDoseOmega(:,phaseIdx)            = currPhaseOmega;
+        outputProbabilisticQuantities.physicalDoseJ(:,phaseIdx)                = currPhasePhysicalDoseJ;
+       
+        if bioQuantities
+        
+            outputProbabilisticQuantities.mAlphaDoseOmega(:,phaseIdx)         = currPhaseOmegaAlpha;
+            outputProbabilisticQuantities.mSqrtBetaDoseOmega(:,phaseIdx)      = currPhaseOmegaBeta;
+            outputProbabilisticQuantities.alphaDoseJ(:, phaseIdx)             = currPhaseAlphaJ;
+            outputProbabilisticQuantities.sqrtBetaDoseJ(:,phaseIdx)           = currPhaseSqrtBetaJ;
+        
         end
-
-        omega(:,phaseIdx) = currPhaseOmega;
-
+        
         if phaseIdx~=numel(ctAccumIx)
             fprintf(repmat('\b',1,lineLengthPhase));
             lineLengthPhase = 0;
         end
 
     end
+
+    outputProbabilisticQuantities.physicalDoseExp  = expDist;
+
+    if bioQuantities
+        outputProbabilisticQuantities.mAlphaDoseExp    = mAlphaDoseExp;
+        outputProbabilisticQuantities.mSqrtBetaDoseExp = mSqrtBetaDoseExp;
+        
+    end
+
     matRad_cfg.dispInfo('done.\n');
     probQuantitiesAccumulationTime = toc;
 

@@ -176,8 +176,24 @@ elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr),'alpha')), fieldna
                 resultGUI.(['beta', RBE_model{j}, beamInfo(i).suffix])(ix)              = (SqrtBetaDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix)).^2;
                 resultGUI.(['SqrtBetaDoseCube', RBE_model{j}, beamInfo(i).suffix])(ix)  = SqrtBetaDoseCube(ix);
             end
+        elseif isfield(dij, {'ax', 'bx'})
+            for i = 1:length(beamInfo)
+                % Get weights of current beam
+                
+                % consider biological optimization
+                ix = dij.bx{ctScen} ~= 0 & resultGUI.([pDPrefix, beamInfo(i).suffix])(:) > 0;
+                % Calculate effect from alpha- and sqrtBetaDose
+        
+                resultGUI.(['effect', beamInfo(i).suffix])                   = zeros(size(resultGUI.([pDPrefix, beamInfo(i).suffix])));
+                resultGUI.(['effect', beamInfo(i).suffix])(ix)               = dij.ax{scenNum}(ix) .* resultGUI.([pDPrefix, beamInfo(i).suffix])(ix) + dij.bx{scenNum}(ix) .* (resultGUI.([pDPrefix, beamInfo(i).suffix])(ix)).^2;
+        
+                % Calculate RBExD from the effect
+                resultGUI.(['RBExDose', beamInfo(i).suffix])                 = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
+                resultGUI.(['RBExDose', beamInfo(i).suffix])(ix)             = (sqrt(dij.ax{ctScen}(ix).^2 + 4 .* dij.bx{ctScen}(ix) .* resultGUI.(['effect', beamInfo(i).suffix])(ix)) - dij.ax{ctScen}(ix))./(2.*dij.bx{ctScen}(ix));
+            end
         end
     end
+
 elseif all(isfield(dij, {'ax', 'bx'}))
     for i = 1:length(beamInfo)
         % Get weights of current beam
