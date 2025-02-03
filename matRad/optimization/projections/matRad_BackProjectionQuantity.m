@@ -118,6 +118,10 @@ classdef matRad_BackProjectionQuantity < handle
 
         function projectGradient(obj,dij,fGrad,w)
             tmpGradient = [];
+
+            nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, obj.radiationModalities);
+            w = obj.splitWeigths(w, nBixels);
+
             for quantityIdx=obj.optimizationQuantitiesIdx'
                 quantity = obj.quantities{quantityIdx};
                 tmpGradient.(quantity.quantityName) = quantity.getProjectedGradient(dij,fGrad.(quantity.quantityName),w);
