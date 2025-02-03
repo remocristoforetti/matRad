@@ -18,8 +18,14 @@ function dij = matRad_combineMixModProbabilisticQuantities(pln,varargin)
     
         modalityName = modalities{modalityIdx};
 
-        currDij = load(fullfile(p.Results.([modalityName, '_saveDir']), 'probQuantities.mat'), 'dij', 'expDist', 'omega');
-        
+        try
+            currDij = load(fullfile(p.Results.([modalityName, '_saveDir']), 'probQuantities.mat'), 'dij', 'expDist', 'omega');
+            currDij.probQuantities.physicalDoseExp   = currDij.expDist;
+            currDij.probQuantities.physicalDoseOmega = currDij.omega;
+        catch
+            currDij = load(fullfile(p.Results.([modalityName, '_saveDir']), 'probQuantities.mat'), 'probQuantities','dij');
+        end
+
         fName = fieldnames(currDij.dij);
         cellFields = fName(structfun(@iscell, currDij.dij));
 
@@ -27,8 +33,32 @@ function dij = matRad_combineMixModProbabilisticQuantities(pln,varargin)
         currDij.dij = rmfield(currDij.dij, cellFields(emptyFields));
 
         dij.(modalityName) = currDij.dij;
-        dij.(modalityName).physicalDoseExp   = currDij.expDist;
-        dij.(modalityName).physicalDoseOmega = currDij.omega;
+        dij.(modalityName).physicalDose   = currDij.probQuantities.physicalDoseExp;
+        dij.(modalityName).physicalDoseOmega = currDij.probQuantities.physicalDoseOmega;
+
+        if isfield(currDij.probQuantities, 'mAlphaDoseExp')
+            dij.(modalityName).mAlphaDose = currDij.probQuantities.mAlphaDoseExp;
+        end
+
+        if isfield(currDij.probQuantities, 'mAlphaDoseOmega')
+            dij.(modalityName).mAlphaDoseOmega = currDij.probQuantities.mAlphaDoseOmega;
+        end
+
+        if isfield(currDij.probQuantities, 'mSqrtBetaDoseExp')
+            dij.(modalityName).mSqrtBetaDose = currDij.probQuantities.mSqrtBetaDoseExp;
+        end
+
+        if isfield(currDij.probQuantities, 'mSqrtBetaDoseOmega')
+            dij.(modalityName).mSqrtBetaDoseOmega = currDij.probQuantities.mSqrtBetaDoseOmega;
+        end
+
+        if isfield(currDij.probQuantities, 'alphaDoseJ')
+            dij.(modalityName).alphaDoseJ = currDij.probQuantities.alphaDoseJ;
+        end
+
+        if isfield(currDij.probQuantities, 'sqrtBetaDoseJ')
+            dij.(modalityName).sqrtBetaDoseJ = currDij.probQuantities.sqrtBetaDoseJ;
+        end
 
         if ~isfield(dij.(modalityName), 'physicalDose')
             dij.(modalityName).physicalDose = {[]};
@@ -43,7 +73,7 @@ function dij = matRad_combineMixModProbabilisticQuantities(pln,varargin)
     end
 
     % Exclude large fields
-    [~,excludeFieldIdx] = intersect(commonFieldsName, {'physicalDose', 'mAlphaDose', 'mSqrtBetaDose', 'mLETDose'});
+    [~,excludeFieldIdx] = intersect(commonFieldsName, {'physicalDose', 'mAlphaDose', 'mSqrtBetaDose', 'mLETDose', 'physicalDoseExp', 'alphaDoseJ', 'sqrtBetaDoseJ'});
     commonFieldsName(excludeFieldIdx) = [];
     for propertyName = commonFieldsName'
         if isequal(dij.(modalities{1}).(propertyName{1}), dij.(modalities{2}).(propertyName{1}))
