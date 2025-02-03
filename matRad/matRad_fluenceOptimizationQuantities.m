@@ -409,7 +409,7 @@ else
             doseTmp = dij.(modalityName).physicalDoseExp{1}*ones(dij.(modalityName).totalNumOfBixels,1);
         end
         bixelWeight =  (doseTarget)/mean(doseTmp(V));
-        wTmp = ones(dij.(modalityName).totalNumOfBixels,numel(pln.propOpt.STfractions.(modalityName))) * bixelWeight/pln.numOfFractions;
+        wTmp = ones(dij.(modalityName).totalNumOfBixels,numel(pln.propOpt.STfractions.(modalityName))) * bixelWeight * (sum(pln.propOpt.STfractions.(modalityName))/pln.numOfFractions)/pln.numOfFractions;
         
         wInit       = [wInit; wTmp(:)];
     end
@@ -540,6 +540,7 @@ backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 backProjection.nModalities = numel(optModalityIdx);
 backProjection.spatioTemporalFractions =  pln.propOpt.STfractions;
+backProjection.spatioTemporalFractions.total = pln.numOfFractions;
 backProjection.radiationModalities = dij.radiationModalities(optModalityIdx);
 %backProjection.structsForScalarQuantity = unique(useStructsForOmega);
 %backProjection.structsForConstrainedScalarQuantities = unique(useStructsForConstraintOmega);
