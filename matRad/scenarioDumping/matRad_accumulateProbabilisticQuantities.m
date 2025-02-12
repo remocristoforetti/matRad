@@ -111,11 +111,11 @@ function [outputProbabilisticQuantities,probQuantitiesAccumulationTime] = matRad
                 mAlphaDoseExp    = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
                 mSqrtBetaDoseExp = {spalloc(dijTemplate.doseGrid.numOfVoxels,dijTemplate.totalNumOfBixels,1)};
     
-                mAlphaDoseOmega   = cell(size(cst,1),1);
-                mAlphaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
-    
-                mSqrtBetaDoseOmega   = cell(size(cst,1),1);
-                mSqrtBetaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+                mAlphaDoseOmegaExp   = cell(size(cst,1),1);
+                mAlphaDoseOmegaExp(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+                 
+                mSqrtBetaDoseOmegaExp   = cell(size(cst,1),1);
+                mSqrtBetaDoseOmegaExp(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
     
                 % mAlphaSqrtBetaDoseOmega = cell(size(cst,1),1);
                 % mAlphaSqrtBetaDoseOmega(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
@@ -128,6 +128,15 @@ function [outputProbabilisticQuantities,probQuantitiesAccumulationTime] = matRad
     
                 sqrtBetaJExp = cell(size(cst,1),1);
                 sqrtBetaJExp(:) = {zeros(dijTemplate.totalNumOfBixels,1)};
+
+                % mAlphaDoseOmegaExp   = cell(size(cst,1),1);
+                % mAlphaDoseOmegaExp(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+
+                % mAlphaDoseOmegaCross   = cell(size(cst,1),1);
+                % mAlphaDoseOmegaCross(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
+
+                % mSqrtBetaDoseOmegaCross   = cell(size(cst,1),1);
+                % mSqrtBetaDoseOmegaCross(:) = {spalloc(dijTemplate.totalNumOfBixels, dijTemplate.totalNumOfBixels,1)};
             end
     end
 
@@ -145,11 +154,16 @@ function [outputProbabilisticQuantities,probQuantitiesAccumulationTime] = matRad
 
         if bioQuantities
 
-            currPhaseOmegaAlpha = mAlphaDoseOmega(:,phaseIdx);
-            currPhaseOmegaBeta  = mSqrtBetaDoseOmega(:,phaseIdx);
-
+            currPhaseOmegaAlpha = mAlphaDoseOmegaExp(:,phaseIdx);
+            currPhaseOmegaBeta  = mSqrtBetaDoseOmegaExp(:,phaseIdx);
+            
+            % currPhaseOmegaAlphaCross = mAlphaDoseOmegaCross(:,phaseIdx);
+            % currPhaseOmegaSqrtBetaDose = mSqrtBetaDoseOmegaCross(:,phaseIdx);
+            
             currPhaseAlphaJ     = alphaJExp(:,phaseIdx);
             currPhaseSqrtBetaJ  = sqrtBetaJExp(:,phaseIdx);
+            
+
 
         end
 
@@ -261,10 +275,26 @@ function [outputProbabilisticQuantities,probQuantitiesAccumulationTime] = matRad
 
                     % AlphaJ
                     currStructAlphaJ = currPhaseAlphaJ{structIdx};
-                    currStructAlphaJ = currStructAlphaJ + scenarioAlphaJ{structIdx}'.*scenWeights{phaseIdx}(scenIdx);
+                    currStructAlphaJ = currStructAlphaJ + scenarioAlphaJ{structIdx}'.*scenWeights{phaseIdx}(scenIdx); % This is the scenario average
                     
                     currPhaseAlphaJ{structIdx} = currStructAlphaJ;
-    
+
+                    % % AlphaCross
+                    % currStructOmegaAlphaCross = currPhaseOmegaAlphaCross{structIdx};
+                    % currAlphaOmegaCross =  scenarioAlphaJ{structIdx}'*scenarioAlphaJ{structIdx};
+                    % 
+                    % currStructOmegaAlphaCross = currStructOmegaAlphaCross + currAlphaOmegaCross.*scenWeights{phaseIdx}(scenIdx);
+                    % wait(gpu);
+                    % currPhaseOmegaAlphaCross{structIdx} = currStructOmegaAlphaCross;
+
+                    % % Sqrt Beta Croos
+                    % currStructOmegaSqrtBetaCross = currPhaseOmegaSqrtBetaDose{structIdx};
+                    % currSqrtBetaOmegaCross =  scenarioSqrtBetaJ{structIdx}'*scenarioSqrtBetaJ{structIdx};
+                    % 
+                    % currStructOmegaSqrtBetaCross = currStructOmegaSqrtBetaCross + currSqrtBetaOmegaCross.*scenWeights{phaseIdx}(scenIdx);
+                    % wait(gpu);
+                    % currPhaseOmegaSqrtBetaDose{structIdx} = currStructOmegaSqrtBetaCross;
+
                     % BetaJ
                     currStructSqrtBetaJ = currPhaseSqrtBetaJ{structIdx};
                     currStructSqrtBetaJ = currStructSqrtBetaJ + scenarioSqrtBetaJ{structIdx}'*scenWeights{phaseIdx}(scenIdx);
@@ -291,16 +321,37 @@ function [outputProbabilisticQuantities,probQuantitiesAccumulationTime] = matRad
             end
         end
 
-        outputProbabilisticQuantities.physicalDoseOmega(:,phaseIdx)            = currPhaseOmega;
-        outputProbabilisticQuantities.physicalDoseJ(:,phaseIdx)                = currPhasePhysicalDoseJ;
+        outputProbabilisticQuantities.physicalDoseOmegaExp(:,phaseIdx)            = currPhaseOmega;
+        outputProbabilisticQuantities.physicalDoseJExp(:,phaseIdx)                = currPhasePhysicalDoseJ;
        
         if bioQuantities
-        
-            outputProbabilisticQuantities.mAlphaDoseOmega(:,phaseIdx)         = currPhaseOmegaAlpha;
-            outputProbabilisticQuantities.mSqrtBetaDoseOmega(:,phaseIdx)      = currPhaseOmegaBeta;
-            outputProbabilisticQuantities.alphaDoseJ(:, phaseIdx)             = currPhaseAlphaJ;
-            outputProbabilisticQuantities.sqrtBetaDoseJ(:,phaseIdx)           = currPhaseSqrtBetaJ;
-        
+
+            outputProbabilisticQuantities.mAlphaDoseOmegaExp(:,phaseIdx)         = currPhaseOmegaAlpha;
+            outputProbabilisticQuantities.mSqrtBetaDoseOmegaExp(:,phaseIdx)      = currPhaseOmegaBeta;
+            outputProbabilisticQuantities.alphaDoseJExp(:, phaseIdx)             = currPhaseAlphaJ;
+            outputProbabilisticQuantities.sqrtBetaDoseJExp(:,phaseIdx)           = currPhaseSqrtBetaJ;
+
+
+            % for structIdx=structsToInclude
+            % 
+            %     % Get voxel indexes
+            %     scenariosMetaInPhase = scenariosMeta(ctAccumIx{phaseIdx}(:,4));
+            %     nScenariosInPhase = numel(scenariosMetaInPhase);
+            %     currStructVoxels = [];
+            %     for scenIdx=1:nScenariosInPhase
+            %        currMeta = scenariosMetaInPhase(scenIdx);
+            %        currStructVoxels = [currStructVoxels; cst{structIdx,4}{currMeta.ctScenIdx}];
+            %     end
+            %     currStructVoxels = unique(currStructVoxels);
+            % 
+            %     currDistAlphaExp = gpuArray(mAlphaDoseExp{1}(currStructVoxels,:));
+            %     mAlphaDoseOmegaExp{structIdx} = gather(currDistAlphaExp'*currDistAlphaExp); % Sum over voxels of expAlphaDose
+            %     wait(gpu);
+            % 
+            % end
+            %     outputProbabilisticQuantities.mAlphaDoseOmegaExp(:,phaseIdx) = mAlphaDoseOmegaExp;
+            %     outputProbabilisticQuantities.mAlphaDoseOmegaCross(:,phaseIdx) = currPhaseOmegaAlphaCross;
+            %     outputProbabilisticQuantities.mSqrtBetaDoseOmegaCross(:,phaseIdx) = currPhaseOmegaSqrtBetaDose;        
         end
         
         if phaseIdx~=numel(ctAccumIx)
