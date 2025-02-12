@@ -215,10 +215,18 @@ if ~all(isfield(dij,{'ax','bx'}))
 
     ixZeroDose = zeros(dij.doseGrid.numOfVoxels,1);
     for modalityIdx=optModalityIdx
+        
         modalityName = dij.radiationModalities{modalityIdx};
         
-        validScen = ~cellfun(@isempty,dij.(modalityName).physicalDose);
-        d = cellfun(@(D) D*ones(dij.(modalityName).totalNumOfBixels,1),dij.(modalityName).physicalDose(validScen),'UniformOutput',false);
+        if isfield(dij.(modalityName), 'physicalDose') && ~isempty(dij.(modalityName).physicalDose{1})
+            dijField = 'physicalDose';
+        else
+            dijField = 'physicalDoseExp';
+        end
+ 
+        validScen = ~cellfun(@isempty,dij.(modalityName).(dijField));
+        d = cellfun(@(D) D*ones(dij.(modalityName).totalNumOfBixels,1),dij.(modalityName).(dijField)(validScen),'UniformOutput',false); 
+
         d = sum(cell2mat(d'),2);
         ixZeroDose = ixZeroDose + (d == 0);
     end
@@ -240,7 +248,6 @@ if ~all(isfield(dij,{'ax','bx'}))
         dij.bx{i}(ixZeroDose) = 0;
     end
 end
-
 
 % calculate initial beam intensities wInit
 matRad_cfg.dispInfo('Estimating initial weights... ');
@@ -323,10 +330,30 @@ elseif any(strcmp(pln.propOpt.quantityOpt, {'effect', 'RBExDose', 'BED'}))
             dij.(modalityName).ixDose = dij.ixDose;
         %end
 
-        doseTmp = dij.(modalityName).physicalDose{1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        if isfield( dij.(modalityName), 'physicalDose') && ~isempty(dij.(modalityName).physicalDose{1})
+            doseField = 'physicalDose';
+        elseif isfield( dij.(modalityName), 'physicalDoseExp') && ~isempty(dij.(modalityName).physicalDoseExp{1})
+            doseField = 'physicalDoseExp';
+        end
+
+        doseTmp = dij.(modalityName).(doseField){1}*ones(dij.(modalityName).totalNumOfBixels,1);
+        
         if all(isfield(dij.(modalityName),{'mAlphaDose','mSqrtBetaDose'}))
             aTmp = dij.(modalityName).mAlphaDose{1}*ones(dij.(modalityName).totalNumOfBixels,1) *(doseTarget/mean(doseTmp(cst{ixTarget,4}{1})));
             bTmp = dij.(modalityName).mSqrtBetaDose{1} * ones(dij.(modalityName).totalNumOfBixels,1) * sqrt(doseTarget/mean(doseTmp(cst{ixTarget,4}{1})));
+        
+        elseif all(isfield(dij.(modalityName),{'alphaDoseJExp','sqrtBetaDoseJExp'}))
+            aTmp = (1/numel(cst{ixTarget(1),4}{1}))*dij.(modalityName).alphaDoseJExp{ixTarget(1)}*ones(dij.(modalityName).totalNumOfBixels,1) *(doseTarget/mean(doseTmp(cst{ixTarget,4}{1})));
+            bTmp = (1/numel(cst{ixTarget(1),4}{1}))*dij.(modalityName).sqrtBetaDoseJExp{ixTarget(1)} * ones(dij.(modalityName).totalNumOfBixels,1) * sqrt(doseTarget/mean(doseTmp(cst{ixTarget,4}{1})));
+            aTmp = aTmp.*ones(dij.doseGrid.numOfVoxels,1);
+            bTmp = bTmp.*ones(dij.doseGrid.numOfVoxels,1);
+        
+        elseif  all(isfield(dij.(modalityName),{'alphaDoseJ','sqrtBetaDoseJ'}))
+            aTmp = (1/numel(cst{ixTarget(1),4}{1}))*dij.(modalityName).alphaDoseJ{ixTarget(1)}*ones(dij.(modalityName).totalNumOfBixels,1) *(doseTarget/mean(doseTmp(cst{ixTarget,4}{1})));
+            bTmp = (1/numel(cst{ixTarget(1),4}{1}))*dij.(modalityName).sqrtBetaDoseJ{ixTarget(1)} * ones(dij.(modalityName).totalNumOfBixels,1) * sqrt(doseTarget/mean(doseTmp(cst{ixTarget,4}{1})));
+            aTmp = aTmp.*ones(dij.doseGrid.numOfVoxels,1);
+            bTmp = bTmp.*ones(dij.doseGrid.numOfVoxels,1);
+
         else        
             aTmp = doseTmp.*dij.ax{1};
             bTmp = doseTmp.*sqrt(dij.bx{1});
