@@ -1,5 +1,27 @@
 function [doseCube, letCube, loadFileName] = readSimulationOutput(runFolder,calcDoseDirect,varargin)
-
+% FRED helper to read simulation output
+% call
+%   readSimulationOutput(runFolder,calcDoseDirect, varargin)
+% 
+% input
+%   runFolder:          path to folder containing the simulation files
+%   calcDoseDirect:     boolean to trigger dij or .mhd reading
+%   
+%  optional:
+%   calLET:             addirional boolean to trigger loading of LETd
+%   readFunctionHandle: handle to readout function for ij-scorer
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2023 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 matRad_cfg = MatRad_Config.instance();
 
 p = inputParser();
