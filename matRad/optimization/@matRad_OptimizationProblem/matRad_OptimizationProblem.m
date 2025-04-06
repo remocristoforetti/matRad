@@ -30,6 +30,8 @@ classdef matRad_OptimizationProblem < handle
 
         minimumW = NaN;
         maximumW = NaN;
+
+        graphicOutput;
     end
     
     methods
@@ -81,6 +83,13 @@ classdef matRad_OptimizationProblem < handle
                 matRad_cfg.dispError('Maximum Bounds for Optimization Problem could not be set!');
             end
         end
+
+        function instantiateVisualization(this, cst, dsitributionProperties)
+            if isempty(this.graphicOutput)
+                this.graphicOutput = matRad_optimizationProblemVisualizer(cst,dsitributionProperties);
+            end
+        end
+
     end
     
     methods (Access = protected)

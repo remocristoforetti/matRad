@@ -50,7 +50,7 @@ f = 0;
 
 % required for COWC opt
 f_COWC = zeros(numel(useScen),1);
-
+singleObjective = [];
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
@@ -104,17 +104,22 @@ for  i = 1:size(cst,1)
     
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
+                        f_objective = 0;
                         if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
                             for ixScen = useNominalCtScen
                                 d_i = d.(quantityOptimized){ixScen}(cst{i,4}{useScen(ixScen)});
-                                f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                                f_objective = f_objective + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
                             end
                         elseif isa(quantityOptimizedInstance, 'matRad_ScalarQuantity')
                             for ixScen = useNominalCtScen
                                 d_i = d.(quantityOptimized){i};
-                                f = f + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
-                            end
+                                f_objective = f_objective + objective.penalty * objective.computeDoseObjectiveFunction(d_i);
+                            end                            
                         end
+                        
+                        singleObjective = [singleObjective,f_objective];
+                        f = f + f_objective;
+
 
                     case 'STOCH' % if prob opt: sum up expectation value of objectives
 
@@ -133,10 +138,11 @@ for  i = 1:size(cst,1)
                         nPhases = size(d.(quantityOptimized),2);
                         
                         fphase = 0;
-
+                        f_objective = 0;
                         if isa(quantityOptimizedInstance, 'matRad_DistributionQuantity')
                             % Need to collaps all the voxels if there is only one
                             % expected dose distribution for all cts/phases
+
                             if nPhases==1
                                 structIdxs = cat(1,cst{i,4}{useNominalCtScen});
                                 structIdxs = {unique(structIdxs)};
@@ -305,6 +311,11 @@ if fMax > 0
             fMax = max(f_COWC);
     end
 end
+
+
+optiProb.graphicOutput.updateData(singleObjective, f + fMax, d);
+optiProb.graphicOutput.updatePlot();
+
 %Sum up max of composite worst case part
 
 f = f + fMax;

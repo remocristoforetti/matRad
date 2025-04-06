@@ -134,6 +134,11 @@ end
 % Workaround until future release with consistent data management
 totNumCtScen = size(dij.physicalDose,1);
 
+if ~isfield(pln.propOpt, 'visualizationManager')
+    pln.propOpt.visualizationManager.report = 'off';
+end
+
+
 % Validate / Create Scenario model
 if ~isfield(pln,'multScen')
     pln.multScen = 'nomScen';
@@ -278,6 +283,27 @@ if pln.propOpt.boundMU
     end
 else
     matRad_cfg.dispInfo('Using standard MU bounds of [0,Inf]!\n')
+end
+
+if strcmp(pln.propOpt.visualizationManager.report, 'on')
+
+    distributionProperties.ct = pln.propOpt.visualizationManager.ct;
+    distributionProperties.cst = matRad_resizeCstToGrid(cst, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z, dij.ctGrid.x, dij.ctGrid.y, dij.ctGrid.z);
+    
+    if isfield(pln.propOpt.visualizationManager,'plane')
+        distributionProperties.plane = pln.propOpt.visualizationManager.plane;
+    end
+
+    if isfield(pln.propOpt.visualizationManager,'slice')
+        distributionProperties.slice = 63;
+    end
+
+    distributionProperties.doseGrid = dij.doseGrid;
+    distributionProperties.quantity = optiProb.BP.optimizationQuantities{1}; 
+
+    optiProb.instantiateVisualization(cst, distributionProperties);
+    optiProb.graphicOutput.active = true;
+
 end
 
 end
