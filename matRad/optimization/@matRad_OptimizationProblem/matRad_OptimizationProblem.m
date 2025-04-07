@@ -31,7 +31,8 @@ classdef matRad_OptimizationProblem < handle
         minimumW = NaN;
         maximumW = NaN;
 
-        graphicOutput;
+        % graphicOutput;
+        visualizationManager;
     end
     
     methods

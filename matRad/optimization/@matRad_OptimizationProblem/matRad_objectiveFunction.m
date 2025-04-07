@@ -312,39 +312,21 @@ if fMax > 0
     end
 end
 
-
-optiProb.graphicOutput.updateData(singleObjective, f + fMax, d);
-optiProb.graphicOutput.updatePlot();
-
-%Sum up max of composite worst case part
-
 f = f + fMax;
-% 
-% 
-% v = (dij.mSqrtBetaDoseExp{1}*w).^2;%dij.mAlphaDoseExp{1}*w;% + (dij.mSqrtBetaDoseExp{1}*w).^2;
-% v = reshape(v, dij.doseGrid.dimensions);
-% % figure;
-% % imagesc(v(:,:,80));
-% 
-% plot([1:160], v(:,80,80), '.-', 'Color', 'r');
-% 
-% hold on;
-% 
-% v = dij.mAlphaDoseExp{1}*w;% + (dij.mSqrtBetaDoseExp{1}*w).^2;
-% v = reshape(v, dij.doseGrid.dimensions);
-% % figure;
-% % imagesc(v(:,:,80));
-% 
-% plot([1:160], v(:,80,80), '.-', 'Color', 'b');
-% hold on;
-% 
-% v = dij.mAlphaDoseExp{1}*w + (dij.mSqrtBetaDoseExp{1}*w).^2;
-% v = reshape(v, dij.doseGrid.dimensions);
-% % figure;
-% % imagesc(v(:,:,80));
-% 
-% plot([1:160], v(:,80,80), '.-', 'Color', 'y');
-% hold on;
 
+if ~isempty(optiProb.visualizationManager)
+    
+    for curModule = optiProb.visualizationManager.modules
+        requiredVariables = curModule{1}.dataRequest;
+    
+        for rVariable = requiredVariables
+            if exist(rVariable{1}, 'var')
+                eval(sprintf('rValues.%s = %s;', rVariable{1},rVariable{1}));
+            end
+        end
+    
+        curModule{1}.updateData(rValues);
+    end
 
-%yline(0.238);
+    optiProb.visualizationManager.updatePlot();
+end

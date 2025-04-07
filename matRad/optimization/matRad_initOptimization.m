@@ -134,8 +134,12 @@ end
 % Workaround until future release with consistent data management
 totNumCtScen = size(dij.physicalDose,1);
 
+% Need to make this better, create a function assign prop from pln or so.
+% Problem is some module might require ct for example
 if ~isfield(pln.propOpt, 'visualizationManager')
-    pln.propOpt.visualizationManager.report = 'off';
+    if ~isfield(pln.propOpt.visualizationManager.visualize)
+        pln.propOpt.visualizationManager.visualize = 'off';
+    end
 end
 
 
@@ -285,25 +289,31 @@ else
     matRad_cfg.dispInfo('Using standard MU bounds of [0,Inf]!\n')
 end
 
-if strcmp(pln.propOpt.visualizationManager.report, 'on')
+if strcmp(pln.propOpt.visualizationManager.visualize, 'on')
 
-    distributionProperties.ct = pln.propOpt.visualizationManager.ct;
-    distributionProperties.cst = matRad_resizeCstToGrid(cst, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z, dij.ctGrid.x, dij.ctGrid.y, dij.ctGrid.z);
-    
-    if isfield(pln.propOpt.visualizationManager,'plane')
-        distributionProperties.plane = pln.propOpt.visualizationManager.plane;
-    end
+    % Instantiate the class
+    visManager = matRad_VisualizationManager();
 
-    if isfield(pln.propOpt.visualizationManager,'slice')
-        distributionProperties.slice = 63;
-    end
+    % Build the moduless
+    cellfun(@(mod) visManager.addModule(mod), pln.propOpt.visualizationManager.modules, 'UniformOutput',false);
+    % distributionProperties.ct = pln.propOpt.visualizationManager.ct;
+    % distributionProperties.cst = matRad_resizeCstToGrid(cst, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z, dij.ctGrid.x, dij.ctGrid.y, dij.ctGrid.z);
+    % 
+    % if isfield(pln.propOpt.visualizationManager,'plane')
+    %     distributionProperties.plane = pln.propOpt.visualizationManager.plane;
+    % end
+    % 
+    % if isfield(pln.propOpt.visualizationManager,'slice')
+    %     distributionProperties.slice = 63;
+    % end
+    % 
+    % distributionProperties.doseGrid = dij.doseGrid;
+    % distributionProperties.quantity = optiProb.BP.optimizationQuantities{1}; 
+    % 
+    % optiProb.instantiateVisualization(cst, distributionProperties);
+    % optiProb.graphicOutput.active = true;
 
-    distributionProperties.doseGrid = dij.doseGrid;
-    distributionProperties.quantity = optiProb.BP.optimizationQuantities{1}; 
-
-    optiProb.instantiateVisualization(cst, distributionProperties);
-    optiProb.graphicOutput.active = true;
-
+    optiProb.visualizationManager = visManager;
 end
 
 end

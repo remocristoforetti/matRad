@@ -1,4 +1,4 @@
-classdef matRad_optimizationProblemVisualizer < handle
+classdef matRad_optimizationProblemVisualizer_old < handle
     properties
         hAx_costFunction;
         hAx_costraintFunction;
@@ -37,7 +37,7 @@ classdef matRad_optimizationProblemVisualizer < handle
 
 
     methods
-        function this = matRad_optimizationProblemVisualizer(cst, distributionProperties)
+        function this = matRad_optimizationProblemVisualizer_old(cst, distributionProperties)
 
             matRad_cfg = MatRad_Config.instance();
 
