@@ -73,6 +73,8 @@ function [dij, dijTemplate] = matRad_calcParticleDoseMultipleScenariosExtended(c
                     %    currDij = matRad_calcPhotonDose(currCt, stf, currPln, currCst);                   
                     %end
     
+                    
+                    currDij = currDij.(pln.radiationMode);
                     matRad_cfg.dispInfo('saving scenario...');
                     fileName = fullfile(saveDirectory, ['scenario_', num2str(currScenIndex)]);
     

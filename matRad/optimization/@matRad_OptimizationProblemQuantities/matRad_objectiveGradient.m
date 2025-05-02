@@ -42,7 +42,6 @@ optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 gGrad = [];
 
-
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
@@ -56,8 +55,18 @@ fullScen      = cell(ndims(d),1);
 [fullScen{:}] = ind2sub(size(d),useScen);
 contourScen   = fullScen{1};
 
-doseGradient          = cell(size(dij.(dij.radiationModalities{1}).physicalDose));
-doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+if isfield(dij.(dij.radiationModalities{1}), 'physicalDose')  && ~isempty(dij.(dij.radiationModalities{1}).physicalDose)
+    doseGradient          = cell(size(dij.(dij.radiationModalities{1}).physicalDose));
+    doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+    %For COWC
+    f_COWC = zeros(size(dij.(dij.radiationModalities{1}).physicalDose));
+else
+    doseGradient          = cell(size(dij.(dij.radiationModalities{1}).physicalDoseExp));
+    doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+
+    f_COWC = zeros(size(dij.(dij.radiationModalities{1}).physicalDoseExp));
+end
+
 
 %For probabilistic optimization
 for modalityIdx=1:optiProb.BP.nModalities
@@ -65,8 +74,6 @@ for modalityIdx=1:optiProb.BP.nModalities
     vOmega.(modalityName) = {0};
 end
 
-%For COWC
-f_COWC = zeros(size(dij.(dij.radiationModalities{1}).physicalDose));
 
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
@@ -108,6 +115,7 @@ for  i = 1:size(cst,1)
 
                 % Compute the biological parameters. This function is only effective when using effect-based
                 % optimization
+                
                 objective = quantityOptimizedInstance.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
                 
                 % Scale back the biological dose prescription to total plan
@@ -468,7 +476,7 @@ gradientChecker = 0;
 
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
-    epsilon = 1e-3;
+    epsilon = 1e-5;
 
 
     ix = unique(randi([dij.totalNumOfBixels],1,5));

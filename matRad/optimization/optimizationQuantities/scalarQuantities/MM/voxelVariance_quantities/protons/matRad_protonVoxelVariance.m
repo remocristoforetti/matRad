@@ -1,4 +1,4 @@
-classdef matRad_protonVoxelVariance < matRad_VarianceQuantity
+ classdef matRad_protonVoxelVariance < matRad_VarianceQuantity
 
     properties (Constant)
         quantityName = 'protonsVoxelVariance';

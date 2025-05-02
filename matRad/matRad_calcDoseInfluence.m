@@ -47,4 +47,13 @@ engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
 %call the calcDose funktion
 dij = engine.calcDoseInfluence(ct,cst,stf);
 
+%  This only tmp
+if ~isfield(dij, 'radiationModalities') && numel(pln) == 1 && ~strcmp(pln.radiationMode, 'MixMod')
+    dij.(pln.radiationMode) = dij;
+    dij.radiationModalities = {pln.radiationMode};
+    dij.numOfModalities = 1;
+    largeFields =  {'physicalDose', 'mAlphaDose', 'mSqrtBetaDose', 'mLETDose'};
+    
+    dij = rmfield(dij, largeFields(cellfun(@(x) isfield(dij,x), largeFields)));
+end
 end

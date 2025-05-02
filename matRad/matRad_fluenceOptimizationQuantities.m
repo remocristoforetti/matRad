@@ -163,6 +163,7 @@ for modality=optModalityIdx
 end
 
 if ~isfield(pln, 'propOpt') || ~isfield(pln.propOpt, 'spatioTemp') 
+
     pln.propOpt.spatioTemp = 0;
 end
 
@@ -361,7 +362,9 @@ elseif any(strcmp(pln.propOpt.quantityOpt, {'effect', 'RBExDose', 'BED'}))
 
         if isequal(pln.propOpt.quantityOpt,'effect')
     
-            effectTarget = cst{ixTarget,5}.alphaX * doseTarget + cst{ixTarget,5}.betaX * doseTarget^2;
+            tmpDoseTarget = doseTarget/pln.propOpt.STfractions.(modalityName);
+            
+            effectTarget = cst{ixTarget,5}.alphaX * tmpDoseTarget + cst{ixTarget,5}.betaX * tmpDoseTarget^2;
             p = sum(aTmp(V)) / sum(bTmp(V).^2);
             q = -(effectTarget * length(V)) / sum(bTmp(V).^2);
     
@@ -660,9 +663,11 @@ if ~exist('computeScenarios', 'var') || isempty(computeScenarios)
 
 end
 
-dij.protons.physicalDose = cellfun(@gather, dij.protons.physicalDose, 'UniformOutput',false);
-dij.photons.physicalDose = cellfun(@gather, dij.photons.physicalDose, 'UniformOutput',false);
-
+if isfield(dij.(dij.radiationModalities{1}), 'physicalDose')  && ~isempty(dij.(dij.radiationModalities{1}).physicalDose)
+    dij.protons.physicalDose = cellfun(@gather, dij.protons.physicalDose, 'UniformOutput',false);
+    
+    dij.photons.physicalDose = cellfun(@gather, dij.photons.physicalDose, 'UniformOutput',false);
+end
 %Robust quantities
 try
     for modalityIdx=optModalityIdx

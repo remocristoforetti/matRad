@@ -50,9 +50,16 @@ end
 beamInfo(dij.numOfBeams+1).suffix = '';
 beamInfo(dij.numOfBeams+1).logIx  = true(size(resultGUI.w,1),1);
 
-[ctScen,~] = ind2sub(size(dij.physicalDose),scenNum);
 
+if ~isfield(dij, 'physicalDose')
+    dij.physicalDose = {[]};
+end
 
+if ~isempty(dij.physicalDose{1})
+    [ctScen,~] = ind2sub(size(dij.physicalDose),scenNum);
+else
+    ctScen = 1;
+end
 %% Physical Dose
 if ~isempty(dij.physicalDose{1})
     doseFields = {'physicalDose','doseToWater'};

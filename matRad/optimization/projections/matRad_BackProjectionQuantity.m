@@ -422,6 +422,191 @@ classdef matRad_BackProjectionQuantity < handle
             end
 
         end
+
+        function [optQuantities,constraintQuantities] = getOptimizationConstraintQuantitiesFromCst(cst)
+            
+            useStructsForOmega = [];
+            useStructsForConstraintOmega = [];
+            omegaQuantity = [];
+            quantitiesFromCst = [];
+            constraintQuantities = {};
+            for i=1:size(cst,1)
+                for j=1:numel(cst{i,6})
+                    if isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') || isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective')
+                        if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect', 'meanLETd', 'meanPhysicalDose'}))
+                            omegaQuantity = cst{i,6}{j}.quantity;
+                            useStructsForOmega = [useStructsForOmega,i];
+                        elseif isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
+                            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
+                        end
+                        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
+                    elseif isa(cst{i,6}{j}, 'DoseConstraints.matRad_DoseConstraint') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
+                        constraintQuantities = [constraintQuantities, {cst{i,6}{j}.quantity}];
+                        if isa(cst{i,6}{j}, 'OmegaConstraint.matRad_VarianceConstraint')
+                            useStructsForOmega = [useStructsForOmega,i];
+                        end
+                    end
+                end
+            end
+            
+            quantitiesFromCst = unique(quantitiesFromCst);
+            optQuantities = [quantitiesFromCst, {omegaQuantity}];
+            optQuantities(cellfun(@isempty,optQuantities)) = [];
+            optQuantities = unique(optQuantities);
+            
+            constraintQuantities(cellfun(@isempty,constraintQuantities)) = [];
+            constraintQuantities = unique(constraintQuantities);
+        end
+
+        function w = initializeWeights(cst,dij, modality)
+
+            % For now this dopes not work with spatiotemporal fractionation
+            matRad_cfg = MatRad_Config.instance();
+
+            % Get the otimization quantities form cst
+            %optQuantities = matRad_BackProjection.getOptimizationConstraintQuantitiesFromCst(cst);
+
+            % Get available quantities
+            availableQuantitiesMeta = matRad_BackProjectionQuantity.getAvailableOptimizationQuantities();
+
+            % Get optimization quantities in the target
+
+            % Get all Taget indexes
+            allTargetIdx = find(strcmp(cst(:,3), 'TARGET'));
+
+            % Only keep the last opne for simplicity
+            for tmpTidx=allTargetIdx'
+                if ~isempty(cst{tmpTidx,6})
+                    targetIdx = tmpTidx;
+                end
+            end
+            
+            % Get quantities for all structures
+            allTargetQuantities = unique(cellfun(@(x) x.quantity, cst{targetIdx,6}, 'UniformOutput', false));
+
+            % Filter out one of the main quantities
+            %if numel(allTargetQuantities)>1
+            % 
+            % 
+            %     % if ~isempty(intersect(allTargetQuantities, {'physicalDose', 'physicalDoseExp','constRBE', 'effect', 'RBExDose', 'BED'}))
+            %     %     % Get the main quantity giving priority to the
+            %     %     % first one if multiple are found
+            %     %     % targetQuantity = allTargetQuantities{find(cellfun(@(qt) strcmp(qt, {'physicalDose', 'constRBE', 'effect', 'RBExDose', 'BED'}), allTargetQuantities), 1, 'last'))};
+            %     %     tmpQt = intersect(allTargetQuantities, {'physicalDose', 'physicalDoseExp','constRBE', 'effect', 'RBExDose', 'BED'});
+            %     %     targetQuantity = tmpQt{1};
+            %     % else
+            %     %     % If no special quantity defined, take the first
+            %     %     % one
+            %     %     targetQuantity = allTargetQuantities{1};
+            %     % end
+            % % else
+                % Take only one for now
+                     targetQuantity = allTargetQuantities{1};
+            %end
+
+
+            matRad_cfg.dispInfo(sprintf('%s selected as quantity for the weight initialization\n', targetQuantity));
+
+            % Get the class handle
+            if ~isempty(availableQuantitiesMeta(strcmp({availableQuantitiesMeta.quantityName}, targetQuantity)))
+                qtTargetHandle = availableQuantitiesMeta(strcmp({availableQuantitiesMeta.quantityName}, targetQuantity)).handle;
+            else
+                matRad_cfg.dispError(sprintf('Unrecognizerd quantity %s',targetQuantity));
+            end
+            
+            % Get subquantities for separate modality initialization
+            if isa(qtTargetHandle(), 'matRad_MMdistributionQuantity')
+               
+                if isprop(qtTargetHandle(), 'protonSubquantity') && strcmp(modality, 'protons')
+                    singleModalityQts = qtTargetHandle().getSubquatity(qtTargetHandle.protonSubquantity);
+                end
+
+                if isprop(qtTargetHandle(), 'photonSubquantity') && strcmp(modality, 'photons')
+                    singleModalityQts = qtTargetHandle().getSubquatity(qtTargetHandle.photonSubquantity);
+                end
+
+                % Add other modalities, need to find a better way atop
+                % handle this
+            else
+                singleModalityQts = qtTargetHandle();
+            end
+
+            wOnes.(modality) = ones(dij.(modality).totalNumOfBixels,1);
+                
+            % Compute quantity
+            d = singleModalityQts.computeQuantity(dij,1,wOnes);
+
+            % Select dose objectives/constraints
+            targetObjIdx = cellfun(@(x) isa(x, 'DoseObjectives.matRad_DoseObjective') || isa(x, 'DoseConstraints.matRad_DoseConstraint'), cst{targetIdx,6});
+            
+            % Get prescriptions for all objectives for the target
+            d_pres = cellfun(@(x) mean(x.getDoseParameters), cst{targetIdx,6}(targetObjIdx), 'UniformOutput',false);
+
+            % Get maximum. This might be a bit week, there is no
+            % guarantee that the reference here is even linked to the
+            % objective setting the quantity. This can lead to errors,
+            % but should give similar behaviour wrt current
+            % implementation.
+            d_pres = max([d_pres{:}]);
+
+            % Normalize the weights to get the value for now. Then idk
+            % how to handle this further avoiding the switch cases
+            w = (d_pres/mean(d(cst{targetIdx,4}{1}))) * wOnes.(modality);
+
+        end
+
+         function quantityInstance = getQuantityInstanceFromName(qtName)
+            
+            availableQuantitiesMeta = matRad_BackProjectionQuantity.getAvailableOptimizationQuantities();
+
+            [~,idx] = intersect({availableQuantitiesMeta(:).quantityName}, qtName);
+
+            if ~isempty(idx)
+                quantityInstance = availableQuantitiesMeta(idx).handle();
+            else
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError(sprintf('%s not recognized as an available quantity', qtName));
+                quantityInstance = [];
+            end
+        end
+
+
+        function [G,A] = getOptimizationQuantityGraph(verbosity)
+
+            matRad_cfg = MatRad_Config.instance();
+
+            if ~exist('verbosity', 'var')
+                verbosity = false;
+            end
+            
+            availableQuantitiesMeta = matRad_BackProjectionQuantity.getAvailableOptimizationQuantities();
+            
+            nodeNames = {availableQuantitiesMeta.quantityName};
+            
+            A = [];
+            for curQtName=nodeNames
+                curQt = matRad_BackProjectionQuantity.getQuantityInstanceFromName(curQtName{1});
+                curSubQuantities = curQt.requiredSubquantities;
+              
+                if ~isempty(curSubQuantities)
+                    idxs = cellfun(@(x) find(strcmp(nodeNames, x)), curSubQuantities);
+                else
+                    idxs = [];
+                end
+                currConnections = zeros(size(nodeNames));
+                currConnections(idxs) = 1;
+            
+                A = [A; currConnections];
+            end
+            
+            G = digraph(A, nodeNames');
+            
+            if verbosity
+                f = figure;
+                f.Position(1:2) = f.Position(1:2) - 500;
+                plot(G);
+            end
+        end
     end
 
     methods
@@ -429,11 +614,6 @@ classdef matRad_BackProjectionQuantity < handle
             this.scenarios = value;
             this.updateScenariosForQuantities();
         end
-
-        % function set.structsForScalarQuantity(this,value)
-        %     this.structsForScalarQuantity = value;
-        %     this.updateStructsForQuantities();
-        % end
     end
 end
 

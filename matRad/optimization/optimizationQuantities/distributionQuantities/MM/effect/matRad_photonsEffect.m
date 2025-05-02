@@ -6,6 +6,8 @@ classdef matRad_photonsEffect < matRad_Effect
 
         alphaSubQuantity = 'photonsAlphaDose';
         betaSubQuantity = 'photonsSqrtBetaDose';
+
+        modality = 'photons';
     end
 
     methods

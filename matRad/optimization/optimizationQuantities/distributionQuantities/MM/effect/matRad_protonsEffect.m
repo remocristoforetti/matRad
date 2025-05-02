@@ -6,6 +6,8 @@ classdef matRad_protonsEffect < matRad_Effect
 
         alphaSubQuantity = 'protonsAlphaDose';
         betaSubQuantity = 'protonsSqrtBetaDose';
+
+        modality = 'protons';
     end
 
     methods
