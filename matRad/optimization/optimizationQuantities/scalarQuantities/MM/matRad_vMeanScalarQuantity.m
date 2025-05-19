@@ -40,6 +40,17 @@ classdef (Abstract) matRad_vMeanScalarQuantity  < matRad_vTotScalarQuantity
 
             gradientOutput = (1/N) * gradientOutput;
 
-        end
+         end
+
+          function constJacobianOutput = projectConstraintJacobian(this,dij,struct,fJacob,w)
+
+              gradientOutput = projectConstraintJacobian@matRad_vTotScalarQuantity(this,dij,struct,fJacob,w);
+            
+              currIdx = cat(1,this.cst{struct,4}{:});
+              currIdx = unique(currIdx);
+              N = numel(currIdx);
+    
+              constJacobianOutput = (1/N) * gradientOutput;
+          end
     end
 end

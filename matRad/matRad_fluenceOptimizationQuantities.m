@@ -117,6 +117,10 @@ else
     scen4D = 1; %Use only first 4D scenario for optimization
 end
 
+if ~isfield(pln.propOpt, 'visualizationManager')
+    pln.propOpt.visualizationManager.visualize = 'off';
+end
+
 % Workaround until future release with consistent data management
 % For now assume two modlaities have same scenarios. This will not be true
 % later
@@ -607,7 +611,19 @@ else
     matRad_cfg.dispInfo('Using standard MU bounds of [0,Inf]!\n')
 end
 
+if strcmp(pln.propOpt.visualizationManager.visualize, 'on')
+
+    % Instantiate the class
+    visManager = matRad_VisualizationManager();
+
+    % Build the moduless
+    cellfun(@(mod) visManager.addModule(mod), pln.propOpt.visualizationManager.modules, 'UniformOutput',false);
+
+    optiProb.visualizationManager = visManager;
+end
+
 if ~isfield(pln.propOpt,'optimizer')
+
     pln.propOpt.optimizer = 'IPOPT';
 end
 
@@ -627,13 +643,11 @@ if ~optimizer.IsAvailable()
     matRad_cfg.dispError(['Optimizer ''' pln.propOpt.optimizer ''' not available!']);
 end
 
-
 if isfield(pln.propOpt, 'runOnGPU')
     gpuRun = pln.propOpt.runOnGPU;
 else
     gpuRun = false;
 end
-
 
 if gpuRun
     dij.protons.physicalDose{1} = gpuArray(dij.protons.physicalDose{1});

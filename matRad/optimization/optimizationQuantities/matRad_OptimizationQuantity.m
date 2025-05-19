@@ -61,14 +61,9 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
             output = [];
          end
 
-         % function output = computeConstraint(~)
-         %    matRad_cfg = MatRad_Config.instance();
-         %    matRad_cfg.dispError('Function needs to be implemented by subclass');
-         %    output = [];
-         % end
-
-         function output = projectConstraintJacobian(~)
+         function output = projectConstraintJacobian(~,~,~,~,~)
             matRad_cfg = MatRad_Config.instance();
+
             matRad_cfg.dispError('Function needs to be implemented by subclass');
             output = [];
          end

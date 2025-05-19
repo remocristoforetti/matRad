@@ -37,7 +37,16 @@ classdef (Abstract) matRad_vTotScalarQuantity < matRad_ScalarQuantity
 
             gradientOutput = 2 * fGrad{struct} * dOmega{struct};
 
-        end
+         end
 
+         function constJacobianOutput = projectConstraintJacobian(this,dij,struct,fJacob,w)
+            
+             % Get the Omega * w part
+            dOmegaQt = this.getSubQuantity(this.dOmegaSubQt);
+            dOmega = dOmegaQt.getResult(dij,w);
+
+            constJacobianOutput = 2 * (dOmega{struct} * fJacob{struct})';
+
+         end
     end
 end

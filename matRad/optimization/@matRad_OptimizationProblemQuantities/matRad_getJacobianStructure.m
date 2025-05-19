@@ -42,28 +42,47 @@ for i = 1:size(cst,1)
             	
             obj = cst{i,6}{j};	
             	
+
             % only perform computations for constraints	
               if isa(obj,'DoseConstraints.matRad_DoseConstraint')
                 	
                 % get the jacobian structure depending on dose	
                 jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
                 nRows = size(jacobDoseStruct,2);
-                if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
-                    jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
-                else
-                    jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{i,4}{1},:),1)),nRows,1)];	
+                jacobStructMod = sparse([]);
+                
+                for modalityIdx = 1:dij.numOfModalities
+                    currModality = (dij.radiationModalities{modalityIdx});
+                    if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+                        jacobStructMod = [jacobStructMod, repmat(spones(mean(dij.(currModality).physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
+                    else
+                        jacobStructMod = [jacobStructMod, repmat(spones(mean(dij.(currModality).physicalDoseExp{1}(cst{i,4}{1},:),1)),nRows,1)];	
+                    end
                 end
+                jacobStruct = [jacobStruct; jacobStructMod];
 
               elseif isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
                 jacobDoseStruct = obj.getVarianceConstraintJacobianStructure(numel(cst{i,4}{1}));	
+ 
                 nRows = size(jacobDoseStruct,2);
-                if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
-                    jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
-                else
-                    jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{i,4}{1},:),1)),nRows,1)];	
-                end
-              end
 
+                % This is not very robust, might depend on the order of the
+                % modalities
+                jacobStructMod = sparse([]);
+                
+                for modalityIdx = 1:dij.numOfModalities
+                    currModality = (dij.radiationModalities{modalityIdx});
+                    
+                    if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+                        jacobStructMod = [jacobStructMod, repmat(spones(mean(dij.(currModality).physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
+                    else
+                        jacobStructMod = [jacobStructMod, repmat(spones(mean(dij.(currModality).physicalDoseExp{1}(cst{i,4}{1},:),1)),nRows,1)];	
+                    end
+                end
+                
+                jacobStruct = [jacobStruct; jacobStructMod];
+              
+              end
         end	
      end	
  end

@@ -303,6 +303,33 @@ end
 f = f + fMax;
 
 f = gather(f);
+
+
+%d = optiProb.BP.d;
+if ~isempty(optiProb.visualizationManager)
+    
+    for curModule = optiProb.visualizationManager.modules
+        requiredVariables = curModule{1}.dataRequest;
+    
+        for rVariable = requiredVariables
+             quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+             quantityInstance = optiProb.BP.quantities{strcmp(rVariable{1},quantityNames)};
+             d = quantityInstance.d;
+            %if exist(rVariable{1}, 'var')
+             eval(sprintf('rValues.%s = d;', rVariable{1}));
+            %end
+        end
+    
+        curModule{1}.updateData(rValues);
+    end
+
+
+    optiProb.visualizationManager.updatePlot();
+end
+
+
+
+
 % 
 % 
 % v = (dij.mSqrtBetaDoseExp{1}*w).^2;%dij.mAlphaDoseExp{1}*w;% + (dij.mSqrtBetaDoseExp{1}*w).^2;

@@ -163,6 +163,7 @@ for  i = 1:size(cst,1)
                     nVoxels = numel(unique([allVoxels{:}]));
                     d_i = d.(quantityConstrained){i};
                     c = [c; constraint.computeVarianceConstraintFunction(d_i, nVoxels)];
+
             end
            
          end

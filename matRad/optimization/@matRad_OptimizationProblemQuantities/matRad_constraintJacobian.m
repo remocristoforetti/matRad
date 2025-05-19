@@ -241,8 +241,6 @@ for i = 1:size(cst,1)
                 end
             
             end
-
-
             allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{i,4}, 'UniformOutput',false);
             nVoxels = numel(unique([allVoxels{:}]));
 
@@ -267,15 +265,51 @@ end
 
 
 optiProb.BP.computeConstraintJacobian(dij,fJacob,w);
-j = optiProb.BP.wJacob;
+dj = optiProb.BP.wJacob;
 
-jacob = sparse([]);
-for qtIdx=optiProb.BP.constrainedQuantities
-    nScensOrStructs   = find(cellfun(@(x) ~isempty(x), j.(qtIdx{1})))';
-    for elementIdx=nScensOrStructs
-        jacob = [jacob; j.(qtIdx{1}){elementIdx}];
+nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, optiProb.BP.radiationModalities);
+splitW = optiProb.BP.splitWeigths(w, nBixels);
+
+jacob = [];
+
+for i = 1:size(cst,1)
+    for j=1:numel(cst{i,6})
+
+        constraint = cst{i,6}{j}; %Get the Optimization Object
+        currJacob = sparse(zeros(1,numel(w)));
+        if isa(constraint, 'DoseConstraints.matRad_DoseConstraint') || isa(constraint, 'OmegaConstraints.matRad_VarianceConstraint')
+            quantityNames = cellfun(@(x) x.quantityName,optiProb.BP.quantities, 'UniformOutput',false);
+            quantityConstrainedInstance = optiProb.BP.quantities{strcmp(constraint.quantity,quantityNames)};
+             
+            if isprop(quantityConstrainedInstance, 'modality')
+                currQuantityModality = quantityConstrainedInstance.modality;
+                jacobIdxs = splitW.([currQuantityModality, '_idx']);
+            
+            else
+                jacobIdxs = 1:numel(w);
+            end
+            
+            curStructIdx        = i;
+            if isa(quantityConstrainedInstance, 'matRad_DistributionQuantity')
+                
+                currJacob(jacobIdxs) = dj.(constraint.quantity){1};
+           
+            elseif isa(quantityConstrainedInstance, 'matRad_ScalarQuantity')
+               
+                currJacob(jacobIdxs) = dj.(constraint.quantity){curStructIdx};
+                
+            end
+            jacob = [jacob; currJacob];
+        end
     end
 end
+% jacob = sparse([]);
+% for qtIdx=optiProb.BP.constrainedQuantities
+%     nScensOrStructs   = find(cellfun(@(x) ~isempty(x), j.(qtIdx{1})))';
+%     for elementIdx=nScensOrStructs
+%         jacob = [jacob; j.(qtIdx{1}){elementIdx}];
+%     end
+% end
 % scenario = 1;
 % % enter if statement also for protons using a constant RBE
 % if isa(optiProb.BP,'matRad_DoseProjection')

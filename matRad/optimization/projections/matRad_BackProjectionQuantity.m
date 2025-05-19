@@ -132,6 +132,10 @@ classdef matRad_BackProjectionQuantity < handle
         function projectConstraintJacobian(obj,dij,fJacob,w)
 
             tmpGradient = [];
+
+            nBixels = cellfun(@(modality) dij.(modality).totalNumOfBixels, obj.radiationModalities);
+            w = obj.splitWeigths(w, nBixels);
+ 
             for quantityIdx=obj.constrainedQuantitiesIdx'
                 quantity = obj.quantities{quantityIdx};
                 tmpGradient.(quantity.quantityName) = quantity.getProjectedJacobian(dij,fJacob.(quantity.quantityName),w);

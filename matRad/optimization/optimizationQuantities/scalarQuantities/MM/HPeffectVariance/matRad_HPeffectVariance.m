@@ -73,8 +73,32 @@ classdef (Abstract) matRad_HPeffectVariance < matRad_ScalarQuantity
             meanEffectGrad = meanEffectSubQuantity.projectGradient(dij,1,fGradEffect,w);
 
             gradientOutput = vOmegaGradient - meanEffectGrad;
-            % gradientOutput = vOmegaGradient;
-            % gradientOutput = -meanEffectGrad;
+
+        end
+
+        function constJacobianOutput = projectConstraintJacobian(this,dij,struct,fJacob,w)
+            
+            vOmegaSubQt    = this.getSubQuantity(this.vOmegaSubQuantity);
+            vOmegaGradient = vOmegaSubQt.projectConstraintJacobian(dij,struct,fJacob,w);
+
+            meanEffectSubQuantity = this.getSubQuantity(this.effectSubQuantity);
+            
+            % This will be a single distribution
+            meanEffect        = meanEffectSubQuantity.getResult(dij,w);
+
+            currIdx = cat(1,this.cst{struct,4}{:});
+            currIdx = unique(currIdx);
+            N = numel(currIdx);
+
+            currStructEffect = zeros(size(meanEffect{1}));
+            currStructEffect(currIdx) = meanEffect{1}(currIdx);
+
+
+            fGradEffect = {2 .* (1/N) .*fJacob{struct}.* currStructEffect};
+
+            meanEffectGrad = meanEffectSubQuantity.projectGradient(dij,1,fGradEffect,w)';
+
+            constJacobianOutput = vOmegaGradient - meanEffectGrad;
         end
     end
 end
