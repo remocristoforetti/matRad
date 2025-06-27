@@ -59,6 +59,12 @@ classdef (Abstract) matRad_LQRBETabulatedModel < matRad_LQBasedModel
             alphaE = matRad_interp1(fragmentRBEtable.energies, fragmentRBEtable.alpha, interpEnergies);
             betaE  = matRad_interp1(fragmentRBEtable.energies, fragmentRBEtable.beta,  interpEnergies);
 
+            %%%% TODO: check on the table energy range. If RBEtable does
+            %%%% not cover the whole interpEnergy range interpolation gives
+            %%%% NaN.
+
+            %%%%
+
         end
 
         function vTissueIndex = getTissueInformation(this,~, cst, dij,vAlphaX, ~, VdoseGrid, VdoseGridScenIx)
@@ -73,8 +79,8 @@ classdef (Abstract) matRad_LQRBETabulatedModel < matRad_LQBasedModel
             cstDownsampled = matRad_setOverlapPriorities(cst);
 
             % resizing cst to dose cube resolution
-            cstDownsampled = matRad_resizeCstToGrid(cstDownsampled,dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z,...
-                dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z);
+            %cstDownsampled = matRad_resizeCstToGrid(cstDownsampled,dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z,...
+            %    dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z);
             
             tmpScenVdoseGrid = cell(numOfCtScen,1);
 
@@ -101,8 +107,7 @@ classdef (Abstract) matRad_LQRBETabulatedModel < matRad_LQBasedModel
                 % check if cst is compatiable
                 if ~isempty(cstDownsampled{i,5}) && isfield(cstDownsampled{i,5},'alphaX') && isfield(cstDownsampled{i,5},'betaX')
  
-                    %Set mapping between alphaX,betaX and tissueIndex
-                    
+                    %Set mapping between alphaX,betaX and tissueIndex                    
                     IdxTissue = cstDownsampled{i,5}.TissueClass;
  
                     % check consitency of biological baseData and cst settings
@@ -148,6 +153,12 @@ classdef (Abstract) matRad_LQRBETabulatedModel < matRad_LQBasedModel
 
             matRad_cfg = MatRad_Config.instance();
 
+            if ~isfield(this.RBEtable.meta, 'energyUnits')
+                eUnits = 'MeV/u'; % Default
+            else
+                eUnits = this.RBEtable.meta.energyUnits;
+            end
+
             selectedAlphaX = this.tissueAlphaX(tissueClass);
             selectedBetaX  = this.tissueBetaX(tissueClass);
 
@@ -158,13 +169,37 @@ classdef (Abstract) matRad_LQRBETabulatedModel < matRad_LQBasedModel
                 if ~isempty(ratioIndexInTable)
                     fragmentRBEtable.alpha    = this.RBEtable.data(ratioIndexInTable).alpha(:,fragmentIndexInTable);
                     fragmentRBEtable.beta     = this.RBEtable.data(ratioIndexInTable).beta(:,fragmentIndexInTable);
-                    fragmentRBEtable.energies = this.RBEtable.data(ratioIndexInTable).energies;
+                    fragmentRBEtable.energies = this.getFragmentEnergiesFromTable(ratioIndexInTable, fragment, eUnits);
                 else
                     matRad_cfg.dispError('AlphaX/BetaX ratio = %f/%f not available in RBEtable: %s',selectedAlphaX,selectedBetaX,this.RBEtableName);
                 end
             else
                 matRad_cfg.dispError('fragment %s not available in table: %s', fragment, this.RBEtableName);
             end
+        end
+
+        function energies = getFragmentEnergiesFromTable(this, abRatioIndex, fragment, eUnits)
+            % Converts energies in MeV/u to MeV if necessary. Assumes that
+            % the base data spectra are given in total energy. TODO: find a
+            % consisten way of providing this information and check
+            % consistency between RBEtable and base data.
+
+            energies = this.RBEtable.data(abRatioIndex).energies;
+
+            if strcmp(eUnits, 'MeV/u')
+                switch fragment
+
+                    case 'H1'
+                        mass = 1;
+
+                    case 'C'
+                        mass = 12;
+
+                end
+
+                energies = energies*mass;
+            end
+
         end
     end
 
@@ -240,11 +275,7 @@ classdef (Abstract) matRad_LQRBETabulatedModel < matRad_LQBasedModel
             % data.includedIonZ. TODO: change in the RBE table entry the
             % included Ion Z with some more structured particle information
             % nABratios = numel(this.RBEtable.data);
-
-
-            %availableZs = arrayfun(@(abRatio) abRatio.includedIonZ, this.RBEtable.data, 'UniformOutput',false);
             availableZs = RBEtable.data(1).includedIons;
-            %requiredFragments = this.fragmentsToInclude;
             
             if any(~ismember(fragments, availableZs))
                 excludedFragments = fragments(~ismember(fragments, availableZs));
