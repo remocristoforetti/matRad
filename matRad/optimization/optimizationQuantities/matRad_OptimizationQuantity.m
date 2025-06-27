@@ -7,7 +7,7 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
 
     properties
         subQuantities;
-        d;
+        d = {};
         wGrad;
         wCache;
         wGradCache;
@@ -76,7 +76,7 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
 
 
          function subQuantityInstance = getSubQuantity(this, name)
-            subQuantityInstance = this.subQuantities{cellfun(@(x) strcmp(x.quantityName, name), this.subQuantities)};
+
          end
     end
 

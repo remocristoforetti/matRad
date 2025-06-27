@@ -1,7 +1,7 @@
 classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
 
     properties
-        useScenarios;
+        useScenarios=1;
     end
 
     methods
@@ -54,6 +54,33 @@ classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
             this.wGrad = cell(size(dij.(distributionQuantity)));
             this.wJacob = cell(1);
         end
+
+         function subQuantityInstance = getSubQuantity(this, name)
+             
+             if isempty(this.subQuantities) && ~isempty(this.requiredSubquantities)
+                this.subQuantities = arrayfun(@(x) matRad_BackProjection.getQuantityInstanceFromName(x), this.requiredSubquantities, 'UniformOutput',false);
+                %cellfun(@(x) set(x.useScenarios, this.useScenarios), this.subQuantities);
+                for i=1:numel(this.subQuantities)
+                    this.subQuantities{i}.useScenarios = this.useScenarios;
+                end
+
+             end
+
+             subQuantityInstance = this.subQuantities{cellfun(@(x) strcmp(x.quantityName, name), this.subQuantities)};
+
+             % if isa(subQuantityInstance, 'matRad_ScalarQuantity') 
+             % 
+             %     if isempty(subQuantityInstance.useStructsOptimization)
+             %        subQuantityInstance.useStructsOptimization = [1:numel(this.cst,1)];
+             %     end
+             % 
+             %     if isempty(subQuantityInstance.useStructsConstraint)
+             %            subQuantityInstance.useStructsConstraint = [1:numel(this.cst,1)];
+             %     end
+             % 
+             % end
+         end
+
 
     end
 

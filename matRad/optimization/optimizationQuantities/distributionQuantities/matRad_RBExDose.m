@@ -20,7 +20,7 @@ classdef matRad_RBExDose < matRad_DistributionQuantity
         function quantityOutput = computeQuantity(this, dij, scen,w)
             
             effectQt = this.getSubQuantity('effect');
-            effect = effectQt.getResult(dij,w);
+            effect   = effectQt.getResult(dij,w);
 
             quantityOutput = zeros(dij.doseGrid.numOfVoxels,1);
             [ctScen,~] = ind2sub(size(dij.physicalDose),scen);

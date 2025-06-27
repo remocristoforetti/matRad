@@ -316,17 +316,21 @@ f = f + fMax;
 
 if ~isempty(optiProb.visualizationManager)
     
-    for curModule = optiProb.visualizationManager.modules
-        requiredVariables = curModule{1}.dataRequest;
-    
-        for rVariable = requiredVariables
-            if exist(rVariable{1}, 'var')
-                eval(sprintf('rValues.%s = %s;', rVariable{1},rVariable{1}));
+    try
+        for curModule = optiProb.visualizationManager.modules
+            requiredVariables = curModule{1}.dataRequest;
+        
+            for rVariable = requiredVariables
+                if exist(rVariable{1}, 'var')
+                    eval(sprintf('rValues.%s = %s;', rVariable{1},rVariable{1}));
+                end
             end
+        
+            curModule{1}.updateData(rValues);
         end
     
-        curModule{1}.updateData(rValues);
-    end
+        optiProb.visualizationManager.updatePlot();
+    catch
 
-    optiProb.visualizationManager.updatePlot();
+    end
 end

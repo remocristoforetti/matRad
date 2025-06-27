@@ -423,6 +423,7 @@ end
 
 
 gradientChecker = 0;
+
 if gradientChecker == 1
     f =  matRad_objectiveFunction(optiProb,w,dij,cst);
     epsilon = 1e-3;

@@ -49,7 +49,7 @@ for i = 1:size(cst,1)
         %In case it is a default saved struct, convert to object
         %Also intrinsically checks that we have a valid optimization
         %objective or constraint function in the end
-        if ~isa(obj,'matRad_DoseOptimizationFunction')
+        if ~isa(obj,'matRad_DoseOptimizationFunction') && ~isa(obj,'OmegaObjectives.matRad_OmegaObjective') && ~isa(obj,'OmegaConstraints.matRad_VarianceConstraint')
             try
                 obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
             catch
@@ -62,7 +62,6 @@ for i = 1:size(cst,1)
         end
         cst{i,6}{j} = obj;
     end
-
 end
 
 % resizing cst to dose cube resolution
@@ -174,8 +173,62 @@ end
 backProjection = matRad_BackProjection();
 
 % Initilaize optimization quantities
+% [optQuantities, constraintQuantities] = backProjection.getOptimizationConstraintQuantitiesFromCst(cst);
+% backProjection.instantiateQuatities(optQuantities,constraintQuantities,dij,cst);
+% backProjection.instantiateQuatities(cst);
+
+
+%% calculate probabilistic quantities for probabilistic optimization if at least
+% one robust objective is defined
+
+linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
+
+%Only select the indexes of the nominal ct Scenarios
+linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
+
+if isempty(linIxDIJ_nominalCT)
+    linIxDIJ_nominalCT =1;
+end
+
+FLAG_CALC_PROB = false;
+FLAG_ROB_OPT   = false;
+
+
+for i = 1:size(cst,1)
+    for j = 1:numel(cst{i,6})
+        if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
+            FLAG_CALC_PROB = true;
+        end
+        if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
+            FLAG_ROB_OPT = true;
+        end
+    end
+end
+
+if FLAG_CALC_PROB
+    [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+end
+
+
+% set optimization options
+if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
+    ixForOpt = scen4D;
+else
+    ixForOpt = linIxDIJ;
+end
+
+% If this is done after we decided which scenarios to load we can store
+% directly the updated scenario information in there
+% backProjection.instantiateQuatities(cst);
 [optQuantities, constraintQuantities] = backProjection.getOptimizationConstraintQuantitiesFromCst(cst);
-backProjection.instantiateQuatities(optQuantities,constraintQuantities,dij,cst);
+backProjection.instantiateQuatities(optQuantities, constraintQuantities, dij,cst);
+
+%Give scenarios used for optimization
+backProjection.scenarios    = ixForOpt;
+backProjection.scenarioProb = pln.multScen.scenProb;
+backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
+
+
 
 % Initilaize weights
 if ~exist('wInit', 'var') || isempty(wInit)
@@ -184,7 +237,7 @@ end
 
 % Easier if backprojection already knows about the optimized quantities and
 % so on
-wInit = backProjection.initializeWeights(cst,dij);
+wInit = backProjection.initializeWeights(cst,dij, wInit);
 
 % Check minimum biological quantities available
 %for qtIdx=backProjection.quantities'
@@ -216,47 +269,9 @@ if ~isempty(intersect([backProjection.optimizationQuantities,backProjection.cons
 
         dij.ax{i}(ixZeroDose) = 0;
         dij.bx{i}(ixZeroDose) = 0;
+
     end
 end
-%% calculate probabilistic quantities for probabilistic optimization if at least
-% one robust objective is defined
-
-linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
-
-%Only select the indexes of the nominal ct Scenarios
-linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
-
-FLAG_CALC_PROB = false;
-FLAG_ROB_OPT   = false;
-
-
-for i = 1:size(cst,1)
-    for j = 1:numel(cst{i,6})
-        if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
-            FLAG_CALC_PROB = true;
-        end
-        if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
-            FLAG_ROB_OPT = true;
-        end
-    end
-end
-
-if FLAG_CALC_PROB
-    [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
-end
-
-
-% set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
-    ixForOpt = scen4D;
-else
-    ixForOpt = linIxDIJ;
-end
-
-%Give scenarios used for optimization
-backProjection.scenarios    = ixForOpt;
-backProjection.scenarioProb = pln.multScen.scenProb;
-backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
 optiProb = matRad_OptimizationProblem(backProjection);
 
