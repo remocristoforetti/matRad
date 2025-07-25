@@ -1,4 +1,4 @@
-classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
+classdef matRad_EUD_SqOver < DoseObjectives.matRad_DoseObjective
 % matRad_EUD Implements a penalized equivalent uniform dose objective
 %   See matRad_DoseObjective for interface description
 %
@@ -20,17 +20,17 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
     
     properties (Constant)
         name = 'EUD';
-        parameterNames = {'EUD^{ref}', 'k'};
-        parameterTypes = {'dose','numeric'};
+        parameterNames = {'EUD^{ref}', 'k', 'd^{max}'};
+        parameterTypes = {'dose','numeric', 'dose'};
     end
     
     properties
-        parameters = {0, 3.5};
-        penalty = 1;
+        parameters = {0, 3.5, 0};
+        penalty;
     end
     
     methods
-        function obj = matRad_EUD(penalty,eudRef, eudExponent)
+        function obj = matRad_EUD_SqOver(penalty,eudRef, eudExponent, doseRef)
             %If we have a struct in first argument
             if nargin == 1 && isstruct(penalty)
                 inputStruct = penalty;
@@ -45,16 +45,20 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
             
             %now handle initialization from other parameters
             if ~initFromStruct
-                if nargin >= 3 && isscalar(eudExponent)
+                if exist('penalty', 'var') && ~isempty(penalty)
+                    obj.penalty = penalty;
+                end
+
+                if exist('eudRef', 'var') && ~isempty(eudRef)
+                    obj.parameters{1} = eudRef;
+                end
+
+                if exist('eudExponent', 'var') && ~isempty(eudExponent)
                     obj.parameters{2} = eudExponent;
                 end
                 
-                if nargin >= 2 && isscalar(eudRef)
-                    obj.parameters{1} = eudRef;
-                end
-                
-                if nargin >= 1 && isscalar(penalty)
-                    obj.penalty = penalty;
+                if exist('doseRef', 'var') && ~isempty(doseRef)
+                    obj.parameters{3} = doseRef;
                 end
             end
         end
@@ -80,11 +84,26 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
             %This check is not needed since dose is always positive
             %if powersum > 0
             fDose = (nthroot(powersum/numel(dose),k) - obj.parameters{1})^2;
+
+
+            overdose = dose - obj.parameters{3};
+            
+            % apply positive operator
+            overdose(overdose<0) = 0;
+            
+            % claculate objective function
+            fDose = fDose + 1/numel(dose) * (overdose'*overdose);
             %end
         end
         
         %% Calculates the Objective Function gradient
         function fDoseGrad  = computeDoseObjectiveGradient(obj,dose)
+            
+            overdose = dose - obj.parameters{3};
+            
+            % apply positive operator
+            overdose(overdose<0) = 0;
+
             % get exponent for EUD
             k = obj.parameters{2};
             
@@ -109,14 +128,19 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
             %derivatives = nthroot(1/numel(dose),k) * powersum^((1-k)/k) * (dose.^(k-1));
             fDoseGrad = 2 * nthroot(1/numel(dose),k) * powersum^((1-k)/k) * (dose.^(k-1)) .* (nthroot(powersum/numel(dose),k) - obj.parameters{1});
             %end
+
+            
+
+            
+            % calculate delta
+            fDoseGrad = fDoseGrad + 2 * 1/numel(dose) * overdose;
             if any(~isfinite(fDoseGrad)) % check for inf and nan for numerical stability
                 error(['EUD computation failed. Reduce exponent to resolve numerical problems.']);
             end
         end
 
         function constr = turnIntoLexicographicConstraint(obj,goal)
-
-            objective = DoseObjectives.matRad_EUD(100,obj.parameters{1,1},obj.parameters{1,2});
+            objective = DoseObjectives.matRad_EUD_SqOver(100,obj.parameters{1,1},obj.parameters{1,2},obj.parameters{1,3});
             objective.quantity = obj.quantity;
             objective.robustness = obj.robustness;
             constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
@@ -130,7 +154,7 @@ classdef matRad_EUD < DoseObjectives.matRad_DoseObjective
     
     methods (Static)
         function newGoalValue = adaptGoalToFraction(goalValue,numOfFractions)
-            newGoalValue = goalValue/(numOfFractions^2);
+            newGoalValue = goalValue/numOfFractions;
         end
         
     end

@@ -1,4 +1,4 @@
-classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
+classdef matRad_MaxDose < DoseObjectives.matRad_DoseObjective
 % matRad_MeanDose Implements a penalized MeanDose objective
 %   See matRad_DoseObjective for interface description
 %
@@ -19,7 +19,7 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     properties (Constant)
-        name = 'Mean Dose';
+        name = 'Max Dose';
         parameterNames = {'d^{ref}','f_{diff}'}; %When optimizing to a reference, one might consider using a quadratic relationship with a non-linear optimizer
         parameterTypes = {'dose',{'Linear','Quadratic'}};
     end
@@ -30,7 +30,7 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
     end
     
     methods 
-        function obj = matRad_MeanDose(penalty,dMeanRef,fDiff)
+        function obj = matRad_MaxDose(penalty,dMaxRef,fDiff)
            
             % if we have a struct in first argument
             if nargin == 1 && isstruct(penalty)
@@ -60,8 +60,8 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
                 obj.parameters{2} = fDiffIx;
 
 
-                if nargin >= 2 && isscalar(dMeanRef)
-                    obj.parameters{1} = dMeanRef;
+                if nargin >= 2 && isscalar(dMaxRef)
+                    obj.parameters{1} = dMaxRef;
                 end
 
                 if nargin >= 1 && isscalar(penalty)
@@ -108,7 +108,7 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
         end
 
         function constr = turnIntoLexicographicConstraint(obj,goal)
-            objective = DoseObjectives.matRad_MeanDose(100,obj.parameters{1},obj.parameters{2});
+            objective = DoseObjectives.matRad_MaxDose(100,obj.parameters{1},obj.parameters{2});
             objective.quantity = obj.quantity;
             objective.robustness = obj.robustness;
             constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
@@ -122,19 +122,22 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
 
     methods (Access = protected)
         function fDose = objectiveQuadraticDiff(obj,dose)
-            fDose = (mean(dose(:)) - obj.parameters{1})^2;
+            fDose = (max(dose(:)) - obj.parameters{1})^2;
         end
 
         function fDoseGrad = gradientQuadraticDiff(obj,dose)
-            fDoseGrad = 2*(mean(dose(:))-obj.parameters{1}) * ones(size(dose(:)))/numel(dose);
+            fDoseGrad = 2*(max(dose(:))-obj.parameters{1}) * ones(size(dose(:)))/numel(dose);
         end
 
         function fDose = objectiveLinearDiff(obj,dose)
-            fDose = abs(mean(dose(:)) - obj.parameters{1});
+            fDose = abs(max(dose(:)) - obj.parameters{1});
         end
 
         function fDoseGrad = gradientLinearDiff(obj,dose)
-            fDoseGrad = (1/numel(dose))*sign(dose(:)-obj.parameters{1});
+            [maxDose,idx] = max(dose(:));
+            % fDoseGrad = sign(dose(:)-obj.parameters{1});
+            fDoseGrad = zeros(size(dose));
+            fDoseGrad(idx) = sign(maxDose - obj.parameters{1});
         end
     end
 

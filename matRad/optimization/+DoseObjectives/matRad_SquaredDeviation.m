@@ -13,7 +13,7 @@ classdef matRad_SquaredDeviation < DoseObjectives.matRad_DoseObjective
 %
 % This file is part of the matRad project. It is subject to the license
 % terms in the LICENSE file found in the top-level directory of this
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part
 % of the matRad project, including this file, may be copied, modified,
 % propagated, or distributed except according to the terms contained in the
 % LICENSE file.
@@ -75,6 +75,23 @@ classdef matRad_SquaredDeviation < DoseObjectives.matRad_DoseObjective
             % calculate delta
             fDoseGrad = 2 * 1/numel(dose) * deviation;
         end
+
+        function constr = turnIntoLexicographicConstraint(obj,goal)
+            % ?
+            %%%%
+                %if goal < 5e-4
+                %    goal = 5e-4*1.03;
+                %end
+            %%%%
+            objective = DoseObjectives.matRad_SquaredDeviation(100,obj.parameters{1});
+            objective.quantity = obj.quantity;
+            objective.robustness = obj.robustness;
+
+            constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
+            constr.quantity = obj.quantity;
+            constr.robustness = obj.robustness;
+        end
+        
     end
     
     methods (Static)
@@ -82,6 +99,11 @@ classdef matRad_SquaredDeviation < DoseObjectives.matRad_DoseObjective
             rob = DoseObjectives.matRad_DoseObjective.availableRobustness();
             rob{end+1} = 'PROB'; %By default, no robustness is available
         end
+
+        function newGoalValue = adaptGoalToFraction(goalValue,numOfFractions)
+            newGoalValue = goalValue/numOfFractions^2;
+        end
+        
     end
     
 end

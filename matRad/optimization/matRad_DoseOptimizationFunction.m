@@ -28,6 +28,7 @@ classdef (Abstract) matRad_DoseOptimizationFunction
     
     properties
         robustness = 'none';    %Robustness setting -> may be removed from the DoseObjective class in a future release
+        quantity;
     end
     
     methods
@@ -95,7 +96,7 @@ classdef (Abstract) matRad_DoseOptimizationFunction
                 end
                 
                 %Create objective / constraint from class name
-                obj = eval([s.className '(s)']);       
+                obj = eval([s.className '(s)']);
                 
                 env = matRad_getEnvironment();
                 

@@ -19,43 +19,83 @@ function jacobStruct = matRad_getJacobianStructure(optiProb,w,dij,cst)
 % References	
 %	
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
- % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
 %	
 % Copyright 2016 the matRad development team. 	
 % 	
 % This file is part of the matRad project. It is subject to the license 	
 % terms in the LICENSE file found in the top-level directory of this 	
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 	
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 	
 % of the matRad project, including this file, may be copied, modified, 	
 % propagated, or distributed except according to the terms contained in the 	
 % LICENSE file.	
 %	
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
- % Initializes constraints	
-jacobStruct = sparse([]);
+% Initializes constraints	
+jacobStruct = sparse([]);	
+% compute objective function for every VOI.
+for i = 1:size(optiProb.constrIdx,1)	
+   obj = optiProb.constraints{i};
+   curConIdx = optiProb.constrIdx(i,1);
 
-tmp = false(size(dij.physicalDose{1},1),1);
- % compute objective function for every VOI.	
-for i = 1:size(cst,1)	
-     % Only take OAR or target VOI.	
-    if ~any(cellfun(@isempty,cst{i,4})) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
-         % loop over the number of constraints for the current VOI	
-        for j = 1:numel(cst{i,6})	
-            	
-            obj = cst{i,6}{j};	
-            	
-            % only perform computations for constraints	
-              if isa(obj,'DoseConstraints.matRad_DoseConstraint')
-              	tmp(:) = false;
-                tmp(cst{i,4}{1}) = true;
-                	
-                % get the jacobian structure depending on dose	
-                jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
-                nRows = size(jacobDoseStruct,2);	
-                %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
-                jacobStruct = [jacobStruct; repmat(spones(double(tmp') * dij.physicalDose{1}),nRows,1)];
-                 
-             end	
-         end	
-     end	
- end
+   if isa(obj,'DoseConstraints.matRad_DoseConstraint')
+        jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
+        nRows = size(jacobDoseStruct,2);
+        allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
+        allVoxels = unique(vertcat(allVoxels{:}));
+
+        if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
+            %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDoseExp{1},2)),nRows,1))];	
+        else
+            %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDose{1},2)),nRows,1))];	
+        end
+
+
+        % if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        % else
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        % end
+    elseif isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+        jacobDoseStruct = obj.getVarianceConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));
+        nRows = size(jacobDoseStruct,2);
+        
+        % if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];
+        % else
+        %     jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+        % end
+
+        % Give precedence to physicalDoseExp, generally the sparsity
+        % pattern for the Exp distribution is wider than phyiscalDose. This
+        % could end up deleting some bixels form the jacobian structure.
+        % Only relevant in situatiuon when both physicalDose and
+        % physicalDoseExp are set.
+        allVoxels = arrayfun(@(scenStruct) scenStruct{1}, cst{curConIdx,4}, 'UniformOutput',false);
+        allVoxels = unique(vertcat(allVoxels{:}));
+
+        if isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
+            %jacobStruct = [jacobStruct;repmat(spones(mean(dij.physicalDoseExp{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDoseExp{1},2)),nRows,1))];	
+        else
+            %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(allVoxels,:),1)),nRows,1)];
+            jacobStruct = [jacobStruct; sparse(repmat(ones(1,size(dij.physicalDose{1},2)),nRows,1))];
+        end
+
+    end
+   
+      % % get the jacobian structure depending on dose	
+   % jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{curConIdx,4}{1}));	
+   % nRows = size(jacobDoseStruct,2);	
+   % switch obj.robustness
+   %      case 'PROB'
+   %          jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDoseExp{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+   %      otherwise
+   % 
+   %          jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:),1)),nRows,1)];	
+   % 
+   %  end
+   %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{curConIdx,4}{1},:))),nRows,1)];	  
+end

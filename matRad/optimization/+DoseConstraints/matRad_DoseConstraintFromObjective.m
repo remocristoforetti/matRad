@@ -11,7 +11,7 @@ classdef matRad_DoseConstraintFromObjective < DoseConstraints.matRad_DoseConstra
     % 
     % This file is part of the matRad project. It is subject to the license 
     % terms in the LICENSE file found in the top-level directory of this 
-    % distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
+    % distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
     % of the matRad project, including this file, may be copied, modified, 
     % propagated, or distributed except according to the terms contained in the 
     % LICENSE file.
@@ -19,17 +19,17 @@ classdef matRad_DoseConstraintFromObjective < DoseConstraints.matRad_DoseConstra
     % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties (Constant)
         name = 'Objective Constraint';
-        parameterTypes = {'objFunc','scalar'};
-        parameterNames = {'f^{max}','slackParameter'};    
+        parameterTypes = {'objFunc'};
+        parameterNames = {'f^{max}'};    
     end
 
     properties
         objective;
-        parameters = {1e-5, 1e-3};
+        parameters = {1e-5};
     end
     
     methods (Access = public)
-        function this = matRad_DoseConstraintFromObjective(objective,maxObj,slackParameter)
+        function this = matRad_DoseConstraintFromObjective(objective,maxObj)
             
             %check if objective is a struct and a DoseObjective or Constraint (for init from constraint)
             if isstruct(objective) && ~isempty(strfind(objective.className,'DoseObjectives'))
@@ -48,12 +48,8 @@ classdef matRad_DoseConstraintFromObjective < DoseConstraints.matRad_DoseConstra
             
             
             if ~initFromStruct
-                
-                if nargin == 3 && isscalar(slackParameter)
-                    this.parameters{2} = slackParameter;
-                end
 
-                if nargin >= 2 && isscalar(maxObj)
+                if nargin == 2 && isscalar(maxObj)
                     this.parameters{1} = maxObj;
                 end
                 
@@ -62,6 +58,8 @@ classdef matRad_DoseConstraintFromObjective < DoseConstraints.matRad_DoseConstra
                 end
 
             end
+
+            this.quantity = objective.quantity;
             %}
         end
         
@@ -71,9 +69,10 @@ classdef matRad_DoseConstraintFromObjective < DoseConstraints.matRad_DoseConstra
         end
         
         function cu = upperBounds(this,n)
-            cu = this.parameters{1}+this.parameters{2};
+            cu = this.parameters{1};
             %cu = [Inf; this.parameters{2}];
         end
+
         function cl = lowerBounds(this,n)          
             cl = 0;
         end

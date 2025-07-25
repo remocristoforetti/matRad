@@ -11,7 +11,7 @@ classdef matRad_MaxDVH < DoseObjectives.matRad_DoseObjective
 % 
 % This file is part of the matRad project. It is subject to the license 
 % terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
 % of the matRad project, including this file, may be copied, modified, 
 % propagated, or distributed except according to the terms contained in the 
 % LICENSE file.
@@ -67,7 +67,8 @@ classdef matRad_MaxDVH < DoseObjectives.matRad_DoseObjective
             % calc deviation
             deviation = dose - obj.parameters{1};
 
-            % calc d_ref2: V(d_ref2) = refVol
+            % calc d_ref2: V(d_re
+            % f2) = refVol
             d_ref2 = matRad_calcInversDVH(refVol,dose);
 
             
@@ -92,7 +93,25 @@ classdef matRad_MaxDVH < DoseObjectives.matRad_DoseObjective
 
             % calculate delta
             fDoseGrad = (2/numel(dose))*deviation;
+        
         end
+
+        function constr = turnIntoLexicographicConstraint(obj,goal)
+            objective = DoseObjectives.matRad_MaxDVH(100,obj.parameters{1},obj.parameters{2});
+            objective.quantity = obj.quantity;
+            objective.robustness = obj.robustness;
+            constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
+            constr.quantity = obj.quantity;
+            constr.robustness = obj.robustness;
+
+        end
+
     end
     
+    methods (Static)
+        function newGoalValue = adaptGoalToFraction(goalValue,numOfFractions)
+            % newGoalValue = goalValue/(numOfFractions^2);
+            newGoalValue = goalValue; % Don't do any adpatation here, for better interpretation of goal (test)
+        end
+    end
 end

@@ -1,4 +1,4 @@
-classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
+classdef matRad_LogSumExpMaxDose < DoseObjectives.matRad_DoseObjective
 % matRad_MeanDose Implements a penalized MeanDose objective
 %   See matRad_DoseObjective for interface description
 %
@@ -19,18 +19,20 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     properties (Constant)
-        name = 'Mean Dose';
+        name = 'Max Dose';
         parameterNames = {'d^{ref}','f_{diff}'}; %When optimizing to a reference, one might consider using a quadratic relationship with a non-linear optimizer
         parameterTypes = {'dose',{'Linear','Quadratic'}};
     end
     
     properties
-        parameters = {0,1};        
+        parameters = {0,1};
         penalty = 1;
+        epsilon = 1e-3;
+        % epsilon = 1e-4;
     end
     
     methods 
-        function obj = matRad_MeanDose(penalty,dMeanRef,fDiff)
+        function obj = matRad_LogSumExpMaxDose(penalty,dMaxRef,fDiff)
            
             % if we have a struct in first argument
             if nargin == 1 && isstruct(penalty)
@@ -60,8 +62,8 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
                 obj.parameters{2} = fDiffIx;
 
 
-                if nargin >= 2 && isscalar(dMeanRef)
-                    obj.parameters{1} = dMeanRef;
+                if nargin >= 2 && isscalar(dMaxRef)
+                    obj.parameters{1} = dMaxRef;
                 end
 
                 if nargin >= 1 && isscalar(penalty)
@@ -108,7 +110,7 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
         end
 
         function constr = turnIntoLexicographicConstraint(obj,goal)
-            objective = DoseObjectives.matRad_MeanDose(100,obj.parameters{1},obj.parameters{2});
+            objective = DoseObjectives.matRad_MaxDose(100,obj.parameters{1},obj.parameters{2});
             objective.quantity = obj.quantity;
             objective.robustness = obj.robustness;
             constr = DoseConstraints.matRad_DoseConstraintFromObjective(objective,goal);
@@ -122,19 +124,33 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
 
     methods (Access = protected)
         function fDose = objectiveQuadraticDiff(obj,dose)
-            fDose = (mean(dose(:)) - obj.parameters{1})^2;
+            fDose = (max(dose(:)) - obj.parameters{1})^2;
         end
 
         function fDoseGrad = gradientQuadraticDiff(obj,dose)
-            fDoseGrad = 2*(mean(dose(:))-obj.parameters{1}) * ones(size(dose(:)))/numel(dose);
+            fDoseGrad = 2*(max(dose(:))-obj.parameters{1}) * ones(size(dose(:)))/numel(dose);
         end
 
         function fDose = objectiveLinearDiff(obj,dose)
-            fDose = abs(mean(dose(:)) - obj.parameters{1});
+            dose_max = max(dose);
+            modEpsilon = (obj.epsilon)*dose_max;
+            fDose = dose_max + modEpsilon * log( sum(exp((dose - dose_max)/modEpsilon)));
         end
 
         function fDoseGrad = gradientLinearDiff(obj,dose)
-            fDoseGrad = (1/numel(dose))*sign(dose(:)-obj.parameters{1});
+            [max_dose,maxDoseIdx] = max(dose);
+            modEpsilon = (obj.epsilon)*max_dose;
+
+            fDoseGrad(:,1) = exp( (dose-max_dose)/modEpsilon );
+            fDoseGrad(:,1) = fDoseGrad(:,1)/sum(fDoseGrad(:,1));
+            % vExp = exp( (dose-max_dose)/modEpsilon);
+            % vSumExp = sum(vExp);
+            % 
+            % fDoseGrad(:,1) = (modEpsilon/vSumExp) * vExp;
+            % fDoseGrad(maxDoseIdx,1) = 1 + ...
+            %                            (modEpsilon/max_dose)*log(vSumExp) + ...
+            %                            (1/vSumExp)*(1 - vSumExp - (modEpsilon/max_dose)*sum(vExp.*((dose-max_dose)/modEpsilon)));
+
         end
     end
 
