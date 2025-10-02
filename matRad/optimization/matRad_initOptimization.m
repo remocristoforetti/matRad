@@ -135,10 +135,8 @@ totNumCtScen = size(dij.physicalDose,1);
 
 % Need to make this better, create a function assign prop from pln or so.
 % Problem is some module might require ct for example
-if ~isfield(pln.propOpt, 'visualizationManager')
-    if ~isfield(pln.propOpt.visualizationManager.visualize)
-        pln.propOpt.visualizationManager.visualize = 'off';
-    end
+if ~isfield(pln.propOpt, 'visualizationManager') || (isfield(pln.propOpt.visualizationManager) && ~isfield(pln.propOpt.visualizationManager, 'visualize'))
+    pln.propOpt.visualizationManager.visualize = 'off';
 end
 
 
@@ -171,12 +169,6 @@ end
 
 % Instantiate backprojetion
 backProjection = matRad_BackProjection();
-
-% Initilaize optimization quantities
-% [optQuantities, constraintQuantities] = backProjection.getOptimizationConstraintQuantitiesFromCst(cst);
-% backProjection.instantiateQuatities(optQuantities,constraintQuantities,dij,cst);
-% backProjection.instantiateQuatities(cst);
-
 
 %% calculate probabilistic quantities for probabilistic optimization if at least
 % one robust objective is defined
@@ -220,15 +212,17 @@ end
 % If this is done after we decided which scenarios to load we can store
 % directly the updated scenario information in there
 % backProjection.instantiateQuatities(cst);
-[optQuantities, constraintQuantities] = backProjection.getOptimizationConstraintQuantitiesFromCst(cst);
-backProjection.instantiateQuatities(optQuantities, constraintQuantities, dij,cst);
+if isfield(pln, 'propOpt') && (~isfield(pln.propOpt, 'quantityOpt') || isempty(pln.propOpt.quantityOpt))
+    pln.propOpt.quantityOpt = 'physicalDose';
+end
+
+[optQuantities, constraintQuantities] = backProjection.getOptimizationConstraintQuantitiesFromCst(cst, pln.propOpt.quantityOpt);
+backProjection.instantiateQuatities(optQuantities, constraintQuantities, dij);
 
 %Give scenarios used for optimization
 backProjection.scenarios    = ixForOpt;
 backProjection.scenarioProb = pln.multScen.scenProb;
 backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
-
-
 
 % Initilaize weights
 if ~exist('wInit', 'var') || isempty(wInit)
@@ -236,7 +230,6 @@ if ~exist('wInit', 'var') || isempty(wInit)
 end
 
 % Easier if backprojection already knows about the optimized quantities and
-% so on
 wInit = backProjection.initializeWeights(cst,dij, wInit);
 
 % Check minimum biological quantities available
@@ -311,22 +304,6 @@ if strcmp(pln.propOpt.visualizationManager.visualize, 'on')
 
     % Build the moduless
     cellfun(@(mod) visManager.addModule(mod), pln.propOpt.visualizationManager.modules, 'UniformOutput',false);
-    % distributionProperties.ct = pln.propOpt.visualizationManager.ct;
-    % distributionProperties.cst = matRad_resizeCstToGrid(cst, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z, dij.ctGrid.x, dij.ctGrid.y, dij.ctGrid.z);
-    % 
-    % if isfield(pln.propOpt.visualizationManager,'plane')
-    %     distributionProperties.plane = pln.propOpt.visualizationManager.plane;
-    % end
-    % 
-    % if isfield(pln.propOpt.visualizationManager,'slice')
-    %     distributionProperties.slice = 63;
-    % end
-    % 
-    % distributionProperties.doseGrid = dij.doseGrid;
-    % distributionProperties.quantity = optiProb.BP.optimizationQuantities{1}; 
-    % 
-    % optiProb.instantiateVisualization(cst, distributionProperties);
-    % optiProb.graphicOutput.active = true;
 
     optiProb.visualizationManager = visManager;
 end
