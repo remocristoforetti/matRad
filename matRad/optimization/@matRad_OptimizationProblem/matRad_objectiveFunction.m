@@ -55,7 +55,7 @@ singleObjective = [];
 for  i = 1:size(cst,1)
     
     % Only take OAR or target VOI.
-    if ~isempty(cst{i,4}{1}) && ( isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET') )
+    if ~isempty(cst{i,4}{1}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
         
         % loop over the number of constraints for the current VOI
         for j = 1:numel(cst{i,6})
