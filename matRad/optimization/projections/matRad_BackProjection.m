@@ -16,13 +16,8 @@ classdef matRad_BackProjection < handle
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
     properties (SetAccess = protected)
-        wCache
-        wGradCache  %different cache for optimal performance (if multiple evaluations of objective but not gradient are required)
-        %wConstraintCache
-        wConstJacobianCache
         d
         wGrad
-        %c
         wJacob
         optimizationQuantitiesIdx;
         constrainedQuantitiesIdx;
@@ -36,42 +31,52 @@ classdef matRad_BackProjection < handle
         quantities;             % Quantities that need to be evaluated (includes subquantities)
         optimizationQuantities; % Quantities on which an objective function is defined
         constrainedQuantities;
-        %structsForScalarQuantity;
     end
 
     
     methods
         function obj = matRad_BackProjection()
-            obj.wCache = [];
-            obj.wGradCache = [];
+
             obj.d = [];
             obj.wGrad = [];
             obj.quantities = {};
-            %obj.c = [];
             obj.wJacob = [];
-            %obj.wConstraintCache = [];
-            obj.wConstJacobianCache = [];
+
         end       
         
         function obj = compute(obj,dij,w)
-            if ~isequal(obj.wCache,w)
-                obj.computeResult(dij,w);
-                obj.wCache = w;
+            tmpQuantitiesOutput = [];
+            
+            allQuantitiesIdx = unique([obj.optimizationQuantitiesIdx; obj.constrainedQuantitiesIdx]);
+            for quantityIdx=allQuantitiesIdx'
+                quantity = obj.quantities{quantityIdx};
+                tmpQuantitiesOutput.(quantity.quantityName) = quantity.getResult(dij,w);
             end
+            
+            obj.d = tmpQuantitiesOutput;
         end
         
+
         function obj = computeGradient(obj,dij,fGrad,w)
-            if ~isequal(obj.wGradCache,w)
-                obj.projectGradient(dij,fGrad,w);
-                obj.wGradCache = w;
+            tmpGradient = [];
+            for quantityIdx=obj.optimizationQuantitiesIdx'
+                quantity = obj.quantities{quantityIdx};
+                tmpGradient.(quantity.quantityName) = quantity.getProjectedGradient(dij,fGrad.(quantity.quantityName),w);
             end
+            obj.wGrad = tmpGradient;
         end
 
         function obj = computeConstraintJacobian(obj,dij,fJacob, w)
-            if ~isequal(obj.wConstJacobianCache,w)
-                obj.projectConstraintJacobian(dij,fJacob,w);
-                obj.wConstJacobianCache = w;
+            % if ~isequal(obj.wConstJacobianCache,w)
+            %     obj.projectConstraintJacobian(dij,fJacob,w);
+            %     obj.wConstJacobianCache = w;
+            % end
+            tmpGradient = [];
+            for quantityIdx=obj.constrainedQuantitiesIdx'
+                quantity = obj.quantities{quantityIdx};
+                tmpGradient.(quantity.quantityName) = quantity.getProjectedJacobian(dij,fJacob.(quantity.quantityName),w);
             end
+            obj.wJacob = tmpGradient;
         end
         
         function d = GetResult(obj)
@@ -82,38 +87,7 @@ classdef matRad_BackProjection < handle
             wGrad = obj.wGrad;
         end
       
-        function computeResult(obj,dij,w)
-            tmpQuantitiesOutput = [];
-            
-            allQuantitiesIdx = unique([obj.optimizationQuantitiesIdx; obj.constrainedQuantitiesIdx]);
-            for quantityIdx=allQuantitiesIdx'
-                quantity = obj.quantities{quantityIdx};
-                tmpQuantitiesOutput.(quantity.quantityName) = quantity.getResult(dij,w);
-            end
-            obj.d = tmpQuantitiesOutput;
-
-        end
-
-        function projectGradient(obj,dij,fGrad,w)
-            tmpGradient = [];
-            for quantityIdx=obj.optimizationQuantitiesIdx'
-                quantity = obj.quantities{quantityIdx};
-                tmpGradient.(quantity.quantityName) = quantity.getProjectedGradient(dij,fGrad.(quantity.quantityName),w);
-            end
-            obj.wGrad = tmpGradient;
-        end
-
-        function projectConstraintJacobian(obj,dij,fJacob,w)
-
-            tmpGradient = [];
-            for quantityIdx=obj.constrainedQuantitiesIdx'
-                quantity = obj.quantities{quantityIdx};
-                tmpGradient.(quantity.quantityName) = quantity.getProjectedJacobian(dij,fJacob.(quantity.quantityName),w);
-            end
-            obj.wJacob = tmpGradient;
-        end
-      
-        function instantiateQuatities(this, optimizationQuantities, constraintQuantities, dij,cst)
+        function instantiateQuatities(this, optimizationQuantities, constraintQuantities, dij)
             
             matRad_cfg = MatRad_Config.instance();
 
@@ -130,11 +104,12 @@ classdef matRad_BackProjection < handle
             end
 
             if ~iscolumn(constraintQuantities)
-                constraintQuantities = constraintQuantities';
+                constraintQuantities = constraintQuantities(:);
             end
  
             availableQuantitiesMeta = this.getAvailableOptimizationQuantities();
 
+            % Check for unrecognized provided quantities
             if ~all(ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName}))
                 matRad_cfg.dispError('Unrecognized quantity:%s',optimizationQuantities{~ismember(optimizationQuantities, {availableQuantitiesMeta.quantityName})});
             end
@@ -143,37 +118,35 @@ classdef matRad_BackProjection < handle
                 matRad_cfg.dispError('Unrecognized quantity:%s',constraintQuantities{~ismember(constraintQuantities, {availableQuantitiesMeta.quantityName})});
             end
 
-            allOptConstrainedQuantities = unique([optimizationQuantities; constraintQuantities]);
+            % Check for subquantiites of the requested optimized/constrained quantities
+            allQuantities = unique([optimizationQuantities; constraintQuantities]);
             subQuantitiesName = {};
-            for quantityIdx=1:numel(allOptConstrainedQuantities)
-                currQuantityName = allOptConstrainedQuantities{quantityIdx};
-                currQuantityIdx = find(ismember({availableQuantitiesMeta.quantityName}, currQuantityName));
+            for quantityIdx=1:numel(allQuantities)
+                currQuantityName = allQuantities{quantityIdx};
+                currQuantityIdx  = find(ismember({availableQuantitiesMeta.quantityName}, currQuantityName));
 
                 if ~isempty(currQuantityIdx)
-                    currQuantity = availableQuantitiesMeta(currQuantityIdx).handle();
+                    currQuantity      = availableQuantitiesMeta(currQuantityIdx).handle();
                     subQuantitiesName = [subQuantitiesName;this.getSubQuantities(currQuantity,availableQuantitiesMeta)];
                 end
             end
 
-            allQuantitiesName = [allOptConstrainedQuantities; subQuantitiesName];
+            allQuantitiesName = [allQuantities; subQuantitiesName];
             allQuantitiesName = unique(allQuantitiesName);
             
             selectedQuantitiesMeta = availableQuantitiesMeta(ismember({availableQuantitiesMeta.quantityName}, allQuantitiesName));
+            
             %Instantiate the quantities
-           
             this.quantities = cellfun(@(x) x(), {selectedQuantitiesMeta.handle}, 'UniformOutput',false)';
             distributionQuantities = cellfun(@(x) isa(x, 'matRad_DistributionQuantity'), this.quantities);
             
             if  any(distributionQuantities)
                 cellfun(@(x) x.initializeProperties(dij), this.quantities(distributionQuantities));
             end
-
-            if any(~distributionQuantities)
-                cellfun(@(x) x.initializeProperties(cst), this.quantities(~distributionQuantities));
-            end
             
+            % Link quantities and subquantities
             for quantityIdx=1:numel(this.quantities)
-                requiredSubquantitiesName = this.quantities{quantityIdx}.requiredSubquantities;
+                requiredSubquantitiesName    = this.quantities{quantityIdx}.requiredSubquantities;
                 [~,requiredSubquantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},requiredSubquantitiesName);
                 
                 if ~isempty(requiredSubquantitiesIdx)
@@ -181,38 +154,39 @@ classdef matRad_BackProjection < handle
                 end
             end
 
+            % Select the quantities that are explicitly optimized/constrained.
             this.optimizationQuantities = optimizationQuantities';
             [~,this.optimizationQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},optimizationQuantities);
             this.constrainedQuantities = constraintQuantities';
             [~, this.constrainedQuantitiesIdx] = intersect({selectedQuantitiesMeta.quantityName},constraintQuantities);
             
-            for i=1:size(cst,1)
-                for j=1:size(cst{i,6},2)
-                    obj = cst{i,6}{j};
-                    qtIdx = find(arrayfun(@(qtMeta) strcmp(qtMeta.quantityName, obj.quantity), selectedQuantitiesMeta));
-                    if isa(this.quantities{qtIdx}, 'matRad_ScalarQuantity')
-                        if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
-                            this.quantities{qtIdx}.useStructsOptimization = [this.quantities{qtIdx}.useStructsOptimization,i];
-                        elseif isa(obj, 'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
-                            this.quantities{qtIdx}.useStructsConstraint = [this.quantities{qtIdx}.useStructsConstraint,i];
-                        end
-                    end
-                    
-                    if any(cellfun(@(qt) isa(qt, 'matRad_ScalarQuantity'), this.quantities{qtIdx}.subQuantities))
-                        subQtIdx = find(cellfun(@(qt) isa(qt, 'matRad_ScalarQuantity'), this.quantities{qtIdx}.subQuantities));
-                        subQtIdx = subQtIdx(:)';
-                        for k = subQtIdx
-                            if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
-                                this.quantities{qtIdx}.subQuantities{k}.useStructsOptimization = [this.quantities{qtIdx}.subQuantities{k}.useStructsOptimization,i];
-                            elseif isa(obj, 'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
-                                this.quantities{qtIdx}.subQuantities{k}.useStructsConstraint = [this.quantities{qtIdx}.subQuantities{k}.useStructsConstraint,i];
-                            end
-
-                        end
-                    end
-
-                end
-            end
+            % for i=1:size(cst,1)
+            %     for j=1:size(cst{i,6},2)
+            %         obj = cst{i,6}{j};
+            %         qtIdx = find(arrayfun(@(qtMeta) strcmp(qtMeta.quantityName, obj.quantity), selectedQuantitiesMeta));
+            %         if isa(this.quantities{qtIdx}, 'matRad_ScalarQuantity')
+            %             if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
+            %                 this.quantities{qtIdx}.useStructsOptimization = [this.quantities{qtIdx}.useStructsOptimization,i];
+            %             elseif isa(obj, 'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+            %                 this.quantities{qtIdx}.useStructsConstraint = [this.quantities{qtIdx}.useStructsConstraint,i];
+            %             end
+            %         end
+            % 
+            %         if any(cellfun(@(qt) isa(qt, 'matRad_ScalarQuantity'), this.quantities{qtIdx}.subQuantities))
+            %             subQtIdx = find(cellfun(@(qt) isa(qt, 'matRad_ScalarQuantity'), this.quantities{qtIdx}.subQuantities));
+            %             subQtIdx = subQtIdx(:)';
+            %             for k = subQtIdx
+            %                 if isa(obj, 'DoseObjectives.matRad_DoseObjective') || isa(obj, 'OmegaObjectives.matRad_OmegaObjective')
+            %                     this.quantities{qtIdx}.subQuantities{k}.useStructsOptimization = [this.quantities{qtIdx}.subQuantities{k}.useStructsOptimization,i];
+            %                 elseif isa(obj, 'DoseConstraints.matRad_DoseConstraint') || isa(obj, 'OmegaConstraints.matRad_VarianceConstraint')
+            %                     this.quantities{qtIdx}.subQuantities{k}.useStructsConstraint = [this.quantities{qtIdx}.subQuantities{k}.useStructsConstraint,i];
+            %                 end
+            % 
+            %             end
+            %         end
+            % 
+            %     end
+            % end
         end
 
         function updateScenariosForQuantities(this)
@@ -248,31 +222,30 @@ classdef matRad_BackProjection < handle
             % Get quantities for all structures.
             allTargetQuantities = cellfun(@(x) x.quantity, cst{targetIdx,6}, 'UniformOutput', false);
 
-            % I want to initialize teh weights on the primary
+            % I want to initialize the weights on the primary
             % quantities only if they are available. Example:
             % PhysicalDose + LET objectives on the target, I only want
             % to consider the physical dose for the weight
             % initialization
-            primaryQuantities = {'physicalDose', 'constantRBExDose','effect','RBExDose','BED'};
+            primaryQuantities = {'physicalDose', 'constantRBExDose','RBExDose','BED','effect'};
 
-            targetQtForInitilaization = intersect(allTargetQuantities, primaryQuantities);
+            targetQtForInitialization = intersect(allTargetQuantities, primaryQuantities);
                 
-            if isempty(targetQtForInitilaization)
+            if isempty(targetQtForInitialization)
                 % If none of the primary quantities is set, just take the first one
-                targetQtForInitilaization = allTargetQuantities(1);
+                targetQtForInitialization = allTargetQuantities(1);
             end
 
-            matRad_cfg.dispInfo(sprintf('%s selected as quantity for the weight initialization\n', targetQtForInitilaization{:}));
+            matRad_cfg.dispInfo(sprintf('%s selected as quantity for the weight initialization\n', targetQtForInitialization{:}));
 
             % Initialize the weights
             wOnes = ones(dij.totalNumOfBixels,1);
-
 
             % Get prescription
             % Select all dose objectives/constraints
             targetObjIdx = find(cellfun(@(x) (isa(x, 'DoseObjectives.matRad_DoseObjective') || ...
                                          isa(x, 'DoseConstraints.matRad_DoseConstraint')) ...
-                                        && any(strcmp(x.quantity, targetQtForInitilaization)),...    % And be a selected quantity for initialization
+                                        && any(strcmp(x.quantity, targetQtForInitialization)),...    % And be a selected quantity for initialization
                                         cst{targetIdx,6}));
                             
             % Only catch the "effect" case, as it's the only case with
@@ -285,12 +258,12 @@ classdef matRad_BackProjection < handle
                 
                 currTargetQuantity = cst{targetIdx,6}{objIdx}.quantity;
                 
-                if strcmp(currTargetQuantity, 'effect') || strcmp(currTargetQuantity, 'HPEffect') || strcmp(currTargetQuantity, 'HPEffectCorrected')
+                if strcmp(currTargetQuantity, 'effect')
 
                     % This is to reproduce old branch
                     targetObjective = matRad_Effect.setBiologicalDosePrescriptions(cst{targetIdx,6}{targetObjIdx}, cst{targetIdx,5}.alphaX, cst{targetIdx,5}.betaX);
                     d_pres_effect = targetObjective.getDoseParameters;
-                    % d_pres_effect = arrayfun(@(x) x(~isinf(x)), d_pres_effect, 'UniformOutput',false);
+
                     d_pres_effect = d_pres_effect(~isinf(d_pres_effect));
                     d_pres_effect = mean(d_pres_effect);
 
@@ -334,7 +307,6 @@ classdef matRad_BackProjection < handle
 
                     % Instantiate the quantities. targetQtForInitilaization
                     % is now unique cell, but could change in the future
-                    % qtInstances = cellfun(@(qT) matRad_BackProjection.getQuantityInstanceFromName(qT), targetQtForInitilaization, 'UniformOutput', false);
                     qtInstances = this.getQuantityNamed(currTargetQuantity);
                     
                     % Compute the quantity with the wOnes weigths
@@ -445,76 +417,81 @@ classdef matRad_BackProjection < handle
 
         end
 
-        function [optQuantities,constraintQuantities] = getOptimizationConstraintQuantitiesFromCst(cst)
+        function [optQuantities,constraintQuantities] = getOptimizationConstraintQuantitiesFromCst(cst, defaultQuantity)
             
-            useStructsForOmega = [];
-            useStructsForConstraintOmega = [];
-            omegaQuantity = [];
-            quantitiesFromCst = [];
-            constraintQuantities = {};
+            matRad_cfg = MatRad_Config.instance();
+           
+
+            tmpOptimizationQt = [];
+            tmpConstraintQt = [];
+            
             for i=1:size(cst,1)
                 for j=1:numel(cst{i,6})
-                    if isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') || isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective')
-                        if isa(cst{i,6}{j}, 'OmegaObjectives.matRad_OmegaObjective') || any(strcmp(cst{i,6}{j}.quantity, {'MeanAverageEffect', 'MeanEffect', 'meanLETd', 'meanPhysicalDose'}))
-                            omegaQuantity = cst{i,6}{j}.quantity;
-                            useStructsForOmega = [useStructsForOmega,i];
-                        elseif isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective') && isempty(cst{i,6}{j}.quantity)
-                            cst{i,6}{j}.quantity = pln.propOpt.quantityOpt;
-                        end
-                        quantitiesFromCst = [quantitiesFromCst, {cst{i,6}{j}.quantity}];
-                    elseif isa(cst{i,6}{j}, 'DoseConstraints.matRad_DoseConstraint') || isa(cst{i,6}{j}, 'OmegaConstraints.matRad_VarianceConstraint')
-                        constraintQuantities = [constraintQuantities, {cst{i,6}{j}.quantity}];
-                        if isa(cst{i,6}{j}, 'OmegaConstraint.matRad_VarianceConstraint')
-                            useStructsForOmega = [useStructsForOmega,i];
-                        end
+                    
+                   if isempty(cst{i,6}{j}.quantity)
+                        matRad_cfg.dispWarning(sprintf('No quantity detected for objecive #%d of structure:%s, using default quantity:%s', j, cst{i,2}, defaultQuantity));
+                        cst{i,6}{j}.quantity = defaultQuantity;
+                   end
+
+                    if isa(cst{i,6}{j}, 'DoseObjectives.matRad_DoseObjective')
+                     
+                        tmpOptimizationQt = [tmpOptimizationQt, {cst{i,6}{j}.quantity}];
+                    
+                    elseif isa(cst{i,6}{j}, 'DoseConstraints.matRad_DoseConstraint')
+
+                        tmpConstraintQt = [tmpConstraintQt, {cst{i,6}{j}.quantity}];
                     end
                 end
             end
             
-            quantitiesFromCst = unique(quantitiesFromCst);
-            optQuantities = [quantitiesFromCst, {omegaQuantity}];
-            optQuantities(cellfun(@isempty,optQuantities)) = [];
-            optQuantities = unique(optQuantities);
-            
-            constraintQuantities(cellfun(@isempty,constraintQuantities)) = [];
-            constraintQuantities = unique(constraintQuantities);
-        end
+            optQuantities = unique(tmpOptimizationQt);
 
-        function G = getOptimizationQuantityGraph(verbosity)
-
-            matRad_cfg = MatRad_Config.instance();
-
-            if ~exist('verbosity', 'var')
-                verbosity = false;
-            end
+            if isempty(optQuantities)
+                optQuantities = {};
+            end            
             
-            availableQuantitiesMeta = matRad_BackProjection.getAvailableOptimizationQuantities();
-
-            nodeNames = {availableQuantitiesMeta.quantityName};
-            A = [];
-            for curQtName=nodeNames
-                curQt = matRad_BackProjection.getQuantityInstanceFromName(curQtName{1});
-                curSubQuantities = curQt.requiredSubquantities;
-                if ~isempty(curSubQuantities)
-                    idxs = cellfun(@(x) find(strcmp(nodeNames, x)), curSubQuantities);
-                else
-                    idxs = [];
-                end
-                currConnections = zeros(size(nodeNames));
-                currConnections(idxs) = 1;
-            
-                A = [A; currConnections];
-            end
-            
-            G = digraph(A, nodeNames');
-            % G.Nodes.Properties.RowNames = nodeNames;
-            
-            if verbosity
-                f = figure;
-                f.Position(1:2) = f.Position(1:2) - 500;
-                plot(G);
+            constraintQuantities = unique(tmpConstraintQt);
+            if isempty(constraintQuantities)
+                constraintQuantities = {};
             end
         end
+
+    %     function G = getOptimizationQuantityGraph(verbosity)
+    % 
+    %         matRad_cfg = MatRad_Config.instance();
+    % 
+    %         if ~exist('verbosity', 'var')
+    %             verbosity = false;
+    %         end
+    % 
+    %         availableQuantitiesMeta = matRad_BackProjection.getAvailableOptimizationQuantities();
+    % 
+    %         nodeNames = {availableQuantitiesMeta.quantityName};
+    %         A = [];
+    %         for curQtName=nodeNames
+    %             curQt = matRad_BackProjection.getQuantityInstanceFromName(curQtName{1});
+    %             curSubQuantities = curQt.requiredSubquantities;
+    %             if ~isempty(curSubQuantities)
+    %                 idxs = cellfun(@(x) find(strcmp(nodeNames, x)), curSubQuantities);
+    %             else
+    %                 idxs = [];
+    %             end
+    %             currConnections = zeros(size(nodeNames));
+    %             currConnections(idxs) = 1;
+    % 
+    %             A = [A; currConnections];
+    %         end
+    % 
+    %         G = digraph(A, nodeNames');
+    %         % G.Nodes.Properties.RowNames = nodeNames;
+    % 
+    %         if verbosity
+    %             f = figure;
+    %             f.Position(1:2) = f.Position(1:2) - 500;
+    %             plot(G);
+    %         end
+    %     end
+    
     end
 
     methods
