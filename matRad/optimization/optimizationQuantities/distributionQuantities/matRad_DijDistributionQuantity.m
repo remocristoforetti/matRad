@@ -64,6 +64,18 @@ classdef (Abstract) matRad_DijDistributionQuantity < matRad_DistributionQuantity
             constJacobianOutput = fJacob{1}' * dij.(this.dijField{1}){1};
         end
 
+        function initializeProperties(this,dij)
+            
+            if isempty(dij)
+                this.d      = cell(1);
+                this.wGrad  = cell(1);
+                this.wJacob = cell(1);
+            else
+                this.d      = cell(size(dij.(this.dijField{1})));
+                this.wGrad  = cell(size(dij.(this.dijField{1})));
+                this.wJacob = cell(1);
+            end
+        end
 
     end
 

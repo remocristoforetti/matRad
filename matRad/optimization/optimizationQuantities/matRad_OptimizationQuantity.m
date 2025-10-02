@@ -7,19 +7,17 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
 
     properties
         subQuantities;
-        d = {};
+        d;
         wGrad;
         wCache;
         wGradCache;
-        %c;
         wJacob;
-        %wConstraintCache;
         wConstJacobianCache;
     end
 
     methods
         function this = matRad_OptimizationQuantity()
-
+            
         end
 
         % Implemented by distibution/scalar quantities
@@ -35,12 +33,6 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
             matRad_cfg.dispError('Function needs to be implemented by subclass');
             output = [];
         end
-
-        % function output = getConstraintResult(~)
-        %     matRad_cfg = MatRad_Config.instance();
-        %     matRad_cfg.dispError('Function needs to be implemented by subclass');
-        %     output = [];
-        % end
 
         function output = getProjectedJacobian(~)
             matRad_cfg = MatRad_Config.instance();
@@ -61,19 +53,11 @@ classdef (Abstract) matRad_OptimizationQuantity < handle
             output = [];
          end
 
-         % function output = computeConstraint(~)
-         %    matRad_cfg = MatRad_Config.instance();
-         %    matRad_cfg.dispError('Function needs to be implemented by subclass');
-         %    output = [];
-         % end
-
          function output = projectConstraintJacobian(~)
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispError('Function needs to be implemented by subclass');
             output = [];
          end
-
-
 
          function subQuantityInstance = getSubQuantity(this, name)
 

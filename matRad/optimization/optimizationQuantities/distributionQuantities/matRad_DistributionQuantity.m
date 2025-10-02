@@ -1,15 +1,20 @@
 classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
 
     properties
-        useScenarios=1;
+        useScenarios;
     end
 
     methods
         function this = matRad_DistributionQuantity(dij)
             this@matRad_OptimizationQuantity();
-            if exist('dij', 'var')
-                this.initializeProperties(dij);
+            
+            this.useScenarios = 1;
+          
+            if ~exist('dij', 'var')
+                dij = [];
             end
+
+            this.initializeProperties(dij);
 
         end
 
@@ -39,27 +44,26 @@ classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
 
         function initializeProperties(this,dij)
             
-            % This is quite a mess
-            if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
-                distributionQuantity = 'physicalDose';
-            elseif isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
-                distributionQuantity = 'physicalDoseExp';
-            elseif isfield(dij, 'mAlphaDose') && ~isempty(dij.mAlphaDose{1})
-                distributionQuantity = 'mAlphaDose';
-            elseif isfield(dij, 'mAlphaDoseExp') && ~isempty(dij.mAlphaDoseExp{1})
-                distributionQuantity = 'mAlphaDoseExp';
-            end
-
-            this.d     = cell(size(dij.(distributionQuantity)));
-            this.wGrad = cell(size(dij.(distributionQuantity)));
-            this.wJacob = cell(1);
+            % % This is quite a mess
+            % if isfield(dij, 'physicalDose') && ~isempty(dij.physicalDose{1})
+            %     distributionQuantity = 'physicalDose';
+            % elseif isfield(dij, 'physicalDoseExp') && ~isempty(dij.physicalDoseExp{1})
+            %     distributionQuantity = 'physicalDoseExp';
+            % elseif isfield(dij, 'mAlphaDose') && ~isempty(dij.mAlphaDose{1})
+            %     distributionQuantity = 'mAlphaDose';
+            % elseif isfield(dij, 'mAlphaDoseExp') && ~isempty(dij.mAlphaDoseExp{1})
+            %     distributionQuantity = 'mAlphaDoseExp';
+            % end
+            % 
+            % this.d     = cell(size(dij.(distributionQuantity)));
+            % this.wGrad = cell(size(dij.(distributionQuantity)));
+            % this.wJacob = cell(1);
         end
 
          function subQuantityInstance = getSubQuantity(this, name)
              
              if isempty(this.subQuantities) && ~isempty(this.requiredSubquantities)
                 this.subQuantities = arrayfun(@(x) matRad_BackProjection.getQuantityInstanceFromName(x), this.requiredSubquantities, 'UniformOutput',false);
-                %cellfun(@(x) set(x.useScenarios, this.useScenarios), this.subQuantities);
                 for i=1:numel(this.subQuantities)
                     this.subQuantities{i}.useScenarios = this.useScenarios;
                 end
@@ -67,39 +71,6 @@ classdef (Abstract) matRad_DistributionQuantity < matRad_OptimizationQuantity
              end
 
              subQuantityInstance = this.subQuantities{cellfun(@(x) strcmp(x.quantityName, name), this.subQuantities)};
-
-             % if isa(subQuantityInstance, 'matRad_ScalarQuantity') 
-             % 
-             %     if isempty(subQuantityInstance.useStructsOptimization)
-             %        subQuantityInstance.useStructsOptimization = [1:numel(this.cst,1)];
-             %     end
-             % 
-             %     if isempty(subQuantityInstance.useStructsConstraint)
-             %            subQuantityInstance.useStructsConstraint = [1:numel(this.cst,1)];
-             %     end
-             % 
-             % end
          end
-
-
     end
-
-    % methods (Abstract)
-    %     function quantityOutput = computeQuantity(this, dij, scen,w)
-    %         matRad_cfg = MatRad_Config.instance();
-    %         matRad_cfg.dispError('The optimization quantity must implement the ''computeQuantity'' method.');
-    %     end
-    % 
-    % 
-    %     function gradientOutput = projectGradient(~,dij,scen,fGrad,w)
-    %         matRad_cfg = MatRad_Config.instance();
-    %         matRad_cfg.dispError('The optimization quantity must implement the ''projectGradient'' method.');
-    %     end
-    % 
-    %     function constJacobianOutput = projectConstraintJacobian(this,dij,fJacob,w)
-    %         % matRad_cfg = MatRad_Config.instance();
-    %         % matRad_cfg.dispError('The optimization quantity must implement the ''projectConstraintJacobian'' method.');
-    % 
-    %     end
-    % end
 end
