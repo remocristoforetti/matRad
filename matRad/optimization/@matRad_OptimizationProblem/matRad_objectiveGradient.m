@@ -408,12 +408,6 @@ weightGradient = zeros(dij.totalNumOfBixels,1);
 optiProb.BP.computeGradient(dij,gGrad,w);
 g = optiProb.BP.wGrad;
 
-% for s = 1:numel(useScen)
-%     % This could be moved to BP
-%     for quantityIdx=optiProb.BP.optimizationQuantities
-%         weightGradient = weightGradient + g.(quantityIdx{1}){useScen(s)};
-%     end
-% end
 for qtIdx=optiProb.BP.optimizationQuantities
     nScensOrStructs   = find(cellfun(@(x) ~isempty(x), g.(qtIdx{1})))';
     for elementIdx=nScensOrStructs
