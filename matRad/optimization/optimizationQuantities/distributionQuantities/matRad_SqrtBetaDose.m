@@ -1,7 +1,7 @@
 classdef matRad_SqrtBetaDose < matRad_DijDistributionQuantity
 
     properties (Constant)
-        quantityName = 'SqrtBetaDose';
+        quantityName = 'sqrtBetaDose';
         requiredSubquantities = {};
 
         dijField = {'mSqrtBetaDose'};

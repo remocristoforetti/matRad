@@ -67,10 +67,6 @@ classdef matRad_BackProjection < handle
         end
 
         function obj = computeConstraintJacobian(obj,dij,fJacob, w)
-            % if ~isequal(obj.wConstJacobianCache,w)
-            %     obj.projectConstraintJacobian(dij,fJacob,w);
-            %     obj.wConstJacobianCache = w;
-            % end
             tmpGradient = [];
             for quantityIdx=obj.constrainedQuantitiesIdx'
                 quantity = obj.quantities{quantityIdx};
@@ -140,7 +136,7 @@ classdef matRad_BackProjection < handle
             this.quantities = cellfun(@(x) x(), {selectedQuantitiesMeta.handle}, 'UniformOutput',false)';
             distributionQuantities = cellfun(@(x) isa(x, 'matRad_DistributionQuantity'), this.quantities);
             
-            if  any(distributionQuantities)
+            if any(distributionQuantities) && exist('dij', 'var')
                 cellfun(@(x) x.initializeProperties(dij), this.quantities(distributionQuantities));
             end
             
@@ -347,19 +343,14 @@ classdef matRad_BackProjection < handle
 
             qtInstance = availableQuantities{qtIdx};
 
+        
         end
-
-
 
     end
    
 
     methods (Static)
 
-        % function optiFunc = setBiologicalDosePrescriptions(optiFunc,alphaX,betaX)
-        %     %Does nothing in a usual normal setting but return the original
-        %     %optiFunc
-        % end
 
         function quantityInfos = getAvailableOptimizationQuantities()
 

@@ -1,7 +1,7 @@
 classdef matRad_AlphaDose < matRad_DijDistributionQuantity
 
     properties (Constant)
-        quantityName = 'AlphaDose';
+        quantityName = 'alphaDose';
         requiredSubquantities = {};
 
         dijField = {'mAlphaDose'};

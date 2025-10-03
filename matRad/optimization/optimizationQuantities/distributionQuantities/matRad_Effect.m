@@ -2,7 +2,7 @@ classdef matRad_Effect < matRad_DistributionQuantity
 
     properties (Constant)
         quantityName = 'effect';
-        requiredSubquantities = {'AlphaDose', 'SqrtBetaDose'};
+        requiredSubquantities = {'alphaDose', 'sqrtBetaDose'};
     end
 
     properties
@@ -23,10 +23,10 @@ classdef matRad_Effect < matRad_DistributionQuantity
 
         function quantityOutput = computeQuantity(this, dij, scen,w)
 
-            alphaDoseQt = this.getSubQuantity('AlphaDose');
+            alphaDoseQt = this.getSubQuantity('alphaDose');
             alphaDose = alphaDoseQt.getResult(dij,w);
 
-            betaDoseQt = this.getSubQuantity('SqrtBetaDose');
+            betaDoseQt = this.getSubQuantity('sqrtBetaDose');
             betaDose   = betaDoseQt.getResult(dij,w);
 
             quantityOutput = alphaDose{scen} + betaDose{scen}.^2;
@@ -38,8 +38,8 @@ classdef matRad_Effect < matRad_DistributionQuantity
             % the w cache is not checked by the subquantity and the result
             % is not stored there, it is only stored by this quantity if
             % needed.
-            alphaDoseQt = this.getSubQuantity('AlphaDose');
-            betaDoseQt = this.getSubQuantity('SqrtBetaDose');
+            alphaDoseQt = this.getSubQuantity('alphaDose');
+            betaDoseQt = this.getSubQuantity('sqrtBetaDose');
 
             alphaGrad = alphaDoseQt.projectGradient(dij,scen,fGrad,w);
 
@@ -66,8 +66,8 @@ classdef matRad_Effect < matRad_DistributionQuantity
 
         function constJacobianOutput = projectConstraintJacobian(this,dij,fJacob,w)
             
-            alphaSubQuantity    = this.getSubQuantity('AlphaDose');
-            sqrtBetaSubQuantity = this.getSubQuantity('SqrtBetaDose');
+            alphaSubQuantity    = this.getSubQuantity('alphaDose');
+            sqrtBetaSubQuantity = this.getSubQuantity('sqrtBetaDose');
             
             alphaJacob    = alphaSubQuantity.projectConstraintJacobian(dij,fJacob);
             %sqrtBetaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacob);
@@ -77,6 +77,19 @@ classdef matRad_Effect < matRad_DistributionQuantity
             betaJacob = sqrtBetaSubQuantity.projectConstraintJacobian(dij,fJacobBeta);
             
             constJacobianOutput = alphaJacob + betaJacob;
+        end
+
+        function initializeProperties(this,dij)
+            
+            if isempty(dij)
+                this.d      = cell(1);
+                this.wGrad  = cell(1);
+                this.wJacob = cell(1);
+            else
+                this.d      = cell(size(dij.mAlphaDose));
+                this.wGrad  = cell(size(dij.mAlphaDose));
+                this.wJacob = cell(1);
+            end
         end
     
     end
