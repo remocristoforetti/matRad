@@ -26,6 +26,7 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
         availablePeakPosRaShi
         maxPBwidth
         pbMargin
+        rangeShifterEqD
     end
 
     methods
@@ -66,10 +67,14 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
             if this.useRangeShifter
                 %For now only a generic range shifter is used whose thickness is
                 %determined by the minimum peak width to play with
-                rangeShifterEqD = round(min(this.availablePeakPos)* 1.25);
-                this.availablePeakPosRaShi = this.availablePeakPos - rangeShifterEqD;
+                this.rangeShifterEqD = round(min(this.availablePeakPos)* 1.25);
+                this.availablePeakPosRaShi = this.availablePeakPos - this.rangeShifterEqD;
 
-                matRad_cfg.dispWarning('Use of range shifter enabled. matRad will generate a generic range shifter with WEPL %f to enable ranges below the shortest base data entry.',rangeShifterEqD);
+                % Available PeakPositionRaShi has to have same size() as
+                % availablePeaPos for indexing
+                this.availablePeakPosRaShi(this.availablePeakPosRaShi<0) = 0;
+
+                matRad_cfg.dispWarning('Use of range shifter enabled. matRad will generate a generic range shifter with WEPL %f to enable ranges below the shortest base data entry.',this.rangeShifterEqD);
             end
 
             if sum(this.availablePeakPos<0)>0
