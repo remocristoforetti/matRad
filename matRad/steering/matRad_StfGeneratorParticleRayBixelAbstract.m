@@ -17,7 +17,8 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
 
 
     properties
-        useRangeShifter = false;
+        useRangeShifter = false
+        rangeShifterEqD
     end
 
     properties (Access = protected)
@@ -25,7 +26,7 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
         availablePeakPos
         availablePeakPosRaShi
         maxPBwidth
-        pbMargin
+        pbMargin       
     end
 
     methods
@@ -37,7 +38,7 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
             this@matRad_StfGeneratorExternalRayBixelAbstract(pln);
 
             if isempty(this.radiationMode)
-                this.radiationMode = 'protons';
+                this.radiationMode = this.possibleRadiationModes{1};
             end
         end
 
@@ -53,7 +54,11 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
 
             %Initialize Metadata needed for stf generators
             this.availableEnergies  = [this.machine.data.energy];
-            this.availablePeakPos   = [this.machine.data.peakPos] + [this.machine.data.offset];
+            if isfield(this.machine.data, 'peakPos')
+                this.availablePeakPos   = [this.machine.data.peakPos] + [this.machine.data.offset];
+            else
+                this.availablePeakPos   = [];
+            end
             availableWidths         = [this.machine.data.initFocus];
             availableWidths         = [availableWidths.SisFWHMAtIso];
             this.maxPBwidth         = max(availableWidths) / 2.355;
@@ -62,10 +67,18 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
             if this.useRangeShifter
                 %For now only a generic range shifter is used whose thickness is
                 %determined by the minimum peak width to play with
-                rangeShifterEqD = round(min(this.availablePeakPos)* 1.25);
-                this.availablePeakPosRaShi = this.availablePeakPos - rangeShifterEqD;
+                
+                if isempty(this.rangeShifterEqD)
+                    this.rangeShifterEqD = round(min(this.availablePeakPos)* 1.25);
+                end
+                
+                this.availablePeakPosRaShi = this.availablePeakPos - this.rangeShifterEqD;
 
-                matRad_cfg.dispWarning('Use of range shifter enabled. matRad will generate a generic range shifter with WEPL %f to enable ranges below the shortest base data entry.',rangeShifterEqD);
+                % Available PeakPositionRaShi has to have same size() as
+                % availablePeaPos for indexing
+                this.availablePeakPosRaShi(this.availablePeakPosRaShi<0) = 0;
+
+                matRad_cfg.dispWarning('Use of range shifter enabled. matRad will generate a generic range shifter with WEPL %f to enable ranges below the shortest base data entry.',this.rangeShifterEqD);
             end
 
             if sum(this.availablePeakPos<0)>0
@@ -93,9 +106,7 @@ classdef (Abstract) matRad_StfGeneratorParticleRayBixelAbstract < matRad_StfGene
             end
 
             available = available && isstruct(machine.data);
-
-            available = available && all(isfield(machine.data,{'energy','peakPos','initFocus','offset'}));
-
+            available = available && all(isfield(machine.data,{'energy','initFocus'}));
 
             if ~available
                 msg = 'Your machine file is invalid and does not contain the basic fields required for photon machines!';

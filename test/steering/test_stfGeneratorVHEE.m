@@ -1,30 +1,47 @@
-function test_suite = test_stfGeneratorPhotonIMRT
+function test_suite = test_stfGeneratorVHEE
 
     test_functions=localfunctions();
     
     initTestSuite;
     
     function test_basic_construct()
-        stfGen = matRad_StfGeneratorParticleIMPT();    
-        assertTrue(isa(stfGen, 'matRad_StfGeneratorParticleIMPT'));
+        stfGen = matRad_StfGeneratorParticleVHEE();    
+        assertTrue(isa(stfGen, 'matRad_StfGeneratorParticleVHEE'));
     
     function test_pln_construct()
-        load protons_testData.mat
-        stfGen = matRad_StfGeneratorParticleIMPT(pln);
+        load VHEE_testData.mat
+        pln.propStf.energy = 150;
+        stfGen = matRad_StfGeneratorParticleVHEE(pln);
         stfGen.isAvailable(pln);
-        assertTrue(isa(stfGen, 'matRad_StfGeneratorParticleIMPT'));
+        assertTrue(isa(stfGen, 'matRad_StfGeneratorParticleVHEE'));
         assertEqual(stfGen.gantryAngles, pln.propStf.gantryAngles);
         assertEqual(stfGen.couchAngles, pln.propStf.couchAngles);
         assertEqual(stfGen.isoCenter, pln.propStf.isoCenter);
         assertEqual(stfGen.radiationMode, pln.radiationMode);
         assertEqual(stfGen.machine, pln.machine);
         assertEqual(stfGen.bixelWidth, pln.propStf.bixelWidth);
-        
+        assertEqual(stfGen.energy, pln.propStf.energy);
+
+    function test_pln_construct_focused()
+        load VHEE_testData.mat
+        pln.machine = 'Focused';
+        pln.propStf.energy = 150;
+        stfGen = matRad_StfGeneratorParticleVHEE(pln);
+        stfGen.isAvailable(pln);
+        assertTrue(isa(stfGen, 'matRad_StfGeneratorParticleVHEE'));
+        assertEqual(stfGen.gantryAngles, pln.propStf.gantryAngles);
+        assertEqual(stfGen.couchAngles, pln.propStf.couchAngles);
+        assertEqual(stfGen.isoCenter, pln.propStf.isoCenter);
+        assertEqual(stfGen.radiationMode, pln.radiationMode);
+        assertEqual(stfGen.machine, pln.machine);
+        assertEqual(stfGen.bixelWidth, pln.propStf.bixelWidth);
+        assertEqual(stfGen.energy, pln.propStf.energy);
+
     function test_generate_multibeams()
         % geometry settings
-        load protons_testData.mat ct cst pln stf;
+        load VHEE_testData.mat ct cst pln stf;
         
-        stfGen = matRad_StfGeneratorParticleIMPT(pln);
+        stfGen = matRad_StfGeneratorParticleVHEE(pln);
         stf2 = stfGen.generate(ct,cst);
        
         assertTrue(isfield(stf2, 'radiationMode'));
@@ -51,6 +68,7 @@ function test_suite = test_stfGeneratorPhotonIMRT
             assertEqual(stf2(i).machine,pln.machine);
             assertEqual(stf2(i).gantryAngle,stfGen.gantryAngles(i));
             assertEqual(stf2(i).couchAngle,stfGen.couchAngles(i));
+            assertTrue(all([stf2(i).ray.energy] == stfGen.energy));
     
             rotMat = matRad_getRotationMatrix(stf2(i).gantryAngle,stf2(i).couchAngle);
             assertEqual(stf2(i).sourcePoint,stf2(i).sourcePoint_bev*rotMat);
@@ -59,8 +77,6 @@ function test_suite = test_stfGeneratorPhotonIMRT
             assertTrue(isstruct(stf2(i).ray));
             assertEqual(numel(stf2(i).ray),numel(stf(i).ray));
             assertEqual(numel(stf2(i).ray),stf2(i).numOfRays);
-            
-            assertTrue(isfield(stf2(i).ray,'rangeShifter'));
 
             rayPosTest = vertcat(stf2(i).ray.rayPos);
             rayPosTest_bev = rayPosTest*rotMat;
@@ -81,30 +97,4 @@ function test_suite = test_stfGeneratorPhotonIMRT
             energiesRef = [stf(i).ray.energy];
             assertEqual(unique(energiesTest),unique(energiesRef));
             
-            %assertTrue(isscalar(stf2(i).ray.energy));
         end
-
-function test_generateRangeShfterStf()
-        % geometry settings
-        load protons_testData.mat
-
-        % Move Target shallower so that range shifter calculation
-        ct.resolution.y=5;
-        VolHelper = false(ct.cubeDim);
-        VolHelper(2:3,5:6,5:6) = true;
-        ixTarget = find(VolHelper);
-
-        cst{1,4}{1} = ixTarget;
-
-        f=figure;
-        movegui(f, 'southwest');
-        matRad_plotSlice(ct, 'cst', cst,'axesHandle', gca(f), 'plane', 3);
-
-        stfGen = matRad_StfGeneratorParticleIMPT(pln);
-        stfGen.useRangeShifter = true;
-        stfGen.rangeShifterEqD = 2;
-
-        stf = stfGen.generate(ct,cst);
-
-        assertTrue(stf(1).ray(1).rangeShifter(1).ID==1);
-        assertTrue(stf(1).ray(1).rangeShifter(1).eqThickness==2);
