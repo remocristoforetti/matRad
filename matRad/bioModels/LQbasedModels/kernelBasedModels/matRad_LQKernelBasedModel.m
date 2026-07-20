@@ -43,15 +43,20 @@ classdef (Abstract) matRad_LQKernelBasedModel < matRad_LQBasedModel
                 vTissueIndex{s}     = zeros(size(tmpScenVdoseGrid{s},1),1);
             end
 
-            if isfield(machine.data,'alphaX') && isfield(machine.data,'betaX')
+            
+            % For now check the alphaX and betaX explicitly. TODO: check
+            % the cellLine alone, easier for the user to input
+
+            if isfield(machine.data.bioParameters)
+
                 for i = 1:size(cstDownsampled,1)
                     % check if cst is compatiable
-                    if ~isempty(cstDownsampled{i,5}) && isfield(cstDownsampled{i,5},'alphaX') && isfield(cstDownsampled{i,5},'betaX')
+                    if ~isempty(cstDownsampled{i,5}) && isfield(cstDownsampled{i,5},'bioParameters')
      
                         % check if base data contains alphaX and betaX
                         % (should already be checked before to instantiate the model class)
-                        IdxTissue = find(ismember(machine.data(1).alphaX,cstDownsampled{i,5}.alphaX) & ...
-                            ismember(machine.data(1).betaX,cstDownsampled{i,5}.betaX));
+                        IdxTissue = find(ismember(machine.data(1).bioParameters.alphaX,cstDownsampled{i,5}.bioParameters.alphaX) & ...
+                            ismember(machine.data(1).bioParameters.betaX,cstDownsampled{i,5}.bioParameters.betaX));
      
                         % check consitency of biological baseData and cst settings
                         if ~isempty(IdxTissue)
@@ -75,7 +80,7 @@ classdef (Abstract) matRad_LQKernelBasedModel < matRad_LQBasedModel
                 
                 matRad_cfg.dispInfo('done.\n');
              else
-                matRad_cfg.dispError('Base data is missing alphaX and/or betaX!');
+                matRad_cfg.dispError('Base data is missing bioParameters!');
             end
 
         end
