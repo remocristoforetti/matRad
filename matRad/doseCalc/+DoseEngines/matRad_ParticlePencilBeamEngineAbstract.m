@@ -35,6 +35,8 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
         vTissueIndex                    % Stores tissue indices available in the matRad base data
         vAlphaX                         % Stores Photon Alpha
         vBetaX                          % Stores Photon Beta
+        cellLines
+        cellLineIndex
 
         bioKernelQuantities              % Kernel quantities to request from the machine data for biological dose calculation
 
@@ -239,6 +241,8 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 bixel.vTissueIndex = currRay.vTissueIndex(bixel.subRayIx);
                 bixel.vAlphaX      = currRay.vAlphaX(bixel.subRayIx);
                 bixel.vBetaX       = currRay.vBetaX(bixel.subRayIx);
+
+                bixel.cellLineIndex  = currRay.cellLineIndex(bixel.subRayIx);
             end
 
         end
@@ -501,7 +505,10 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
 
             tmpScenVdoseGrid = cell(numOfCtScen, 1);
 
-            [dij.ax, dij.bx] = matRad_getPhotonLQMParameters(this.cstDoseGrid, dij.doseGrid.numOfVoxels, this.VdoseGrid);
+            [dij.ax, dij.bx, dij.cellLines, dij.cellLineIndex] = matRad_getPhotonLQMParameters(this.cstDoseGrid, dij.doseGrid.numOfVoxels, this.VdoseGrid);
+
+            this.cellLines = dij.cellLines;
+            this.cellLineIndex = dij.cellLineIndex;
 
             for s = 1:numOfCtScen
                 tmpScenVdoseGrid{s} = this.VdoseGrid(this.VdoseGridScenIx{s});
@@ -517,9 +524,40 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 this.bioKernelQuantities = this.bioModel.kernelQuantities;
             end
 
-            if isa(this.bioModel, 'matRad_LQKernelBasedModel') || isa(this.bioModel, 'matRad_LQRBETabulatedModel')
+            if isa(this.bioModel, 'matRad_LQKernelBasedModel')
                 this.bioKernelQuantities = this.bioModel.kernelQuantities;
+
+                if isfield(this.machine(1).data,'alphaX') && isfield(this.machine(1).data,'betaX') && isfield(this.machine(1).data, 'bioParameters')
+                    matRad_cfg.dispDeprecationWarning('alphaX and betaX fields in machine file will be deprecated soon! Use bioParameters instead.');
+                    for e=1:numel(this.machine.data)
+                        for cLine = 1:numel(this.machine.data(e).alphaX)
+                            this.machine.data(e).bioParameters(cLine).cellLine = sprintf('Generic%u', cLine);
+                            this.machine.data(e).bioParameters(cLine).alphaX   = this.machine.data(e).alphaX(cLine);
+                            this.machine.data(e).bioParameters(cLine).betaX    = this.machine.data(e).betaX(cLine);
+                        end
+                    end
+                end
+
                 [this.vTissueIndex] = this.bioModel.getTissueInformation(this.machine, this.cstDoseGrid, dij, this.vAlphaX, this.vBetaX, this.VdoseGrid, this.VdoseGridScenIx);
+            end
+
+            if isa(this.bioModel, 'matRad_TabulatedDoseAveragedModel')
+                this.bioKernelQuantities = [cellstr(this.bioModel.quantityName), {'alpha', 'beta'}]; % Always have alpha and beta, its a LQ model
+
+
+                % Dose-average the tabulated quantity/quantities for each energy layer and
+                % store the resulting per-depth kernel(s) directly in the base data, so that
+                % the generic per-bixel interpolation (interpolateKernelsInDepth) picks them
+                % up like any other baseData field named in bioKernelQuantities.
+                for e = 1:numel(this.machine.data)
+                    kernel = this.bioModel.computeDoseAveragedKernel(this.machine.data(e), dij.cellLines);
+                    quantityFields = fieldnames(kernel);
+                    for f = 1:numel(quantityFields)
+                        this.machine.data(e).(quantityFields{f}) = kernel.(quantityFields{f});
+                    end
+                end
+
+
             end
 
             if isa(this.bioModel, 'matRad_LETbasedModels')
@@ -535,6 +573,10 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             % This does not make sense here, works only for LQbased models (?)
             % TODO: move it from here
             this.calcBioDose = true;
+
+            if isa(this.bioModel, 'matRad_TabulatedDoseAveragedModel') && this.bioModel.storeQuantityIJ
+                dij = this.allocateQuantityMatrixContainers(dij, this.bioModel.matrixContainer);
+            end
         end
 
         function dij = allocateLETContainer(this, dij)
@@ -754,6 +796,7 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                         bixel.totalInitialSigmaSq = bixel.sigmaIniSq; % already includes range shifter contribution
                         bixel.radDepths = (depthValues(j) + baseData.offset) * ones(size(radialDist_sq));
                         bixel.vTissueIndex = ones(size(bixel.radDepths));
+                        bixel.cellLineIndex   = ones(size(bixel.radDepths));
                         bixel.vAlphaX      = 0.5 * ones(size(bixel.radDepths));
                         bixel.vBetaX      = 0.05 * ones(size(bixel.radDepths));
                         bixel.subRayIx = true(size(bixel.radDepths));
@@ -1043,6 +1086,7 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                     ray.vTissueIndex{s} = this.vTissueIndex{s}(ray.validCoords{s}, :);
                     ray.vAlphaX{s} = this.vAlphaX{s}(ray.validCoords{s});
                     ray.vBetaX{s}  = this.vBetaX{s}(ray.validCoords{s});
+                    ray.cellLineIndex{s} = this.cellLineIndex{s}(ray.validCoords{s});
                 end
             end
         end
@@ -1058,6 +1102,7 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 scenRay.vTissueIndex = scenRay.vTissueIndex{ctScen};
                 scenRay.vAlphaX = scenRay.vAlphaX{ctScen};
                 scenRay.vBetaX = scenRay.vBetaX{ctScen};
+                scenRay.cellLineIndex = scenRay.cellLineIndex{ctScen};
             end
         end
 
