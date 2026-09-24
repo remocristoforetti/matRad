@@ -316,9 +316,10 @@ classdef (Abstract) matRad_DoseEngineBase < handle
                 delete(this.hWaitbar);
             end
 
-            this.timers.full = toc(this.timers.full);
-
-            matRad_cfg.dispInfo('Dose calculation finished in %g seconds!\n',this.timers.full);
+            if ~isempty(this.timers)
+                this.timers.full = toc(this.timers.full);
+                matRad_cfg.dispInfo('Dose calculation finished in %g seconds!\n',this.timers.full);
+            end
         end
 
     
