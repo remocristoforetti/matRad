@@ -14,11 +14,15 @@ classdef (Abstract) matRad_TabulatedDoseAveragedModel < matRad_LQBasedModel
 %                               the values (vs. energies) to be
 %                               dose-averaged. May return empty if no
 %                               table matches the given loop variable.
-% and declare the constant property:
+% and declare the property:
 %   quantityName                name of the field (in the struct array
 %                               returned by getQuantityTable) holding the
 %                               quantity to average. Also used as the
-%                               field name of the resulting kernel.
+%                               field name of the resulting kernel. Usually
+%                               Constant, but subclasses are free to make it
+%                               a Dependent property instead (e.g. computed
+%                               from selectedFragments) if the resulting
+%                               kernel field names are only known at runtime.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -34,7 +38,7 @@ classdef (Abstract) matRad_TabulatedDoseAveragedModel < matRad_LQBasedModel
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    properties (Abstract, Constant)
+    properties (Abstract)
         quantityName           % name of the averaged quantity / field (see class header)
     end
 
@@ -244,6 +248,9 @@ classdef (Abstract) matRad_TabulatedDoseAveragedModel < matRad_LQBasedModel
                 matRad_cfg.dispError('Machine base data does not contain fragment spectra required for dose-averaging!');
             end
 
+            % Reconstruct SVD fluence representation
+            this.validateMachine(machine);
+
             this.validateStoppingPowerTable();
 
             quantityNames = cellstr(this.quantityName); % quantityName may be a single name or a cell array of names
@@ -288,7 +295,7 @@ classdef (Abstract) matRad_TabulatedDoseAveragedModel < matRad_LQBasedModel
                         continue; % no table found for this loop variable, subclass already warned
                     end
 
-                    if ~all(isfield(currentTable,[{'Z','A','energies'}, quantityNames]))
+                    if ~all(isfield(currentTable,[{'Z';'A';'energies'}; quantityNames]))
                         matRad_cfg.dispError('Quantity table for ''%s'' provided by %s does not contain the required fields Z, A, energies, %s!',cellLines{t},class(this),strjoin(quantityNames,', '));
                     end
 
@@ -308,7 +315,29 @@ classdef (Abstract) matRad_TabulatedDoseAveragedModel < matRad_LQBasedModel
 
             for q = 1:numel(quantityNames)
                 % depths x loop variables, in the same order as cellLineNames
-                kernel.(quantityNames{q}) = squeeze(numerator(:,q,:)) ./ denominator(:);
+                
+                idx = denominator ~= 0;
+                kernel.(quantityNames{q}) = zeros(size(numerator(:,q,:)));
+                kernel.(quantityNames{q})(idx) = squeeze(numerator(idx,q,:)) ./ denominator(idx);
+            end
+        end
+
+        function machine = validateMachine(this, machine)
+            
+            % matRad_cfg = MatRad_Config.instance();
+
+            buildFromSVD = false;
+            
+            if ~isfield(machine.fluenceSpectra, 'fluence') && isfield(machine.fluenceSpectra, 'U')
+                buildFromSVD = true;
+            end
+
+
+            if buildFromSVD
+                %matRad_cfg.dispInfo('Reconstructing fleunce spectar from SVD representation\n');
+                %for eIdx = 1:numel(machine)
+                    machine = this.reconstructSVDspectralFluence(machine);
+                %end
             end
         end
 
@@ -316,5 +345,17 @@ classdef (Abstract) matRad_TabulatedDoseAveragedModel < matRad_LQBasedModel
 
     methods (Static)
         % Static helpers can be added here in future
+        function energyLayer = reconstructSVDspectralFluence(energyLayer)
+            
+            for fragIdx=1:numel(energyLayer.fluenceSpectra)
+
+                fragmentSpectrum = energyLayer.fluenceSpectra(fragIdx);
+               
+                [U,S,V] = [fragmentSpectrum.U, fragmentSpectrum.S, fragmentSpectrum.V];
+                
+                energyLayer.fluenceSpectra(fragIdx).fluence = U*S*V';
+
+            end
+        end
     end
 end

@@ -28,6 +28,9 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
         cutOffMethod = 'integral'       % or 'relative' - describes how to calculate the lateral dosimetric cutoff
 
         visBoolLateralCutOff = false    % Boolean switch for visualization during+ LeteralCutOff calculation
+
+        calcSpectra = false              % Boolean which defines if energy-resolved fragment fluence spectra should be scored in dij.spectralFluence. Only supported for forward dose calculation
+        spectraFragments = struct('Z',[],'A',[])   % Struct with equal-length fields Z and A specifying which fragments' fluence spectra to score. Requires calcSpectra = true and machine base data with per-energy-layer fluenceSpectra
     end
 
     properties (SetAccess = protected, GetAccess = public)
@@ -41,6 +44,8 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
         bioKernelQuantities              % Kernel quantities to request from the machine data for biological dose calculation
 
         restrictBeamRadDepthsByMaxEnergy = true
+
+        spectraEnergyBins                % cell array, one energy bin grid (vector) per selected fragment (same order as spectraFragments.Z/A), set up in allocateSpectraContainer when calcSpectra is enabled
     end
 
     properties (Constant)
@@ -298,6 +303,43 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             X = structfun(@(v) matRad_interp1(depths, v, bixel.radDepths(:), 'linear'), X, 'UniformOutput', false); % Extrapolate to zero?
         end
 
+        function specFluence = interpolateSpectralFluence(this, bixel)
+            % interpolates the per-fragment fluence spectra stored in the machine
+            % base data (bixel.baseData.fluenceSpectra) at the bixel's radiological
+            % depths. No lateral weighting is applied - the resulting spectrum is
+            % assigned to every voxel of the bixel at its interpolated depth.
+            %
+            % output:
+            %   specFluence: cell array, one entry per selected fragment (same
+            %   order as spectraFragments.Z/A), each numel(bixel.radDepths) x
+            %   numel(spectraEnergyBins{f})
+            %
+            % Note: fluenceSpectra(f).fluence is stored as nDepths x nEnergyBins
+            % (rows match baseData.depths), so it is used directly as the
+            % matRad_interp1 data argument without transposing.
+
+            baseData = bixel.baseData;
+            depths   = baseData.depths;
+
+            if isfield(baseData, 'offset')
+                depths = depths + baseData.offset - bixel.radDepthOffset;
+            end
+
+            spectra = baseData.fluenceSpectra;
+            spectraZ = [spectra.Z];
+            spectraA = [spectra.A];
+
+            numFragments = numel(this.spectraFragments.Z);
+            specFluence = cell(1, numFragments);
+
+            for f = 1:numFragments
+                fragmentIx = find(spectraZ == this.spectraFragments.Z(f) & spectraA == this.spectraFragments.A(f), 1, 'first');
+                specFluence{f} = matRad_interp1(depths, spectra(fragmentIx).fluence, bixel.radDepths(:), 'linear');
+                % [D,E] = meshgrid(spectra(fragmentIx).energyBins,depths);
+                % specFluence{f} = interp2(D,E, spectra(fragmentIx).fluence, bixel.radDepths(:),spectra(fragmentIx).energyBins, 'linear');
+            end
+        end
+
         % We override this function to boost efficiency a bit (latDistX & Z
         % not needed)
         function ray = getRayGeometryFromBeam(this, ray, currBeam)
@@ -466,6 +508,16 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 end
             end
 
+            % Spectral fluence scoring (forward calculation only)
+            if this.calcSpectra
+                if ~this.calcDoseDirect
+                    matRad_cfg.dispWarning('calcSpectra is only supported for forward dose calculation and will be ignored for this dose influence calculation!');
+                    this.calcSpectra = false;
+                else
+                    dij = this.allocateSpectraContainer(dij, stf);
+                end
+            end
+
             % lateral cutoff for raytracing and geo calculations
             this.effectiveLateralCutOff = this.geometricLateralCutOff;
         end
@@ -518,6 +570,7 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 this.vAlphaX{s}         = dij.ax{s}(tmpScenVdoseGrid{s});
                 this.vBetaX{s}          = dij.bx{s}(tmpScenVdoseGrid{s});
                 this.vTissueIndex{s}    = zeros(size(tmpScenVdoseGrid{s},1),1);
+                this.cellLineIndex{s}   = dij.cellLineIndex{s}(tmpScenVdoseGrid{s});
             end
            
             if isa(this.bioModel, 'matRad_LQZStarBasedModel')
@@ -542,7 +595,7 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             end
 
             if isa(this.bioModel, 'matRad_TabulatedDoseAveragedModel')
-                this.bioKernelQuantities = [cellstr(this.bioModel.quantityName), {'alpha', 'beta'}]; % Always have alpha and beta, its a LQ model
+                this.bioKernelQuantities = [cellstr(this.bioModel.quantityName); {'alpha', 'beta'}']; % Always have alpha and beta, its a LQ model
 
 
                 % Dose-average the tabulated quantity/quantities for each energy layer and
@@ -590,6 +643,67 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 matRad_cfg.dispWarning('LET not available in the machine data. LET will not be calculated.');
             end
 
+        end
+
+        function dij = allocateSpectraContainer(this, dij, stf)
+            % allocate space for the energy-resolved fragment fluence spectra
+            % scored during forward dose calculation
+
+            matRad_cfg = MatRad_Config.instance();
+
+            if ~isfield(this.machine.data, 'fluenceSpectra')
+                matRad_cfg.dispError('calcSpectra requested but the machine base data does not contain fluenceSpectra!');
+            end
+
+            if isempty(this.spectraFragments) || ~isfield(this.spectraFragments, 'Z') || ~isfield(this.spectraFragments, 'A') ...
+                    || isempty(this.spectraFragments.Z) || isempty(this.spectraFragments.A)
+                matRad_cfg.dispError('calcSpectra requested but no fragments specified in spectraFragments (fields Z and A required)!');
+            end
+
+            if numel(this.spectraFragments.Z) ~= numel(this.spectraFragments.A)
+                matRad_cfg.dispError('spectraFragments.Z and spectraFragments.A must have the same number of elements!');
+            end
+
+            numFragments = numel(this.spectraFragments.Z);
+
+            % Different fragments generally have different energy binning, and
+            % the same fragment is typically binned differently from one energy
+            % layer to the next as well - so each fragment gets its own energy
+            % axis, shared only across the energy layers this stf actually uses
+            % (not the whole machine base data).
+            rayEnergiesPerBeam = arrayfun(@(b) [b.ray.energy], stf, 'UniformOutput', false);
+            usedEnergies = unique([rayEnergiesPerBeam{:}]);
+            usedEnergyIx = arrayfun(@(en) find(this.round2(en, 4) == this.round2([this.machine.data.energy], 4), 1, 'first'), usedEnergies);
+
+            this.spectraEnergyBins = cell(1, numFragments);
+
+            for f = 1:numFragments
+                fragmentEnergyBins = [];
+
+                for e = usedEnergyIx
+                    spectra = this.machine.data(e).fluenceSpectra;
+                    fragmentIx = find([spectra.Z] == this.spectraFragments.Z(f) & [spectra.A] == this.spectraFragments.A(f), 1, 'first');
+                    if isempty(fragmentIx)
+                        matRad_cfg.dispError('Requested fragment Z=%d, A=%d for spectral fluence scoring not found in fluenceSpectra of machine data energy %g!', this.spectraFragments.Z(f), this.spectraFragments.A(f), this.machine.data(e).energy);
+                    end
+
+                    energyBins = spectra(fragmentIx).energyBins(:);
+                    if isempty(fragmentEnergyBins)
+                        fragmentEnergyBins = energyBins;
+                    elseif ~isequal(energyBins, fragmentEnergyBins)
+                        matRad_cfg.dispError('Energy bins for fragment Z=%d, A=%d are not consistent across the energy layers used by this steering information - cannot score this fragment on a common grid!', this.spectraFragments.Z(f), this.spectraFragments.A(f));
+                    end
+                end
+
+                this.spectraEnergyBins{f} = fragmentEnergyBins;
+            end
+
+            dij.spectralFluence = struct('Z', num2cell(this.spectraFragments.Z(:)'), 'A', num2cell(this.spectraFragments.A(:)'), 'energy', this.spectraEnergyBins, 'fluence', []);
+
+            for f = 1:numFragments
+                dij.spectralFluence(f).fluence = cell(size(this.multScen.scenMask));
+                dij.spectralFluence(f).fluence(this.multScen.scenMask) = {zeros(dij.doseGrid.numOfVoxels, numel(this.spectraEnergyBins{f}), this.precision)};
+            end
         end
 
         function calcLateralParticleCutOff(this, cutOffLevel, stfElement)
@@ -1116,6 +1230,32 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
                 dij.minMU(bixelCounter, 1) = bixel.minMU;
                 dij.maxMU(bixelCounter, 1) = bixel.maxMU;
                 dij.numParticlesPerMU(bixelCounter, 1) = bixel.numParticlesPerMU;
+            end
+
+            % Accumulate energy-resolved fragment fluence spectra (forward calculation only)
+            if this.calcSpectra && ~isempty(bixel.ix)
+                for f = 1:numel(dij.spectralFluence)
+                    dij.spectralFluence(f).fluence{scenIdx}(bixel.ix, :) = dij.spectralFluence(f).fluence{scenIdx}(bixel.ix, :) + bixel.weight * bixel.spectralFluence{f};
+                end
+            end
+        end
+
+        function dij = finalizeDose(this, dij)
+            dij = finalizeDose@DoseEngines.matRad_PencilBeamEngineAbstract(this, dij);
+
+            if this.calcSpectra
+                ix = setdiff(1:dij.doseGrid.numOfVoxels, this.VdoseGrid);
+                for f = 1:numel(dij.spectralFluence)
+                    for i = 1:this.multScen.numOfCtScen
+                        for j = 1:this.multScen.totNumShiftScen
+                            for k = 1:this.multScen.totNumRangeScen
+                                if this.multScen.scenMask(i, j, k)
+                                    dij.spectralFluence(f).fluence{i, j, k}(ix, :) = 0;
+                                end
+                            end
+                        end
+                    end
+                end
             end
         end
 

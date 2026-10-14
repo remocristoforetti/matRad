@@ -24,7 +24,6 @@ classdef matRad_AlphaBetaModel < matRad_TabulatedDoseAveragedModel
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     properties (Constant)
-        quantityName           = {'alpha', 'sqrtBeta'}
         model                  = 'doseAveragedAlphaBetaModel'
         requiredQuantities     = {}                                      % kernels in base data needed for the alpha/beta calculation
     end
@@ -36,6 +35,10 @@ classdef matRad_AlphaBetaModel < matRad_TabulatedDoseAveragedModel
 
     properties (SetAccess= protected)
         storeQuantityIJ        = false;
+    end
+
+    properties
+        quantityName           = {'alpha'; 'sqrtBeta'}
     end
 
     methods
@@ -57,6 +60,9 @@ classdef matRad_AlphaBetaModel < matRad_TabulatedDoseAveragedModel
                 bixel.beta(voxelIdx)  = kernel.sqrtBeta(voxelIdx,cellLineIdx).^2;
             end
 
+            % Voxels outside dose grid 
+            bixel.alpha(isnan(bixel.alpha)) = 0;
+            bixel.beta(isnan(bixel.beta)) = 0;
         end
 
         function kernel = computeDoseAveragedKernel(this, machine, cellLines)
@@ -146,14 +152,24 @@ classdef matRad_AlphaBetaModel < matRad_TabulatedDoseAveragedModel
             searchPath = {fullfile(matRad_cfg.matRadSrcRoot,'bioModels','alphaBetaTables'), ... % default matRad folder
                           fullfile(matRad_cfg.primaryUserFolder,'alphaBetaTables')};             % user defined table
 
+            [inputPath, inputFileName, inputExtension] = fileparts(fileName);
+            
             table = [];
-            for p = 1:numel(searchPath)
+            if isempty(inputPath)
+                for p = 1:numel(searchPath)
+                    try
+                        tmp = load(fullfile(searchPath{p}, [fileName, '.mat']),'alphaBetaTable');
+                        table = tmp.alphaBetaTable;
+                        break;
+                    catch
+                        continue;
+                    end
+                end
+            else
                 try
-                    tmp = load(fullfile(searchPath{p}, [fileName, '.mat']),'alphaBetaTable');
+                    tmp = load(fullfile(inputPath, sprintf('%s%s', inputFileName, inputExtension)));
                     table = tmp.alphaBetaTable;
-                    break;
                 catch
-                    continue;
                 end
             end
 

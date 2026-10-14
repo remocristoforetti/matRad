@@ -103,7 +103,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                         'sharedSubscorers', true, ...
                         'outputType', 'binary', ... %'csv'; 'binary';%
                         ... % This variable is only used for physicalDose, since for now it adds unnecessary computation time
-                        'reportQuantity', {{'Sum', 'Standard_Deviation'}})          % 'reportQuantity',{{'Sum'}});
+                        'reportQuantity', {{'Sum'}})          % 'reportQuantity',{{'Sum'}});
         scorerRBEmodelOrderForEvaluation = {'MCN', 'WED', 'LEM', 'libamtrack'}
         bioParameters = struct('PrescribedDose', 2, ...
                                'AlphaX', 0.1, ...
@@ -154,6 +154,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                              'Scorer_RBE_LEM1', 'TOPAS_scorer_doseRBE_LEM1.txt.in', ...
                              'Scorer_RBE_WED', 'TOPAS_scorer_doseRBE_Wedenberg.txt.in', ...
                              'Scorer_RBE_MCN', 'TOPAS_scorer_doseRBE_McNamara.txt.in', ...
+                             'Scorer_RBE_Tabulated', 'TOPAS_scorer_doseRBE_Template.txt.in', ...
                              ... %PhaseSpace Source
                              'phaseSpaceSourcePhotons', 'VarianClinaciX_6MV_20x20_aboveMLC_w2')
 
@@ -236,7 +237,13 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % Set correct RBE scorer parameters
             if obj.scorer.RBE
                 obj.scorer.doseToMedium = true;
-                if any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'default')), obj.scorer.RBE_model))
+                if isa(obj.bioModel, 'matRad_AlphaBetaModel')
+                    % The dose-averaged tabulated alpha/beta model writes one dedicated
+                    % scorer/table per cell line (see writeTabulatedAlphaBetaScorer), driven
+                    % directly by obj.bioModel rather than by a named RBE_model; force a
+                    % single loop iteration below.
+                    obj.scorer.RBE_model = {'tabulated'};
+                elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'default')), obj.scorer.RBE_model))
                     switch obj.radiationMode
                         case 'protons'
                             obj.scorer.RBE_model = obj.scorer.defaultModelProtons;
@@ -247,30 +254,20 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     end
                 end
 
-                tmpAlphaX = [];
-                tmpBetaX = [];
-                for idx = 1:size(cst, 1)
-                    if ~isempty(cst{idx, 5}) && isfield(cst{idx, 5}, 'alphaX')
-                        tmpAlphaX = [tmpAlphaX cst{idx, 5}.alphaX];
-                        tmpBetaX = [tmpBetaX cst{idx, 5}.betaX];
-                    end
+                % Reuse matRad_getPhotonLQMParameters for the cst -> alphaX/betaX/cellLine
+                % resolution (including its bioParameters downwards-compatibility handling),
+                % so this engine doesn't need to duplicate that logic.
+                [ax, bx, cellLines, cellLineIdx] = matRad_getPhotonLQMParameters(cst, prod(ct.cubeDim));
+
+                obj.bioParameters.CellLines = cellLines;
+                obj.bioParameters.AlphaX    = zeros(numel(cellLines), 1);
+                obj.bioParameters.BetaX     = zeros(numel(cellLines), 1);
+
+                for idxCellLine = 1:numel(cellLines)
+                    voxIx = find(cellLineIdx{1} == idxCellLine, 1, 'first');
+                    obj.bioParameters.AlphaX(idxCellLine) = ax{1}(voxIx);
+                    obj.bioParameters.BetaX(idxCellLine)  = bx{1}(voxIx);
                 end
-                abX         = [tmpAlphaX(:) tmpBetaX(:)];
-                unique_abX  = unique(abX, 'rows', 'stable');
-                obj.bioParameters.AlphaX    = unique_abX(:, 1);
-                obj.bioParameters.BetaX     = unique_abX(:, 2);
-
-                % We don't need this part if we assign the alpha beta from
-                % the cst
-
-                % Get alpha beta parameters from bioParam struct
-                % if isfield(obj.bioParameters, 'tissueAlphaX')
-                %    obj.bioParameters.AlphaX = obj.bioModel.tissueAlphaX;
-                %    obj.bioParameters.BetaX  = obj.bioModel.tissueBetaX;
-                % end
-                % if numel(obj.bioParameters.AlphaX)>1
-                %    matRad_cfg.dispWarning('!!! Only a unique alpha/beta ratio supported at the moment. Found multiple, only the first one will be used !!!!');
-                % end
 
             end
             if obj.scorer.LET
@@ -1370,7 +1367,10 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                             end
                         case {'carbon', 'helium','oxygen'}
                             % Process available varRBE models for carbon and helium
-                            if ~isempty(strfind(lower(obj.scorer.RBE_model{i}), 'libamtrack'))
+                            if isa(obj.bioModel, 'matRad_AlphaBetaModel')
+                                fname = fullfile(obj.topasFolder, filesep, obj.scorerFolder, filesep, obj.infilenames.Scorer_RBE_Tabulated);
+                                ixToWrite4D = [];
+                            elseif ~isempty(strfind(lower(obj.scorer.RBE_model{i}), 'libamtrack'))
                                 fname = fullfile(obj.topasFolder, filesep, obj.scorerFolder, filesep, obj.infilenames.Scorer_RBE_libamtrack);
                                 ixToWrite4D = [1, 2, 3];
                             elseif ~isempty(strfind(lower(obj.scorer.RBE_model{i}), 'lem'))
@@ -1382,6 +1382,16 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                         otherwise
                             % Throw error in case an invalid radiationMode has been selected
                             matRad_cfg.dispError(['Model ', obj.scorer.RBE_model{i}, ' not implemented for ', obj.radiationMode]);
+                    end
+
+                    if isa(obj.bioModel, 'matRad_AlphaBetaModel')
+                        % One dedicated scorer + tabulated alpha/beta-vs-energy data block is
+                        % written per cell line, sourced live from obj.bioModel; this does not
+                        % use the generic AlphaX-count-driven CellType_N writing below.
+                        matRad_cfg.dispDebug('Reading tabulated alpha/beta RBE scorer template from %s\n', fname);
+                        templateText = fileread(fname);
+                        obj.writeTabulatedAlphaBetaScorer(fID, templateText);
+                        continue;
                     end
 
                     % Read appropriate scorer from file and write to config file
@@ -1475,19 +1485,36 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                             end
                         end
                     case {'carbon', 'helium','oxygen'}
+                        % When using the dose-averaged tabulated alpha/beta model, the cell
+                        % name written here must match the names used for its tabulated data
+                        % (dv:Sc/<cellLineName>/<Particle>/Alpha etc., see
+                        % writeTabulatedAlphaBetaScorer), so obj.bioParameters.CellLines is
+                        % used instead of the generic placeholder name.
+                        useTabulatedNames = isa(obj.bioModel, 'matRad_AlphaBetaModel');
+
                         if length(obj.bioParameters.AlphaX) == 1
+                            if useTabulatedNames
+                                cellName = obj.bioParameters.CellLines(1).cellLineName;
+                            else
+                                cellName = 'CellGeneric_abR2';
+                            end
                             fprintf(fID, '\n### Biological Parameters ###\n');
-                            fprintf(fID, 'sv:Sc/CellLines = 1 "CellGeneric_abR2"\n');
-                            fprintf(fID, 'd:Sc/CellGeneric_abR2/Alphax = Sc/AlphaX /Gy\n');
-                            fprintf(fID, 'd:Sc/CellGeneric_abR2/Betax = Sc/BetaX /Gy2\n\n');
-                            % fprintf(fID,'d:Sc/CellGeneric_abR2/AlphaBetaRatiox    = Sc/AlphaBetaX Gy\n');
+                            fprintf(fID, 'sv:Sc/CellLines = 1 "%s"\n', cellName);
+                            fprintf(fID, 'd:Sc/%s/Alphax = Sc/AlphaX /Gy\n', cellName);
+                            fprintf(fID, 'd:Sc/%s/Betax = Sc/BetaX /Gy2\n\n', cellName);
+                            % fprintf(fID,'d:Sc/%s/AlphaBetaRatiox    = Sc/AlphaBetaX Gy\n', cellName);
                         else
                             for idxCell = 1:length(obj.bioParameters.AlphaX)
                                 insertText = ['_CellType_' num2str(idxCell)];
+                                if useTabulatedNames
+                                    cellName = obj.bioParameters.CellLines(idxCell).cellLineName;
+                                else
+                                    cellName = ['CellLineGeneric_abR2' insertText];
+                                end
                                 fprintf(fID, '\n### Biological Parameters ###\n');
-                                fprintf(fID, ['sv:Sc/CellLines' insertText ' = 1 "CellLineGeneric_abR2' insertText '"\n']);
-                                fprintf(fID, ['d:Sc/CellLineGeneric_abR2' insertText '/Alphax       = Sc/AlphaX' insertText ' /Gy\n']);
-                                fprintf(fID, ['d:Sc/CellLineGeneric_abR2' insertText '/Betax        = Sc/BetaX' insertText ' /Gy2\n\n']);
+                                fprintf(fID, ['sv:Sc/CellLines' insertText ' = 1 "%s"\n'], cellName);
+                                fprintf(fID, ['d:Sc/%s/Alphax       = Sc/AlphaX' insertText ' /Gy\n'], cellName);
+                                fprintf(fID, ['d:Sc/%s/Betax        = Sc/BetaX' insertText ' /Gy2\n\n'], cellName);
                             end
                         end
                     otherwise
@@ -1514,8 +1541,12 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 end
 
                 % Update MCparam.tallies with processed scorer
-                for i = 1:length(obj.scorer.RBE_model)
-                    obj.MCparam.tallies = [obj.MCparam.tallies, {['alpha_' obj.scorer.RBE_model{i}], ['beta_' obj.scorer.RBE_model{i}]}];
+                % (writeTabulatedAlphaBetaScorer already registers its own per-cell-line
+                % tallies when using the dose-averaged tabulated alpha/beta model)
+                if ~isa(obj.bioModel, 'matRad_AlphaBetaModel')
+                    for i = 1:length(obj.scorer.RBE_model)
+                        obj.MCparam.tallies = [obj.MCparam.tallies, {['alpha_' obj.scorer.RBE_model{i}], ['beta_' obj.scorer.RBE_model{i}]}];
+                    end
                 end
             end
 
@@ -1531,7 +1562,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     obj.scorer.LET = true;
                     obj.scorer.doseToWater = true;
                     scorerPrefix = 'Wedenberg';
-                elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'lem')), obj.scorer.RBE_model)) || any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'libamtrack')), obj.scorer.RBE_model))
+                elseif any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'lem')), obj.scorer.RBE_model)) || any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'libamtrack')), obj.scorer.RBE_model)) || any(cellfun(@(teststr) ~isempty(strfind(lower(teststr), 'tabulated')), obj.scorer.RBE_model))
                     obj.scorer.doseToWater = true;
                     scorerPrefix = 'tabulated';
                 end
@@ -1699,6 +1730,101 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             end
         end
 
+        function writeTabulatedAlphaBetaScorer(obj, fID, templateText)
+            % Writes one dedicated RBE_TabulatedAlphaBeta scorer pair (alpha/beta) plus its
+            % tabulated alpha/beta-vs-energy data for each cell line matched between the cst
+            % (obj.bioParameters.CellLines) and obj.bioModel's alpha/beta table.
+            %
+            % templateText is the content of TOPAS_scorer_doseRBE_Template.txt.in: the scorer
+            % definition only (no numeric data), with the placeholder "CellLineTemplate"
+            % substituted here with the actual cell line name. The numeric data block
+            % (ParticleName, ParticleZ, KineticEnergyPerNucleon, and per-particle Alpha/Beta)
+            % is written from scratch, sourced live from obj.bioModel.
+            matRad_cfg = MatRad_Config.instance();
+
+            particleNames = containers.Map(1:8, {'Proton', 'Helium', 'Lithium', 'Beryllium', 'Boron', 'Carbon', 'Nitrogen', 'Oxygen'});
+
+            Z = obj.bioModel.selectedFragments.Z(:)';
+            A = obj.bioModel.selectedFragments.A(:)';
+            names = arrayfun(@(z) particleNames(z), Z, 'UniformOutput', false);
+
+            cellLines = obj.bioParameters.CellLines;
+            tables = obj.bioModel.getQuantityTable(cellLines);
+
+            modelNameTok = regexp(templateText, 'ModelName\s*=\s*"([^"]+)"', 'tokens', 'once');
+            if isempty(modelNameTok)
+                matRad_cfg.dispError('Tabulated alpha/beta scorer template does not define a ModelName parameter!');
+            end
+            modelName = modelNameTok{1};
+
+            for k = 1:numel(cellLines)
+                if isempty(tables{k})
+                    continue; % cell line not found in obj.bioModel's table, already warned
+                end
+                cellLineTable = tables{k}.data;
+
+                cellLineName = cellLines(k).cellLineName;
+
+                % scorer definition, from the template with the placeholder substituted.
+                % Sc/CellLines and Sc/PrescribedDose must reference the same (possibly
+                % _CellType_N-suffixed) variables written in the "Biological Parameters"
+                % section above, matching the numel(cellLines)==1 vs multi-cell-line case.
+                if isscalar(cellLines)
+                    biolParamSuffix = '';
+                else
+                    biolParamSuffix = ['_CellType_' num2str(k)];
+                end
+
+                scorerText = strrep(templateText, 'CellLineTemplate', cellLineName);
+                scorerText = strrep(scorerText, 'Sc/CellLines', ['Sc/CellLines' biolParamSuffix]);
+                scorerText = strrep(scorerText, 'Sc/PrescribedDose Gy', ['Sc/PrescribedDose' biolParamSuffix ' Gy']);
+                fprintf(fID, '\n%s\n\n', scorerText);
+
+                % shared energy grid: every fragment's alpha/beta is interpolated onto the
+                % radiation selected fragment's own energy grid
+                switch obj.radiationMode
+
+                    case 'protons'
+                        refIx = find([cellLineTable.Z] == 1 & [cellLineTable.A] == 1, 1, 'first');
+                    case 'carbon'
+                        refIx = find([cellLineTable.Z] == 6 & [cellLineTable.A] == 12, 1, 'first');
+                    case 'helium'
+                        refIx = find([cellLineTable.Z] == 2 & [cellLineTable.A] == 4, 1, 'first');
+                    case 'oxygen'
+                        refIx = find([cellLineTable.Z] == 8 & [cellLineTable.A] == 16, 1, 'first');
+                    otherwise
+                        % Just take the first one
+                        refIx = find([cellLineTable.Z] == Z(1) & [cellLineTable.A] == A(1), 1, 'first');
+                end
+                
+                if isempty(refIx)
+                    matRad_cfg.dispError('Fragment Z=%d, A=%d not found in the alpha/beta table for cell line ''%s''!', Z(1), A(1), cellLineName);
+                end
+                energies = cellLineTable(refIx).energies(:)';
+
+                fprintf(fID, '### Tabulated alpha/beta data: %s ###\n', cellLineName);
+                fprintf(fID, 'sv:Sc/%s/%s/ParticleName \t\t= %d %s\n', cellLineName, modelName, numel(names), strjoin(cellfun(@(n) ['"' n '"'], names, 'UniformOutput', false), ' '));
+                fprintf(fID, 'iv:Sc/%s/%s/ParticleZ    \t\t= %d %s\n', cellLineName, modelName, numel(Z), num2str(Z));
+                fprintf(fID, 'dv:Sc/%s/%s/KineticEnergyPerNucleon \t= %d %s MeV\n', cellLineName, modelName, numel(energies), num2str(energies, 8));
+
+                for f = 1:numel(Z)
+                    fragmentIx = find([cellLineTable.Z] == Z(f) & [cellLineTable.A] == A(f), 1, 'first');
+                    if isempty(fragmentIx)
+                        matRad_cfg.dispError('Fragment Z=%d, A=%d not found in the alpha/beta table for cell line ''%s''!', Z(f), A(f), cellLineName);
+                    end
+                    fragmentTable = cellLineTable(fragmentIx);
+                    alphaOnGrid = matRad_interp1(fragmentTable.energies(:), fragmentTable.alpha(:), energies(:), 'nearest');
+                    betaOnGrid  = matRad_interp1(fragmentTable.energies(:), fragmentTable.beta(:), energies(:), 'nearest');
+
+                    fprintf(fID, 'dv:Sc/%s/%s/%s/Alpha \t= %d %s /Gy\n', cellLineName, modelName, names{f}, numel(alphaOnGrid), num2str(alphaOnGrid(:)', 8));
+                    fprintf(fID, 'dv:Sc/%s/%s/%s/Beta \t= %d %s /Gy2\n', cellLineName, modelName, names{f}, numel(betaOnGrid), num2str(betaOnGrid(:)', 8));
+                end
+                fprintf(fID, '\n');
+
+                obj.MCparam.tallies = [obj.MCparam.tallies, {['alpha_' cellLineName], ['beta_' cellLineName]}];
+            end
+        end
+
         function writeStfFields(obj, ct, stf, w, baseData)
             % TODO: Insert documentation
             matRad_cfg = MatRad_Config.instance(); % Instance of matRad configuration class
@@ -1808,12 +1934,13 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                         scalarFields = {'NominalEnergy', 'EnergySpread', 'MeanEnergy'};
 
-                        for i = 1:numel(focusIndex)
-                            for field = scalarFields
-                                baseData.monteCarloData(i).(field{1}) = ones(1, max(focusIndex)) * baseData.monteCarloData(i).(field{1});
-                            end
-                            selectedData = [selectedData, structfun(@(x) x(focusIndex(i)), baseData.monteCarloData(i), 'UniformOutput', false)];
-                        end
+                        % for i = 1:numel(focusIndex)
+                            % for field = scalarFields
+                                % baseData.monteCarloData(i).(field{1}) = ones(1, max(focusIndex)) * baseData.monteCarloData(i).(field{1});
+                            % end
+                            % selectedData = [selectedData, structfun(@(x) x(focusIndex(i)), baseData.monteCarloData(i), 'UniformOutput', false)];
+                        % end
+                        selectedData = baseData.monteCarloData;
                         energies = [selectedData.NominalEnergy];
                     end
 

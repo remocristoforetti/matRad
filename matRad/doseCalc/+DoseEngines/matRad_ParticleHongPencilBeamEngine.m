@@ -92,6 +92,10 @@ classdef matRad_ParticleHongPencilBeamEngine < DoseEngines.matRad_ParticlePencil
                 bixel.mLETDose = bixel.physicalDose .* kernels.LET;
             end
 
+            if this.calcSpectra
+                bixel.spectralFluence = this.interpolateSpectralFluence(bixel);
+            end
+
             if this.calcBioDose
                 % This updates the info in bixel adding the necessary
                 % quantities

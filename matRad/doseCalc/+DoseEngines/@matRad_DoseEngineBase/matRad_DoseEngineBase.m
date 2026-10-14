@@ -183,7 +183,7 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             matRad_assignPropertiesFromStruct(this,plnModel,true,warningMsg);
         end
         
-        function resultGUI = calcDoseForward(this,ct,cst,stf,w)
+        function [resultGUI, dij] = calcDoseForward(this,ct,cst,stf,w)
             matRad_cfg = MatRad_Config.instance();
             if nargin < 5 && ~isfield([stf.ray],'weight')
                 matRad_cfg.dispError('No weight vector available. Please provide w or add info to stf')

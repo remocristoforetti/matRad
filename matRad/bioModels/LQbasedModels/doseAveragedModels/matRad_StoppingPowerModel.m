@@ -23,16 +23,16 @@ classdef matRad_StoppingPowerModel < matRad_TabulatedDoseAveragedModel
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    properties (Constant)
-        quantityName           = {'dEdx'}
-        model                  = 'doseAveragedStoppingPower'
-        requiredQuantities     = {}                                         % kernels in base data needed for the alpha/beta calculation
-        matrixContainer        = {'mSPDose'};
 
+    properties (Constant)
+        model                  = 'doseAveragedStoppingPower'
+        requiredQuantities     = {}
+        matrixContainer        = {'mSPDose'};
     end
 
     properties
-        quantityTable % cell array, one entry per cell line: either a loaded table (struct with fields meta, data) or the name of a table to load
+        quantityName           = {'dEdx'}
+        quantityTable
     
         storeQuantityIJ        = false
     end

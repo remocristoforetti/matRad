@@ -24,7 +24,7 @@ classdef matRad_ZModel < matRad_TabulatedDoseAveragedModel
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     properties (Constant)
-        quantityName           = {'zs'}
+        %quantityName           = {'zs'}
         model                  = 'doseAveragedZModel'
         requiredQuantities     = {}
         matrixContainer        = {'mZDose'};
@@ -35,6 +35,10 @@ classdef matRad_ZModel < matRad_TabulatedDoseAveragedModel
         storeQuantityIJ        = false
         % cellLines
     end
+    properties
+        quantityName           = {'zS'};
+    end
+
 
     methods
 
@@ -67,7 +71,7 @@ classdef matRad_ZModel < matRad_TabulatedDoseAveragedModel
             kernel = computeDoseAveragedKernel@matRad_TabulatedDoseAveragedModel(this, machine, cellLines);
 
             for cLine=1:numel(cellLines)
-                kernel.alpha(:,cLine) = cellLines(cLine).alphaX + cellLines(cLine).betaX.*kernel.zs;
+                kernel.alpha(:,cLine) = cellLines(cLine).alphaX + cellLines(cLine).betaX.*kernel.zS;
                 kernel.beta(:,cLine) =  cellLines(cLine).betaX.*ones(size(kernel.alpha,1),1);
             end
 
@@ -129,21 +133,33 @@ classdef matRad_ZModel < matRad_TabulatedDoseAveragedModel
 
         function table = loadZTable(fileName)
             % Loads and returns the table with name: fileName
-            matRad_cfg = MatRad_Config.instance();
+            
+           matRad_cfg = MatRad_Config.instance();
 
             searchPath = {fullfile(matRad_cfg.matRadSrcRoot,'bioModels','zStarTables'), ... % default matRad folder
                           fullfile(matRad_cfg.primaryUserFolder,'zStarTables')};             % user defined table
 
+            [inputPath, inputFileName, inputExtension] = fileparts(fileName);
+
             table = [];
-            for p = 1:numel(searchPath)
+            if isempty(inputPath)
+                for p = 1:numel(searchPath)
+                    try
+                        tmp = load(fullfile(searchPath{p}, [fileName, '.mat']),'Ztable');
+                        table = tmp.Ztable;
+                        break;
+                    catch
+                        continue;
+                    end
+                end
+            else
                 try
-                    tmp = load(fullfile(searchPath{p}, [fileName, '.mat']),'Ztable');
+                    tmp = load(fullfile(inputPath, sprintf('%s%s', inputFileName, inputExtension)));
                     table = tmp.Ztable;
-                    break;
                 catch
-                    continue;
                 end
             end
+
 
             if isempty(table)
                 matRad_cfg.dispError('Cannot find z table: %s',fileName);

@@ -47,16 +47,19 @@ classdef (Abstract) matRad_LQKernelBasedModel < matRad_LQBasedModel
             % For now check the alphaX and betaX explicitly. TODO: check
             % the cellLine alone, easier for the user to input
 
-            if isfield(machine.data.bioParameters)
+            if isfield(machine.data, 'bioParameters')
+
+                machineAlphaX = [machine.data(1).bioParameters.alphaX];
+                machineBetaX  = [machine.data(1).bioParameters.betaX];
 
                 for i = 1:size(cstDownsampled,1)
                     % check if cst is compatiable
                     if ~isempty(cstDownsampled{i,5}) && isfield(cstDownsampled{i,5},'bioParameters')
-     
+
                         % check if base data contains alphaX and betaX
                         % (should already be checked before to instantiate the model class)
-                        IdxTissue = find(ismember(machine.data(1).bioParameters.alphaX,cstDownsampled{i,5}.bioParameters.alphaX) & ...
-                            ismember(machine.data(1).bioParameters.betaX,cstDownsampled{i,5}.bioParameters.betaX));
+                        IdxTissue = find(ismember(machineAlphaX,cstDownsampled{i,5}.bioParameters.alphaX) & ...
+                            ismember(machineBetaX,cstDownsampled{i,5}.bioParameters.betaX));
      
                         % check consitency of biological baseData and cst settings
                         if ~isempty(IdxTissue)
