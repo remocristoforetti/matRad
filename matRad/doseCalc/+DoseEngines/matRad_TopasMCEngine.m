@@ -158,6 +158,8 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                              ... %PhaseSpace Source
                              'phaseSpaceSourcePhotons', 'VarianClinaciX_6MV_20x20_aboveMLC_w2')
 
+        ignoreOutsideDensities = false;
+
     end
 
     properties (SetAccess = protected, GetAccess = private)
@@ -722,6 +724,18 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 this.hlut = ct.hlut;
             else
                 this.hlut = matRad_loadHLUT(ct, stf);
+            end
+
+            % ignore densities outside of contours
+            if this.ignoreOutsideDensities
+                eraseCtDensMask = ones(prod(ct.cubeDim),1);
+                eraseCtDensMask(this.VctGrid) = 0;
+                for i = 1:ct.numOfCtScen
+                    ct.cubeHU{i}(eraseCtDensMask == 1) = -1000;
+                    if isfield(ct, 'cubeWED')
+                        ct.cubeWED{i}(eraseCtDensMask == 1) = 0;
+                    end
+                end
             end
 
             % % for TOPAS we explicitly downsample the ct to the dose grid (might not be necessary in future versions with separated grids)
